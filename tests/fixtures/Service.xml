@@ -1,0 +1,588 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Tue Dec 30 16:14:57 MST 2025" version="6.11"/>
+  <RadiusEnforcementServices>
+    <RadiusEnforcementService description="Used for users who provide a 802.1x username that ends with student.state.edu" name="Secure Student Domain with Restrictions" useCachedResults="false" stripRulesCsv="user:@, \:user" stripUsername="true" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Secure" value="Secure" operator="CONTAINS" name="Aruba-Essid-Name" type="Radius:Aruba"/>
+          <RuleAttribute displayValue="student.state.edu" value="student.state.edu" operator="CONTAINS" name="User-Name" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRELESS</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[EAP PEAP]</string>
+        <string>[EAP MSCHAPv2]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>Student Domain AD</string>
+      </AuthSourceNameList>
+      <AutzSourceNameList>
+        <string>[Endpoints Repository]</string>
+      </AutzSourceNameList>
+      <RoleMappingNameList>
+        <string>Secure Role Mapping (Enforcement)</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>Secure User Enforcement Policy</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+  </RadiusEnforcementServices>
+  <AuthMethods>
+    <AuthMethod description="Default settings for EAP-TLS" name="[EAP TLS]" methodType="EAP-TLS">
+      <NVPair value="false" name="override_cert_url"/>
+      <NVPair value="none" name="ocsp_enable"/>
+      <NVPair value="true" name="session_cache_enable"/>
+      <NVPair value="true" name="autz_required"/>
+      <NVPair value="none" name="certificate_comparison"/>
+      <NVPair value="6" name="session_timeout"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-PEAP" name="[EAP PEAP]" methodType="EAP-PEAP">
+      <NVPair value="true" name="allow_fast_reconnect"/>
+      <NVPair value="true" name="nap_support_enable"/>
+      <NVPair value="true" name="session_cache_enable"/>
+      <NVPair value="false" name="eap_peap_skip_auth"/>
+      <NVPair value="6" name="session_timeout"/>
+      <NVPair value="none" name="enforce_crypto_binding"/>
+      <InnerMethodNames>
+        <string>[EAP MSCHAPv2]</string>
+        <string>[EAP TLS]</string>
+        <string>[EAP GTC]</string>
+      </InnerMethodNames>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-MSCHAPv2" name="[EAP MSCHAPv2]" methodType="EAP-MSCHAPv2">
+      <NVPair value="3" name="no_of_retries"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-GTC" name="[EAP GTC]" methodType="EAP-GTC">
+      <NVPair value="Password: " name="challenge"/>
+    </AuthMethod>
+  </AuthMethods>
+  <AuthSources>
+    <AuthSource description="For Student domain AD queries." name="Student Domain AD" isAuthorizationSource="true" type="AD">
+      <NVPair value="10" name="timeout"/>
+      <NVPair value="36000" name="cache_timeout"/>
+      <NVPair value="ou=students,dc=student,dc=state,dc=edu" name="basedn"/>
+      <NVPair value="sub" name="scope_type"/>
+      <NVPair value="false" name="allow_referral"/>
+      <NVPair value="ad2.student.state.edu" name="server"/>
+      <NVPair value="ssl" name="connect_type"/>
+      <NVPair value="636" name="port"/>
+      <NVPair value="service@student.state.edu" name="identity"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="STUDENT" name="netbios_name"/>
+      <NVPair value="true" name="authentication_source"/>
+      <NVPair value="userCertificate" name="certificate_attr"/>
+      <NVPair value="false" name="override_domain_name"/>
+      <NVPair value="false" name="verify_peer"/>
+      <NVPair value="0" name="trusted_certificate"/>
+      <NVPair value="true" name="replace_special_char"/>
+      <Backups>
+        <list>
+          <NVPair value="10" name="timeout"/>
+          <NVPair value="36000" name="cache_timeout"/>
+          <NVPair value="dc=student,dc=state,dc=edu" name="basedn"/>
+          <NVPair value="sub" name="scope_type"/>
+          <NVPair value="false" name="allow_referral"/>
+          <NVPair value="ad3.student.state.edu" name="server"/>
+          <NVPair value="ssl" name="connect_type"/>
+          <NVPair value="636" name="port"/>
+          <NVPair value="service@student.state.edu" name="identity"/>
+          <NVPair value="" name="password"/>
+          <NVPair value="STUDENT" name="netbios_name"/>
+          <NVPair value="true" name="authentication_source"/>
+          <NVPair value="userCertificate" name="certificate_attr"/>
+          <NVPair value="false" name="override_domain_name"/>
+          <NVPair value="false" name="verify_peer"/>
+          <NVPair value="0" name="trusted_certificate"/>
+          <NVPair value="true" name="replace_special_char"/>
+        </list>
+      </Backups>
+      <Filters>
+        <Filter paramValues="%{Authentication:userPrincipalName}=*
+" filterQuery="(|(&amp;(objectClass=user)(sAMAccountName=%{Authentication:Username}))(&amp;(objectClass=user)(userPrincipalName=%{Authentication:Username})))" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="UserDN" attrName="distinguishedName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Department" attrName="department"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Title" attrName="title"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="company" attrName="company"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="memberOf" attrName="memberOf"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Phone" attrName="telephoneNumber"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Email" attrName="mail"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Name" attrName="displayName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer64" aliasName="Account Expires" attrName="accountExpires"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{memberOf}=" filterQuery="(distinguishedName=%{memberOf})" filterName="Group">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Groups" attrName="cn"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Host:Name}=" filterQuery="(&amp;(sAMAccountName=%{Host:Name}$)(objectClass=computer))" filterName="Machine">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="HostName" attrName="dNSHostName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="OperatingSystem" attrName="operatingSystem"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="OSServicePack" attrName="operatingSystemServicePack"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Onboard:Owner}=*" filterQuery="(&amp;(sAMAccountName=%{Onboard:Owner})(objectClass=user))" filterName="Onboard Device Owner">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Onboard memberOf" attrName="memberOf"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Onboard memberOf}=" filterQuery="(distinguishedName=%{Onboard memberOf})" filterName="Onboard Device Owner Group">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Onboard Groups" attrName="cn"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+      <AuthorizationSources>
+        <AuthorizationSource>[Endpoints Repository]</AuthorizationSource>
+      </AuthorizationSources>
+    </AuthSource>
+    <AuthSource description="Authenticate endpoints against Policy Manager local database" name="[Endpoints Repository]" isAuthorizationSource="true" type="Local">
+      <NVPair value="300" name="cache_timeout"/>
+      <NVPair value="PostgreSQL" name="sql_driver"/>
+      <NVPair value="localhost" name="server"/>
+      <NVPair value="tipsdb" name="db_name"/>
+      <NVPair value="appuser" name="login"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="10" name="timeout"/>
+      <Filters>
+        <Filter paramValues="" filterQuery="SELECT mac_address AS User_Password FROM tips_endpoints WHERE mac_address = LOWER('%{Connection:Client-Mac-Address-NoDelim}') AND status = 'Known'" filterName="Authentication"/>
+        <Filter paramValues="" filterQuery="SELECT t1.status,t1.mac_vendor, (case when t2.device_family is NULL then 'false' else 'true' end) as is_profiled  FROM tips_endpoints t1 LEFT OUTER JOIN tips_endpoint_profiles t2 ON (t1.mac_address = t2.mac) WHERE t1.mac_address = LOWER('%{Connection:Client-Mac-Address-NoDelim}')" filterName="Status">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Status" attrName="status"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="MAC Vendor" attrName="mac_vendor"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="IsProfiled" attrName="is_profiled"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT  hostname,(case when static_ip is false then 'false' else 'true' end) as static_ip, device_category, device_family, device_name, other_category, other_family, other_name, (case when conflict is false then 'false' else 'true' end) as conflict FROM tips_endpoint_profiles WHERE mac = LOWER('%{Connection:Client-Mac-Address-NoDelim}')" filterName="Profile">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Hostname" attrName="hostname"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="StaticIp" attrName="static_ip"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Category" attrName="device_category"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="OS Family" attrName="device_family"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Device Name" attrName="device_name"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Other Category" attrName="other_category"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Other OS Family" attrName="other_family"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Other Device Name" attrName="other_name"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="Conflict" attrName="conflict"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT fingerprint, CAST(fingerprint as jsonb)-&gt;'host'-&gt;&gt;'app_id' as app_id, CAST(fingerprint as jsonb)-&gt;'host'-&gt;&gt;'app_group' as app_group, CAST(fingerprint as jsonb)-&gt;'host'-&gt;&gt;'user_agent' as user_agent, CAST(fingerprint as jsonb)-&gt;'host'-&gt;&gt;'dst_conns' as dst_conns, CAST(fingerprint as jsonb)-&gt;'host'-&gt;&gt;'ports' as open_port,CAST(fingerprint as jsonb)-&gt;'nmap'-&gt;&gt;'device' as nmap_device_name, CAST(fingerprint as jsonb)-&gt;'nmap'-&gt;&gt;'os_family' as nmap_device_family, CAST(fingerprint as jsonb)-&gt;'nmap'-&gt;&gt;'os_type' as nmap_device_type, CAST(fingerprint as jsonb)-&gt;'nmap'-&gt;&gt;'os_vendor' as nmap_device_vendor, CAST(fingerprint as jsonb)-&gt;'nmap'-&gt;&gt;'os_gen' as nmap_device_os_version FROM tips_endpoint_profiles WHERE mac = LOWER('%{Connection:Client-Mac-Address-NoDelim}')" filterName="Fingerprint">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Fingerprint" attrName="fingerprint"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Application ID" attrName="app_id"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Application Group" attrName="app_group"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="User Agent" attrName="user_agent"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Destination Connections" attrName="dst_conns"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Open Ports" attrName="open_port"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Nmap Device Name" attrName="nmap_device_name"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Nmap Device Type" attrName="nmap_device_type"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Nmap Device Family" attrName="nmap_device_family"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Nmap Device OS Vendor" attrName="nmap_device_vendor"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Nmap Device OS Version" attrName="nmap_device_os_version"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT COUNT(te.id) + 1 AS num_endpoints FROM tips_endpoints as te WHERE LOWER( te.attributes-&gt;&gt;'Username') = LOWER( '%{Authentication:Username}') and te.mac_address != '%{Connection:Client-Mac-Address-NoDelim}'" filterName="MAC Caching">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Unique-Device-Count" attrName="num_endpoints"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+    <AuthSource description="Active Directory" name="AD" isAuthorizationSource="true" type="AD">
+      <NVPair value="10" name="timeout"/>
+      <NVPair value="120" name="cache_timeout"/>
+      <NVPair value="dc=school,dc=state,dc=edu" name="basedn"/>
+      <NVPair value="sub" name="scope_type"/>
+      <NVPair value="false" name="allow_referral"/>
+      <NVPair value="ad1.school.state.edu" name="server"/>
+      <NVPair value="none" name="connect_type"/>
+      <NVPair value="389" name="port"/>
+      <NVPair value="cpservice@school.state.edu" name="identity"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="school" name="netbios_name"/>
+      <NVPair value="true" name="authentication_source"/>
+      <NVPair value="userCertificate" name="certificate_attr"/>
+      <NVPair value="false" name="override_domain_name"/>
+      <NVPair value="false" name="verify_peer"/>
+      <NVPair value="0" name="trusted_certificate"/>
+      <NVPair value="true" name="replace_special_char"/>
+      <Backups>
+        <list>
+          <NVPair value="10" name="timeout"/>
+          <NVPair value="120" name="cache_timeout"/>
+          <NVPair value="dc=school,dc=state,dc=edu" name="basedn"/>
+          <NVPair value="sub" name="scope_type"/>
+          <NVPair value="false" name="allow_referral"/>
+          <NVPair value="talc.school.state.edu" name="server"/>
+          <NVPair value="none" name="connect_type"/>
+          <NVPair value="389" name="port"/>
+          <NVPair value="cpservice@school.state.edu" name="identity"/>
+          <NVPair value="" name="password"/>
+          <NVPair value="school" name="netbios_name"/>
+          <NVPair value="true" name="authentication_source"/>
+          <NVPair value="userCertificate" name="certificate_attr"/>
+          <NVPair value="false" name="override_domain_name"/>
+          <NVPair value="false" name="verify_peer"/>
+          <NVPair value="0" name="trusted_certificate"/>
+          <NVPair value="true" name="replace_special_char"/>
+        </list>
+      </Backups>
+      <Filters>
+        <Filter paramValues="%{Authentication:Username}=*" filterQuery="(&amp;(sAMAccountName=%{Authentication:Username})(objectClass=user))" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="UserDN" attrName="dn"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Department" attrName="department"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Title" attrName="title"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="company" attrName="company"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="memberOf" attrName="memberOf"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Phone" attrName="telephoneNumber"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Email" attrName="mail"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Account Expires" attrName="accountExpires"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{memberOf}=" filterQuery="(distinguishedName=%{memberOf})" filterName="Group">
+          <Attributes>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="groupName" attrName="cn"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Host:Name}=" filterQuery="(&amp;(sAMAccountName=%{Host:Name}$)(objectClass=computer))" filterName="Machine">
+          <Attributes>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="hostDnsName" attrName="dNSHostName"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="hostOperatingSystem" attrName="operatingSystem"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="hostServicePack" attrName="operatingSystemServicePack"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+  </AuthSources>
+  <Roles>
+    <Role description="" name="Blacklisted"/>
+    <Role description="" name="Students"/>
+    <Role description="" name="Faculty-Staff"/>
+    <Role description="" name="WirelessDenied"/>
+    <Role description="" name="Bypass"/>
+  </Roles>
+  <RoleMappings>
+    <RoleMapping description="" name="Secure Role Mapping (Enforcement)" ruleCombineAlgo="first-applicable" dftRoleName="WirelessDenied">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=Wireless-Deny,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" value="CN=Wireless-Deny,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Blacklisted" value="3024" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=Wireless-Allow,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" value="CN=Wireless-Allow,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Bypass" value="3023" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=ClearPass-Admin,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" value="CN=ClearPass-Admin,OU=Groups,OU=elevated,OU=Admin,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Bypass" value="3023" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=STUDENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=STUDENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=ORIENTATION_STUDENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=ORIENTATION_STUDENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=STUDENT_CURRENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=STUDENT_CURRENT,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=AFFILIATE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=AFFILIATE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=ed-staff,OU=Distribution Lists,OU=ed-,DC=school,DC=state,DC=edu" value="CN=ed-staff,OU=Distribution Lists,OU=ed-,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=FACULTY,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=FACULTY,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=GTA,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=GTA,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=STUDENT_EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=STUDENT_EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=TEMPORARY_EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=TEMPORARY_EMPLOYEE,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=EMERITUS,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" value="CN=EMERITUS,OU=school_Roles,OU=Enterprise,DC=school,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Faculty-Staff" value="3015" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=STUDENT,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" value="CN=STUDENT,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:Student Domain AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=ORIENTATION_STUDENT,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" value="CN=ORIENTATION_STUDENT,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:Student Domain AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="CN=STUDENT_GRACEPERIOD_6MO,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" value="CN=STUDENT_GRACEPERIOD_6MO,OU=Roles,OU=Groups,DC=student,DC=state,DC=edu" operator="EQUALS" name="memberOf" type="Authorization:Student Domain AD"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="Students" value="3014" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </RoleMapping>
+  </RoleMappings>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="" name="Secure User Enforcement Policy" policyType="RADIUS" defaultProfileName="[Deny Access Profile]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="Bypass" value="Bypass" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Allow Access Profile], [Update Endpoint Known], Update Endpoint Location" value="1,51,3019" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="Faculty-Staff" value="Faculty-Staff" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Allow Access Profile], [Update Endpoint Known], Update Endpoint Location" value="1,51,3019" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="Students" value="Students" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Allow Access Profile], [Update Endpoint Known], Update Endpoint Location" value="1,51,3019" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="Blacklisted" value="Blacklisted" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Deny Access Profile]" value="2" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="WirelessDenied" value="WirelessDenied" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Deny Access Profile]" value="2" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <RadiusEnfProfiles>
+    <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="System-defined profile to deny network access" name="[Deny Access Profile]" action="Reject"/>
+  </RadiusEnfProfiles>
+  <PostAuthEnfProfiles>
+    <PostAuthEnfProfile description="System-defined profile to change Endpoint's status to Known" name="[Update Endpoint Known]" postAuthType="EntityUpdate">
+      <AttributeList>
+        <Attribute displayValue="Known" value="Known" name="Endpoint" type="Status-Update"/>
+      </AttributeList>
+    </PostAuthEnfProfile>
+    <PostAuthEnfProfile description="" name="Update Endpoint Location" postAuthType="EntityUpdate">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}:%{Radius:Aruba:Aruba-Location-Id}" value="%{Radius:IETF:NAS-IP-Address}:%{Radius:Aruba:Aruba-Location-Id}" name="Last Known Location" type="Endpoint"/>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="Username" type="Endpoint"/>
+      </AttributeList>
+    </PostAuthEnfProfile>
+  </PostAuthEnfProfiles>
+  <TagDictionaries>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="remote_addr" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="http_user_agent" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="Boolean" attributeName="AUTHED-VIA-WIRED-1X" entityName="Endpoint"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="Visitor Name" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="simultaneous_use" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="no_portal" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="airgroup_device_type" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="Create Time" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="vcname" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="apname" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="source" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="do_expire" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="source2" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="Boolean" attributeName="AUTHED-VIA-WIRELESS-1X" entityName="Endpoint"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="expire_postlogin" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="essid" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="sponsor_profile_name" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mac_auth" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="no_password" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mac" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="apgroup" entityName="GuestUser"/>
+  </TagDictionaries>
+</TipsContents>

@@ -1,0 +1,159 @@
+"""
+Phase 2: Condition Normalization
+
+Converts raw RuleExpression dicts (from the parser) into a canonical Boolean AST.
+Single-predicate boolean wrappers are unwrapped to bare Predicate nodes.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Union
+
+
+class Op(str, Enum):
+    equals = "equals"
+    not_equals = "not_equals"
+    contains = "contains"
+    not_contains = "not_contains"
+    starts_with = "starts_with"
+    ends_with = "ends_with"
+    regex = "regex"
+    in_ = "in"
+    exists = "exists"
+    not_exists = "not_exists"
+    less_than = "less_than"
+    greater_than = "greater_than"
+
+    @classmethod
+    def from_raw(cls, raw: str) -> "Op":
+        mapping: dict[str, Op] = {
+            "EQUALS": cls.equals,
+            "NOT_EQUALS": cls.not_equals,
+            "CONTAINS": cls.contains,
+            "NOT_CONTAINS": cls.not_contains,
+            "STARTS_WITH": cls.starts_with,
+            "ENDS_WITH": cls.ends_with,
+            "REGEX_MATCH": cls.regex,
+            "IN": cls.in_,
+            "EXISTS": cls.exists,
+            "NOT_EXISTS": cls.not_exists,
+            "LESS_THAN": cls.less_than,
+            "GREATER_THAN": cls.greater_than,
+        }
+        upper = raw.upper()
+        if upper not in mapping:
+            raise ValueError(f"Unknown ClearPass operator: {raw!r}")
+        return mapping[upper]
+
+
+@dataclass
+class Predicate:
+    namespace: str
+    attribute: str
+    op: Op
+    rhs_raw: str
+    rhs_display: str
+    raw_operator: str = ""
+
+
+@dataclass
+class And:
+    operands: list["BooleanExpr"] = field(default_factory=list)
+
+
+@dataclass
+class Or:
+    operands: list["BooleanExpr"] = field(default_factory=list)
+
+
+@dataclass
+class Not:
+    operand: "BooleanExpr"
+
+
+BooleanExpr = Union[Predicate, And, Or, Not]
+
+
+def _parse_namespace_attr(type_str: str, name_str: str) -> tuple[str, str]:
+    """Split ClearPass 'type' and 'name' into (namespace, attribute)."""
+    # type examples: "Radius:Aruba", "Radius:IETF", "Authorization:AD", "Tips"
+    return type_str, name_str
+
+
+def _normalize_predicate(raw_attr: dict) -> Predicate:
+    ns, attr = _parse_namespace_attr(raw_attr.get("type", ""), raw_attr.get("name", ""))
+    return Predicate(
+        namespace=ns,
+        attribute=attr,
+        op=Op.from_raw(raw_attr.get("operator", "EQUALS")),
+        rhs_raw=raw_attr.get("value", ""),
+        rhs_display=raw_attr.get("displayValue", ""),
+        raw_operator=raw_attr.get("operator", ""),
+    )
+
+
+def normalize(raw_expression: dict | None) -> BooleanExpr | None:
+    """
+    Convert a raw expression dict (from parser) into a canonical BooleanExpr.
+    Returns None if the expression is absent.
+    """
+    if raw_expression is None:
+        return None
+
+    operator = raw_expression.get("operator", "").lower()
+    display_op = raw_expression.get("displayOperator", "").upper()
+    attributes = raw_expression.get("attributes", [])
+
+    # Map boolean operator
+    # MATCHES_ALL / "and" → And
+    # MATCHES_ANY / "OR" → Or
+    use_and = operator in ("and",) or display_op in ("MATCHES_ALL",)
+    use_or = operator in ("or",) or display_op in ("MATCHES_ANY",)
+
+    predicates: list[BooleanExpr] = [_normalize_predicate(a) for a in attributes]
+
+    if not predicates:
+        # Degenerate case: no attributes — return a sentinel
+        return And(operands=[])
+
+    # Unwrap: single predicate inside a boolean wrapper → return bare predicate
+    if len(predicates) == 1:
+        return predicates[0]
+
+    if use_and:
+        return And(operands=predicates)
+    if use_or:
+        return Or(operands=predicates)
+
+    # Fallback: default to And
+    return And(operands=predicates)
+
+
+def expr_to_label(expr: BooleanExpr | None, max_len: int = 60) -> str:
+    """
+    Produce a short human-readable label for a BooleanExpr, suitable for
+    diagram node labels.
+    """
+    if expr is None:
+        return "(no condition)"
+
+    def _render(e: BooleanExpr) -> str:
+        if isinstance(e, Predicate):
+            attr_short = e.attribute.split(":")[-1]
+            rhs = e.rhs_display or e.rhs_raw
+            return f"{attr_short} {e.op.value} {rhs!r}"
+        if isinstance(e, And):
+            parts = [_render(o) for o in e.operands]
+            return " AND ".join(parts)
+        if isinstance(e, Or):
+            parts = [_render(o) for o in e.operands]
+            return " OR ".join(parts)
+        if isinstance(e, Not):
+            return f"NOT ({_render(e.operand)})"
+        return str(e)
+
+    label = _render(expr)
+    if len(label) > max_len:
+        label = label[:max_len - 3] + "..."
+    return label
