@@ -45,7 +45,7 @@ def _rule_expressions(rule_expr_el: ET.Element | None) -> dict[str, Any] | None:
 
 def _parse_rule(rule_el: ET.Element, index: int) -> dict[str, Any]:
     condition_el = rule_el.find(_tag("Condition"))
-    expr_el = condition_el.find(f".//{_tag('RuleExpression')}") if condition_el is not None else None
+    expr_el = condition_el.find(_tag("Expression")) if condition_el is not None else None
 
     results = []
     result_list_el = rule_el.find(_tag("ResultList"))

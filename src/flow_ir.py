@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from .normalizer import expr_to_label
+from .normalizer import expr_to_label, expr_to_node_label
 from .policy_ir import (
     ApplyProfiles,
     EnforcementPolicy,
@@ -75,7 +75,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
     # -----------------------------------------------------------------------
     # Service match decision
     # -----------------------------------------------------------------------
-    match_label = expr_to_label(service.match)
+    match_label = expr_to_node_label(service.match)
     svc_match = flow.add_node(FlowNode(
         id=f"{sid}__match",
         type="decision",
@@ -140,11 +140,11 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
 
         prev_enf_id: str | None = None
         for rule in ep.rules:
-            cond_label = expr_to_label(rule.when)
+            cond_label = expr_to_node_label(rule.when)
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__enf_rule_{rule.index}",
                 type="decision",
-                label=f"Enf Rule {rule.index + 1}\n{cond_label}",
+                label=f"[Enf #{rule.index + 1}]\n{cond_label}",
                 trace_rule_id=rule.id,
             ))
             if prev_enf_id is not None:
@@ -212,11 +212,11 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
 
     if rm is not None:
         for rule in rm.rules:
-            cond_label = expr_to_label(rule.when)
+            cond_label = expr_to_node_label(rule.when)
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__rm_rule_{rule.index}",
                 type="decision",
-                label=f"Role Rule {rule.index + 1}\n{cond_label}",
+                label=f"[Role #{rule.index + 1}]\n{cond_label}",
                 trace_rule_id=rule.id,
             ))
             flow.add_edge(current_tail, dec.id, current_label)

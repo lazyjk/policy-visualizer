@@ -157,3 +157,44 @@ def expr_to_label(expr: BooleanExpr | None, max_len: int = 60) -> str:
     if len(label) > max_len:
         label = label[:max_len - 3] + "..."
     return label
+
+
+
+def expr_to_node_label(expr: BooleanExpr | None) -> str:
+    """
+    Produce a multi-line label for a decision node in the diagram.
+
+    Each predicate is placed on its own line. AND/OR connectors appear
+    as a prefix on subsequent lines. No truncation is applied — Graphviz
+    sizes the node to fit the content.
+    """
+    if expr is None:
+        return "(no condition)"
+
+    def _pred(e: Predicate) -> str:
+        attr = e.attribute.split(":")[-1]
+        op = e.raw_operator or e.op.value.upper()
+        rhs = e.rhs_raw
+        return f"{attr} {op} {rhs}"
+
+    def _lines(e: BooleanExpr, connector: str = "") -> list[str]:
+        if isinstance(e, Predicate):
+            line = _pred(e)
+            return [f"{connector}{line}" if connector else line]
+        if isinstance(e, And):
+            result: list[str] = []
+            for i, operand in enumerate(e.operands):
+                result.extend(_lines(operand, connector="" if i == 0 else "AND "))
+            return result
+        if isinstance(e, Or):
+            result = []
+            for i, operand in enumerate(e.operands):
+                result.extend(_lines(operand, connector="" if i == 0 else "OR "))
+            return result
+        if isinstance(e, Not):
+            inner = _lines(e.operand)
+            inner[0] = f"NOT {inner[0]}"
+            return inner
+        return [str(e)]
+
+    return "\n".join(_lines(expr))
