@@ -8,6 +8,7 @@ process=rectangle, action=rounded-rectangle, end=doublecircle.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from pathlib import Path
 
 import graphviz
@@ -96,6 +97,17 @@ def render(flow: FlowIR, output_path: str | Path, fmt: str = "svg") -> Path:
     for node in flow.nodes:
         attrs = _node_attrs(node)
         dot.node(node.id, **attrs)
+
+    # Stack rule chains vertically via rank=same subgraphs
+    rank_groups: dict[str, list[str]] = defaultdict(list)
+    for node in flow.nodes:
+        if node.rank_group:
+            rank_groups[node.rank_group].append(node.id)
+    for node_ids in rank_groups.values():
+        with dot.subgraph() as sg:
+            sg.attr(rank="same")
+            for nid in node_ids:
+                sg.node(nid)
 
     # Add all edges
     for edge in flow.edges:

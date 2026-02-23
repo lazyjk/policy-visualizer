@@ -31,6 +31,7 @@ class FlowNode:
     label: str
     trace_rule_id: str = ""
     sub_label: str = ""
+    rank_group: str = ""
 
 
 @dataclass
@@ -144,8 +145,9 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__enf_rule_{rule.index}",
                 type="decision",
-                label=f"[Enf #{rule.index + 1}]\n{cond_label}",
+                label=cond_label,
                 trace_rule_id=rule.id,
+                rank_group="enf_chain",
             ))
             if prev_enf_id is not None:
                 flow.add_edge(prev_enf_id, dec.id, "NO")
@@ -216,8 +218,9 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__rm_rule_{rule.index}",
                 type="decision",
-                label=f"[Role #{rule.index + 1}]\n{cond_label}",
+                label=cond_label,
                 trace_rule_id=rule.id,
+                rank_group="rm_chain",
             ))
             flow.add_edge(current_tail, dec.id, current_label)
 

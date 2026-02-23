@@ -164,37 +164,56 @@ def expr_to_node_label(expr: BooleanExpr | None) -> str:
     """
     Produce a multi-line label for a decision node in the diagram.
 
-    Each predicate is placed on its own line. AND/OR connectors appear
-    as a prefix on subsequent lines. No truncation is applied — Graphviz
-    sizes the node to fit the content.
+    Each predicate is rendered as three lines: attribute, operator, value.
+    Long values are wrapped at comma boundaries (suitable for AD DNs).
+    AND/OR separators appear between predicates.
     """
     if expr is None:
         return "(no condition)"
 
+    def _wrap_value(value: str, max_len: int = 35) -> str:
+        """Wrap a long value at comma boundaries."""
+        if len(value) <= max_len:
+            return value
+        lines = []
+        remaining = value
+        while len(remaining) > max_len:
+            break_at = remaining.rfind(",", 0, max_len)
+            if break_at == -1:
+                break_at = max_len
+            else:
+                break_at += 1  # include the comma
+            lines.append(remaining[:break_at])
+            remaining = remaining[break_at:].lstrip()
+        if remaining:
+            lines.append(remaining)
+        return "\n".join(lines)
+
     def _pred(e: Predicate) -> str:
         attr = e.attribute.split(":")[-1]
         op = e.raw_operator or e.op.value.upper()
-        rhs = e.rhs_raw
-        return f"{attr} {op} {rhs}"
+        rhs = _wrap_value(e.rhs_raw)
+        return f"{attr}\n{op}\n{rhs}"
 
-    def _lines(e: BooleanExpr, connector: str = "") -> list[str]:
+    def _lines(e: BooleanExpr) -> list[str]:
         if isinstance(e, Predicate):
-            line = _pred(e)
-            return [f"{connector}{line}" if connector else line]
+            return [_pred(e)]
         if isinstance(e, And):
             result: list[str] = []
             for i, operand in enumerate(e.operands):
-                result.extend(_lines(operand, connector="" if i == 0 else "AND "))
+                if i > 0:
+                    result.append("--- AND ---")
+                result.extend(_lines(operand))
             return result
         if isinstance(e, Or):
             result = []
             for i, operand in enumerate(e.operands):
-                result.extend(_lines(operand, connector="" if i == 0 else "OR "))
+                if i > 0:
+                    result.append("--- OR ---")
+                result.extend(_lines(operand))
             return result
         if isinstance(e, Not):
-            inner = _lines(e.operand)
-            inner[0] = f"NOT {inner[0]}"
-            return inner
+            return ["NOT"] + _lines(e.operand)
         return [str(e)]
 
     return "\n".join(_lines(expr))
