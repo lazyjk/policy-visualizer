@@ -41,7 +41,7 @@ const NODE_SIZE_FALLBACKS: Record<string, { width: number; height: number }> = {
 function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 80 });
+  g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 40 });
 
   nodes.forEach((node) => {
     const fallback = NODE_SIZE_FALLBACKS[node.type ?? "process"] ?? { width: 160, height: 80 };
@@ -107,7 +107,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
         if (actionNode) {
           const ah = actionNode.measured?.height ?? fallbackAction.height;
           actionNode.position = {
-            x: chainX + w + 40,
+            x: chainX + w + 20,
             y: y + (h - ah) / 2,
           };
         }
@@ -164,10 +164,13 @@ export default function FlowDiagram({ flow }: Props) {
       position: { x: 0, y: 0 },
     }));
 
+    const nodeTypeById = new Map(flow.nodes.map((n) => [n.id, n.type]));
     const rawEdges: Edge[] = flow.edges.map((e, i) => ({
       id: `edge-${i}`,
       source: e.from_id,
       target: e.to_id,
+      sourceHandle: e.label === "YES" ? "yes" : e.label === "NO" ? "no" : undefined,
+      targetHandle: e.label === "NO" && nodeTypeById.get(e.to_id) === "decision" ? "top" : undefined,
       label: e.label || undefined,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
       style: { stroke: "#555", strokeWidth: 1.5 },

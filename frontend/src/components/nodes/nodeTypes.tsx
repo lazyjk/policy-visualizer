@@ -74,6 +74,7 @@ export function DecisionNode({ data }: NodeProps) {
       }}
     >
       <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} id="top" />
       <div
         style={{
           background: "#FAD7A0",
