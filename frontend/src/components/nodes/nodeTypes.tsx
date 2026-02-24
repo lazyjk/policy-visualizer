@@ -125,6 +125,7 @@ export function ProcessNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Left} />
       <div>{multilineLabel(d.label)}</div>
       <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Bottom} id="fail" />
     </div>
   );
 }
@@ -164,6 +165,7 @@ export function EndNode({ data }: NodeProps) {
       }}
     >
       <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} id="top" />
       <div>
         {multilineLabel(d.label)}
         {d.sub_label && (

@@ -71,50 +71,266 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     };
   });
 
-  // Post-process: snap nodes in the same rank_group to the same x-column and stack
-  // them vertically. This replicates graphviz {rank=same} without touching dagre's
-  // algorithm (which can crash on minlen:0 in some graph shapes).
+  // Post-process: compress each rule chain vertically (all decisions at same x) and
+  // reposition action nodes + their downstream nodes so there is no large horizontal gap.
+  //
+  // Key insight: dagre computes enf_chain x based on the longest path through the full
+  // spread-out rm_chain, so it lands far to the right.  We instead place enf_chain
+  // immediately after the rm_action nodes (enfChainStartX), then place end nodes right
+  // next to their action node rather than leaving them at dagre positions.
   const nodeById = new Map(result.map((n) => [n.id, n]));
-  const yesTarget = new Map<string, string>(); // decisionId → YES-edge target id
+
+  const yesTarget = new Map<string, string>(); // source → YES-edge target id
+  const noTarget  = new Map<string, string>(); // source → NO-edge target id
+  const outEdges  = new Map<string, string[]>(); // source → all target ids
   edges.forEach((e) => {
     if (e.label === "YES") yesTarget.set(e.source, e.target);
+    if (e.label === "NO")  noTarget.set(e.source, e.target);
+    if (!outEdges.has(e.source)) outEdges.set(e.source, []);
+    outEdges.get(e.source)!.push(e.target);
   });
 
-  for (const groupName of ["rm_chain", "enf_chain"]) {
-    const group = result.filter(
-      (n) => (n.data.rank_group as string | undefined) === groupName
-    );
-    if (group.length < 2) continue;
+  const fallbackDecision = NODE_SIZE_FALLBACKS.decision;
+  const fallbackAction   = NODE_SIZE_FALLBACKS.action;
+  const VERT_GAP     = 20;  // vertical gap between stacked chain nodes
+  const LABEL_GAP    = 60;  // vertical gap when an end node is placed directly below its source
+                            // (larger than VERT_GAP so the edge label has room between the nodes)
+  const HORIZ_GAP    = 800;  // TODO(interactive): expose as a user-adjustable prop (slider/input in toolbar)
+  const ACTION_INSET = 40;  // horizontal gap between decision right-edge and action left-edge
 
-    // In dagre LR the NO-chain spreads decisions horizontally; sort by x gives chain order.
-    group.sort((a, b) => a.position.x - b.position.x);
+  // Move a non-chain node to sit immediately to the right of an action node.
+  // If the target is itself an action node, recursively reposition its downstream.
+  function placeAdjacentRight(actionNode: Node, targetId: string, actionRightX: number) {
+    const target = nodeById.get(targetId);
+    if (!target) return;
+    const rg = target.data.rank_group as string | undefined;
+    if (rg === "rm_chain" || rg === "enf_chain") return; // handled separately
+    const dfb = NODE_SIZE_FALLBACKS[target.type ?? "end"] ?? { width: 130, height: 60 };
+    const ah  = actionNode.measured?.height ?? fallbackAction.height;
+    const dh  = target.measured?.height ?? dfb.height;
+    target.position = {
+      x: actionRightX + HORIZ_GAP,
+      y: actionNode.position.y + (ah - dh) / 2,
+    };
+    if (target.type === "action") {
+      const tw = target.measured?.width ?? fallbackAction.width;
+      (outEdges.get(targetId) ?? []).forEach((tid) =>
+        placeAdjacentRight(target, tid, actionRightX + HORIZ_GAP + tw)
+      );
+    }
+  }
 
-    const chainX = group[0].position.x;
-    const fallbackDecision = NODE_SIZE_FALLBACKS.decision;
-    const fallbackAction = NODE_SIZE_FALLBACKS.action;
-    const gap = 20; // vertical gap between successive chain nodes
-    let y = group[0].position.y;
+  // ---- rm_chain: stack decisions vertically, track rightmost edge for enf_chain ----
+  let enfChainStartX: number | null = null;
 
-    for (const chainNode of group) {
+  const rmGroup = result.filter(
+    (n) => (n.data.rank_group as string | undefined) === "rm_chain"
+  );
+  if (rmGroup.length >= 2) {
+    rmGroup.sort((a, b) => a.position.x - b.position.x);
+    const chainX = rmGroup[0].position.x;
+    let y = rmGroup[0].position.y;
+    let maxRightX = chainX;
+
+    for (let i = 0; i < rmGroup.length; i++) {
+      const chainNode = rmGroup[i];
       const h = chainNode.measured?.height ?? fallbackDecision.height;
-      const w = chainNode.measured?.width ?? fallbackDecision.width;
+      const w = chainNode.measured?.width  ?? fallbackDecision.width;
       chainNode.position = { x: chainX, y };
 
-      // Align the YES-edge action node to be vertically centred beside this decision.
+      // YES branch: role action node → its downstream (enf_chain entry is skipped)
       const actionId = yesTarget.get(chainNode.id);
       if (actionId) {
         const actionNode = nodeById.get(actionId);
         if (actionNode) {
+          const aw = actionNode.measured?.width  ?? fallbackAction.width;
           const ah = actionNode.measured?.height ?? fallbackAction.height;
           actionNode.position = {
-            x: chainX + w + 20,
+            x: chainX + w + ACTION_INSET,
             y: y + (h - ah) / 2,
           };
+          const actionRight = chainX + w + ACTION_INSET + aw;
+          maxRightX = Math.max(maxRightX, actionRight);
+          (outEdges.get(actionId) ?? []).forEach((tid) =>
+            placeAdjacentRight(actionNode, tid, actionRight)
+          );
         }
       }
 
-      y += h + gap;
+      // Terminal NO node of the last decision (rm_default or no_role_end)
+      if (i === rmGroup.length - 1) {
+        const termId = noTarget.get(chainNode.id);
+        if (termId) {
+          const term = nodeById.get(termId);
+          if (term && !(term.data.rank_group as string | undefined)) {
+            const tw = term.measured?.width
+              ?? (NODE_SIZE_FALLBACKS[term.type ?? "action"]?.width ?? 160);
+            term.position = { x: chainX + w + ACTION_INSET, y: y + h + VERT_GAP };
+            const termRight = chainX + w + ACTION_INSET + tw;
+            maxRightX = Math.max(maxRightX, termRight);
+            if (term.type === "action") {
+              (outEdges.get(termId) ?? []).forEach((tid) =>
+                placeAdjacentRight(term, tid, termRight)
+              );
+            }
+          }
+        }
+      }
+
+      y += h + VERT_GAP;
     }
+
+    enfChainStartX = maxRightX + HORIZ_GAP;
+  }
+
+  // ---- enf_chain: same vertical stacking, x derived from rm_chain right edge ----
+  const enfGroup = result.filter(
+    (n) => (n.data.rank_group as string | undefined) === "enf_chain"
+  );
+  if (enfGroup.length >= 2) {
+    enfGroup.sort((a, b) => a.position.x - b.position.x);
+    const chainX = enfChainStartX ?? enfGroup[0].position.x;
+    let y = enfGroup[0].position.y;
+
+    for (let i = 0; i < enfGroup.length; i++) {
+      const chainNode = enfGroup[i];
+      const h = chainNode.measured?.height ?? fallbackDecision.height;
+      const w = chainNode.measured?.width  ?? fallbackDecision.width;
+      chainNode.position = { x: chainX, y };
+
+      // YES branch: enforcement action node + its end node
+      const actionId = yesTarget.get(chainNode.id);
+      if (actionId) {
+        const actionNode = nodeById.get(actionId);
+        if (actionNode) {
+          const aw = actionNode.measured?.width  ?? fallbackAction.width;
+          const ah = actionNode.measured?.height ?? fallbackAction.height;
+          actionNode.position = {
+            x: chainX + w + ACTION_INSET,
+            y: y + (h - ah) / 2,
+          };
+          const actionRight = chainX + w + ACTION_INSET + aw;
+          (outEdges.get(actionId) ?? []).forEach((tid) =>
+            placeAdjacentRight(actionNode, tid, actionRight)
+          );
+        }
+      }
+
+      // Terminal NO node of the last decision (enf_default_action or implicit deny)
+      if (i === enfGroup.length - 1) {
+        const termId = noTarget.get(chainNode.id);
+        if (termId) {
+          const term = nodeById.get(termId);
+          if (term && !(term.data.rank_group as string | undefined)) {
+            const tw = term.measured?.width
+              ?? (NODE_SIZE_FALLBACKS[term.type ?? "action"]?.width ?? 160);
+            term.position = { x: chainX + w + ACTION_INSET, y: y + h + VERT_GAP };
+            const termRight = chainX + w + ACTION_INSET + tw;
+            if (term.type === "action") {
+              (outEdges.get(termId) ?? []).forEach((tid) =>
+                placeAdjacentRight(term, tid, termRight)
+              );
+            }
+          }
+        }
+      }
+
+      y += h + VERT_GAP;
+    }
+  }
+
+  // ---- Overlap detection and resolution ----
+  // After chain compression, non-chain nodes (e.g. auth_fail) keep their original
+  // dagre positions which may now overlap compressed chain nodes. Detect, log, and
+  // relocate them to sit below their source node instead.
+
+  function nodeBBox(n: Node) {
+    const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+    return { x: n.position.x, y: n.position.y, w: n.measured?.width ?? fb.width, h: n.measured?.height ?? fb.height };
+  }
+
+  function bboxOverlap(a: ReturnType<typeof nodeBBox>, b: ReturnType<typeof nodeBBox>): boolean {
+    const P = 8; // padding so nodes touching closely also count
+    return a.x - P < b.x + b.w && a.x + a.w + P > b.x && a.y - P < b.y + b.h && a.y + a.h + P > b.y;
+  }
+
+  const inEdges = new Map<string, string[]>(); // target id → source ids
+  edges.forEach((e) => {
+    if (!inEdges.has(e.target)) inEdges.set(e.target, []);
+    inEdges.get(e.target)!.push(e.source);
+  });
+
+  const chainIds = new Set<string>([...rmGroup.map((n) => n.id), ...enfGroup.map((n) => n.id)]);
+
+  // Step 1: Snap NO-branch targets of non-chain decision nodes directly below them.
+  // This applies to nodes like svc_match whose NO exit (no_match_end / "Skip") should
+  // go straight down rather than curving sideways to wherever dagre placed them.
+  result.forEach((node) => {
+    if (node.type !== "decision" || chainIds.has(node.id)) return;
+    const noTargetId = noTarget.get(node.id);
+    if (!noTargetId) return;
+    const noTargetNode = nodeById.get(noTargetId);
+    if (!noTargetNode || chainIds.has(noTargetNode.id)) return;
+    const nb = nodeBBox(node);
+    const ntfb = NODE_SIZE_FALLBACKS[noTargetNode.type ?? "end"] ?? { width: 130, height: 60 };
+    const ntw = noTargetNode.measured?.width ?? ntfb.width;
+    noTargetNode.position = {
+      x: node.position.x + (nb.w - ntw) / 2,
+      y: node.position.y + nb.h + LABEL_GAP,
+    };
+  });
+
+  // Step 2: Relocate any non-chain node that overlaps a chain node.
+  // Place it below its source, then nudge downward past any other non-chain node
+  // it would land on top of (e.g. auth_fail below auth_node must not collide with
+  // no_match_end which was just snapped below svc_match in step 1).
+  result.forEach((node) => {
+    if (chainIds.has(node.id)) return;
+    const nb = nodeBBox(node);
+    const collidesChain = [...chainIds].some((cid) => {
+      const cn = nodeById.get(cid);
+      return cn ? bboxOverlap(nb, nodeBBox(cn)) : false;
+    });
+    if (!collidesChain) return;
+
+    const sources = inEdges.get(node.id) ?? [];
+    if (sources.length === 0) return;
+    const srcNode = nodeById.get(sources[0]);
+    if (!srcNode) return;
+    const sb = nodeBBox(srcNode);
+    const nfb = NODE_SIZE_FALLBACKS[node.type ?? "end"] ?? { width: 130, height: 60 };
+    const nw = node.measured?.width ?? nfb.width;
+    const nh = node.measured?.height ?? nfb.height;
+
+    let newX = srcNode.position.x + (sb.w - nw) / 2;
+    // Use the larger LABEL_GAP for end nodes so the edge label is visible above them.
+    let newY = srcNode.position.y + sb.h + (node.type === "end" ? LABEL_GAP : VERT_GAP);
+
+    // Nudge downward if the candidate position would land on another non-chain node.
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const candidate = { x: newX, y: newY, w: nw, h: nh };
+      const conflict = result.find(
+        (other) => other.id !== node.id && !chainIds.has(other.id) && bboxOverlap(candidate, nodeBBox(other))
+      );
+      if (!conflict) break;
+      const cb = nodeBBox(conflict);
+      newY = cb.y + cb.h + VERT_GAP;
+    }
+
+    node.position = { x: newX, y: newY };
+  });
+
+  // Log any overlaps that remain after all repositioning (dev aid).
+  const overlapPairs: [string, string][] = [];
+  for (let i = 0; i < result.length; i++) {
+    for (let j = i + 1; j < result.length; j++) {
+      if (bboxOverlap(nodeBBox(result[i]), nodeBBox(result[j]))) {
+        overlapPairs.push([result[i].id, result[j].id]);
+      }
+    }
+  }
+  if (overlapPairs.length > 0) {
+    console.warn("[FlowDiagram] Overlapping nodes after layout:", overlapPairs);
   }
 
   return result;
@@ -169,8 +385,14 @@ export default function FlowDiagram({ flow }: Props) {
       id: `edge-${i}`,
       source: e.from_id,
       target: e.to_id,
-      sourceHandle: e.label === "YES" ? "yes" : e.label === "NO" ? "no" : undefined,
-      targetHandle: e.label === "NO" && nodeTypeById.get(e.to_id) === "decision" ? "top" : undefined,
+      sourceHandle: e.label === "YES" ? "yes" : e.label === "NO" ? "no" : e.label === "FAIL" ? "fail" : undefined,
+      targetHandle: (() => {
+        const tt = nodeTypeById.get(e.to_id);
+        // Route into the top handle when the edge arrives from directly above.
+        if (e.label === "NO" && tt === "decision") return "top";
+        if ((e.label === "NO" || e.label === "FAIL") && tt === "end") return "top";
+        return undefined;
+      })(),
       label: e.label || undefined,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
       style: { stroke: "#555", strokeWidth: 1.5 },
