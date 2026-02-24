@@ -2,8 +2,8 @@
  * Custom React Flow node types.
  * Colors match the existing Graphviz renderer in src/renderer.py.
  */
-import React from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import React, { useState } from "react";
+import { Handle, Position, type NodeProps, NodeToolbar } from "@xyflow/react";
 
 interface NodeData {
   label: string;
@@ -19,6 +19,30 @@ function multilineLabel(label: string) {
     </React.Fragment>
   ));
 }
+
+// Number of label lines shown inside the diamond before truncating.
+// Single-predicate conditions (3–4 lines) fit; multi-predicate ones get a tooltip.
+const DIAMOND_LABEL_THRESHOLD = 4;
+
+function truncateLines(label: string, maxLines: number): { display: string; overflow: number } {
+  const lines = label.split("\n");
+  if (lines.length <= maxLines) return { display: label, overflow: 0 };
+  return { display: lines.slice(0, maxLines).join("\n"), overflow: lines.length - maxLines };
+}
+
+const tooltipStyle: React.CSSProperties = {
+  background: "white",
+  border: "1px solid #ccc",
+  borderRadius: 6,
+  padding: "8px 12px",
+  fontSize: 11,
+  fontFamily: "Helvetica, Arial, sans-serif",
+  lineHeight: 1.4,
+  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+  maxWidth: 280,
+  wordBreak: "break-word",
+  pointerEvents: "none",
+};
 
 const baseStyle: React.CSSProperties = {
   fontSize: 11,
@@ -59,11 +83,18 @@ export function StartNode({ data }: NodeProps) {
 // Outer container is fixed at 220×220 to match NODE_SIZE_FALLBACKS in FlowDiagram.tsx.
 // Inner square is 150×150; rotated 45° its bounding box is ~212px, which fits inside.
 // overflow:hidden on the inner div clips text to the diamond shape.
+// When the label exceeds DIAMOND_LABEL_THRESHOLD lines, the overflow is truncated and
+// a styled NodeToolbar tooltip reveals the full condition on hover.
 export function DecisionNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const [hovered, setHovered] = useState(false);
+  const { display, overflow } = truncateLines(d.label, DIAMOND_LABEL_THRESHOLD);
+  const isTruncated = overflow > 0;
+
   return (
     <div
-      title={[d.label, d.sub_label].filter(Boolean).join("\n")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
         width: 220,
@@ -73,6 +104,11 @@ export function DecisionNode({ data }: NodeProps) {
         justifyContent: "center",
       }}
     >
+      {isTruncated && (
+        <NodeToolbar isVisible={hovered} position={Position.Right}>
+          <div style={tooltipStyle}>{multilineLabel(d.label)}</div>
+        </NodeToolbar>
+      )}
       <Handle type="target" position={Position.Left} id="left" />
       <Handle type="target" position={Position.Top} id="top" />
       <div
@@ -101,7 +137,10 @@ export function DecisionNode({ data }: NodeProps) {
             padding: "4px",
           }}
         >
-          {multilineLabel(d.label)}
+          {multilineLabel(display)}
+          {isTruncated && (
+            <div style={{ fontSize: 9, opacity: 0.65, marginTop: 2 }}>+{overflow} more…</div>
+          )}
         </div>
       </div>
       <Handle type="source" position={Position.Right} id="yes" />
