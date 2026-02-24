@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+tests/
+reference-files/
+*.svg
+*.png
+*.pdf
+frontend/
+.git
+.claude
