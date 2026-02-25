@@ -15,6 +15,7 @@ import {
   Controls,
   MiniMap,
   Panel,
+  addEdge,
   useNodesState,
   useEdgesState,
   useNodesInitialized,
@@ -22,6 +23,9 @@ import {
   MarkerType,
   type Node,
   type Edge,
+  type Connection,
+  type NodeChange,
+  type EdgeChange,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import { toPng, toSvg } from "html-to-image";
@@ -42,11 +46,16 @@ const NODE_SIZE_FALLBACKS: Record<string, { width: number; height: number }> = {
 };
 
 function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
+  // Annotation nodes are freely positioned by the user — exclude them from dagre layout
+  // and return them unchanged at the end.
+  const diagNodes = nodes.filter((n) => n.type !== "annotation");
+  const annNodes  = nodes.filter((n) => n.type === "annotation");
+
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 40 });
 
-  nodes.forEach((node) => {
+  diagNodes.forEach((node) => {
     const fallback = NODE_SIZE_FALLBACKS[node.type ?? "process"] ?? { width: 160, height: 80 };
     const width = node.measured?.width ?? fallback.width;
     const height = node.measured?.height ?? fallback.height;
@@ -60,7 +69,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   dagre.layout(g);
 
   // Build positioned result — each node is a fresh object so we can mutate position below.
-  const result = nodes.map((node) => {
+  const result = diagNodes.map((node) => {
     const pos = g.node(node.id);
     const fallback = NODE_SIZE_FALLBACKS[node.type ?? "process"] ?? { width: 160, height: 80 };
     const width = node.measured?.width ?? fallback.width;
@@ -354,7 +363,8 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     console.warn("[FlowDiagram] Overlapping nodes after layout:", overlapPairs);
   }
 
-  return result;
+  // Return diagram nodes (now positioned) + annotation nodes (positions unchanged).
+  return [...result, ...annNodes];
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +491,36 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
 }
 
 // ---------------------------------------------------------------------------
+// AnnotationPanel — "Add Note" button; rendered inside <ReactFlow> for hook access
+// ---------------------------------------------------------------------------
+
+function AnnotationPanel() {
+  const { screenToFlowPosition, setNodes } = useReactFlow();
+
+  const addAnnotation = useCallback(() => {
+    const pos = screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    setNodes((nds) => [
+      ...nds,
+      {
+        id: `annotation-${Date.now()}`,
+        type: "annotation",
+        position: pos,
+        data: { text: "" },
+      },
+    ]);
+  }, [screenToFlowPosition, setNodes]);
+
+  return (
+    <Panel position="top-left">
+      <button onClick={addAnnotation}>Add Note</button>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 interface LayoutEffectProps {
   layoutApplied: boolean;
@@ -513,6 +553,52 @@ export default function FlowDiagram({ flow }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [layoutApplied, setLayoutApplied] = useState(false);
+
+  // Only annotation nodes can be deleted; diagram nodes are immutable.
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(
+        changes.filter(
+          (c) => c.type !== "remove" || nodes.find((n) => n.id === c.id)?.type === "annotation"
+        )
+      );
+    },
+    [onNodesChange, nodes]
+  );
+
+  // Only annotation edges (data.isAnnotation) can be deleted.
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      onEdgesChange(
+        changes.filter(
+          (c) => c.type !== "remove" || edges.find((e) => e.id === c.id)?.data?.isAnnotation
+        )
+      );
+    },
+    [onEdgesChange, edges]
+  );
+
+  // Connections may only originate from annotation nodes.
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const src = nodes.find((n) => n.id === connection.source);
+      if (src?.type !== "annotation") return;
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...connection,
+            id: `ann-edge-${Date.now()}`,
+            type: "smoothstep",
+            style: { stroke: "#9B59B6", strokeWidth: 1.5, strokeDasharray: "5,5" },
+            markerEnd: { type: MarkerType.ArrowClosed, color: "#9B59B6", width: 12, height: 12 },
+            data: { isAnnotation: true },
+          },
+          eds
+        )
+      );
+    },
+    [nodes, setEdges]
+  );
 
   useEffect(() => {
     const rawNodes: Node[] = flow.nodes.map((n) => ({
@@ -563,8 +649,9 @@ export default function FlowDiagram({ flow }: Props) {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView={false}
         minZoom={0.1}
@@ -580,11 +667,13 @@ export default function FlowDiagram({ flow }: Props) {
               process: "#A9DFBF",
               action: "#D7BDE2",
               end: "#F1948A",
+              annotation: "#FFFDE7",
             };
             return colors[node.type ?? "process"] ?? "#ccc";
           }}
           style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
         />
+        <AnnotationPanel />
         <LayoutEffect
           layoutApplied={layoutApplied}
           setLayoutApplied={setLayoutApplied}

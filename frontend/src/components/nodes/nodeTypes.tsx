@@ -3,7 +3,7 @@
  * Colors match the existing Graphviz renderer in src/renderer.py.
  */
 import React, { useState } from "react";
-import { Handle, Position, type NodeProps, NodeToolbar } from "@xyflow/react";
+import { Handle, Position, type NodeProps, NodeToolbar, useReactFlow } from "@xyflow/react";
 
 interface NodeData {
   label: string;
@@ -218,10 +218,97 @@ export function EndNode({ data }: NodeProps) {
   );
 }
 
+// annotation — sticky note with inline editing and connectable handles on all sides
+// TODO(wysiwyg): Replace plain textarea edit mode with a lightweight WYSIWYG editor
+// (bold, italic, bullet lists) — targeted post-2.0.0 GA. See ANN-223 in release-map-2.0.md.
+export function AnnotationNode({ data, id }: NodeProps) {
+  const d = data as { text?: string };
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const { updateNodeData } = useReactFlow();
+
+  const startEdit = () => {
+    setDraft(d.text ?? "");
+    setEditing(true);
+  };
+
+  const commit = () => {
+    updateNodeData(id, { text: draft });
+    setEditing(false);
+  };
+
+  return (
+    <div
+      onDoubleClick={startEdit}
+      style={{
+        background: "#FFFDE7",
+        border: "2px dashed #F9A825",
+        borderRadius: 6,
+        padding: "8px 10px",
+        minWidth: 140,
+        minHeight: 60,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "flex-start",
+        position: "relative",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+      }}
+    >
+      <Handle type="source" position={Position.Top} id="top" />
+      <Handle type="source" position={Position.Right} id="right" />
+      <Handle type="source" position={Position.Bottom} id="bottom" />
+      <Handle type="source" position={Position.Left} id="left" />
+      {editing ? (
+        <textarea
+          className="nodrag"
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setEditing(false);
+            }
+          }}
+          style={{
+            border: "none",
+            background: "transparent",
+            resize: "none",
+            fontFamily: "Helvetica, Arial, sans-serif",
+            fontSize: 12,
+            outline: "none",
+            width: "100%",
+            minHeight: 44,
+            lineHeight: 1.4,
+            color: "#333",
+          }}
+        />
+      ) : (
+        <div
+          className="nodrag"
+          style={{
+            fontFamily: "Helvetica, Arial, sans-serif",
+            fontSize: 12,
+            lineHeight: 1.4,
+            color: d.text ? "#333" : "#aaa",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            minWidth: 100,
+            minHeight: 44,
+          }}
+        >
+          {d.text || "Double-click to add note…"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const nodeTypes = {
   start: StartNode,
   decision: DecisionNode,
   process: ProcessNode,
   action: ActionNode,
   end: EndNode,
+  annotation: AnnotationNode,
 };

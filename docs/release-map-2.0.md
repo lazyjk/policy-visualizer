@@ -190,6 +190,17 @@ Exit criteria:
 - ISE-252: Publish implementation recommendation for `2.1.0` ISE import  
   Acceptance: scope, risks, and phased estimate approved; no production ISE parser code in `2.0.0`.
 
+## Deferred — Post-2.0.0 GA
+
+Items with infrastructure hooks in place but intentionally out of 2.0.0 scope.
+**Do not implement until explicitly scheduled.**
+
+- ANN-223: Replace plain-textarea annotation editing with a mini WYSIWYG editor
+  (bold, italic, bullet lists) in [frontend/src/components/nodes/nodeTypes.tsx](../frontend/src/components/nodes/nodeTypes.tsx)
+  Acceptance: formatted text renders correctly in both the diagram UI and all export formats.
+  Hook: `// TODO(wysiwyg)` comment on `AnnotationNode` in nodeTypes.tsx.
+  Target: `2.1.0` or later.
+
 ## Release Gates
 
 - Alpha gate: export + base UX + annotation baseline complete
