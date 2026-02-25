@@ -95,7 +95,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const VERT_GAP     = 20;  // vertical gap between stacked chain nodes
   const LABEL_GAP    = 60;  // vertical gap when an end node is placed directly below its source
                             // (larger than VERT_GAP so the edge label has room between the nodes)
-  const HORIZ_GAP    = 800;  // TODO(interactive): expose as a user-adjustable prop (slider/input in toolbar)
+  const HORIZ_GAP    = 200;  // TODO(interactive): expose as a user-adjustable prop (slider/input in toolbar)
   const ACTION_INSET = 40;  // horizontal gap between decision right-edge and action left-edge
 
   // Move a non-chain node to sit immediately to the right of an action node.
