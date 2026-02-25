@@ -39,7 +39,7 @@
             <Condition>
               <Expression displayOperator="MATCHES_ANY" operator="OR">
                 <AttributeList>
-                  <RuleAttribute displayValue="Tier-2-Operators-NSG-AL" value="Tier-2-Operators-NSG-AL" operator="EQUALS" name="groupName" type="Authorization:AD"/>
+                  <RuleAttribute displayValue="ADMINS" value="ADMINS" operator="EQUALS" name="groupName" type="Authorization:AD"/>
                 </AttributeList>
               </Expression>
             </Condition>
