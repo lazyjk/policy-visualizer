@@ -149,6 +149,7 @@ class PolicyIR:
 
 def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     ir = PolicyIR(version="1.0", source_file=source_file)
+    unresolved: list[str] = []
 
     # Roles
     for r in raw.get("roles", []):
@@ -209,7 +210,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
-    def _resolve_profiles(display_value: str) -> tuple[list[str], list[str]]:
+    def _resolve_profiles(display_value: str, context: str = "") -> tuple[list[str], list[str]]:
         """Parse a comma-separated displayValue of profile names."""
         names = [n.strip() for n in display_value.split(",") if n.strip()]
         ids = []
@@ -217,9 +218,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             if n in profile_by_name:
                 ids.append(profile_by_name[n].id)
             else:
-                # create a placeholder
-                pid = _stable_id(n)
-                ids.append(pid)
+                ctx = f" ({context})" if context else ""
+                unresolved.append(f"EnforcementProfile '{n}' not found{ctx}")
+                ids.append(_stable_id(n))  # placeholder; ValueError raised at end
         return ids, names
 
     # Role mapping policies
@@ -234,6 +235,10 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             if role_result:
                 role_name = role_result.get("displayValue", "")
                 role = role_by_name.get(role_name)
+                if role is None and role_name:
+                    unresolved.append(
+                        f"Role '{role_name}' not found (rule in RoleMappingPolicy '{rm['name']}')"
+                    )
                 then = SetRole(
                     role_id=role.id if role else _stable_id(role_name),
                     role_name=role_name,
@@ -245,6 +250,10 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
 
         default_role_name = rm.get("defaultRole", "")
         default_role = role_by_name.get(default_role_name)
+        if default_role_name and default_role is None:
+            unresolved.append(
+                f"Role '{default_role_name}' not found (default in RoleMappingPolicy '{rm['name']}')"
+            )
         default = SetRole(
             role_id=default_role.id if default_role else _stable_id(default_role_name),
             role_name=default_role_name,
@@ -270,13 +279,18 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_ids: list[str] = []
             profile_names: list[str] = []
             if enf_result:
-                profile_ids, profile_names = _resolve_profiles(enf_result.get("displayValue", ""))
+                ctx = f"rule in EnforcementPolicy '{ep['name']}'"
+                profile_ids, profile_names = _resolve_profiles(enf_result.get("displayValue", ""), ctx)
             then = ApplyProfiles(profile_ids=profile_ids, profile_names=profile_names)
             rule_id = f"{epid}_rule_{raw_rule['index']}"
             rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then))
 
         default_profile_name = ep.get("defaultProfile", "")
         default_profile = profile_by_name.get(default_profile_name)
+        if default_profile_name and default_profile is None:
+            unresolved.append(
+                f"EnforcementProfile '{default_profile_name}' not found (default in EnforcementPolicy '{ep['name']}')"
+            )
         default = ApplyProfiles(
             profile_ids=[default_profile.id] if default_profile else [_stable_id(default_profile_name)],
             profile_names=[default_profile_name] if default_profile_name else [],
@@ -300,22 +314,30 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         method_names = svc.get("authMethods", [])
         for mn in method_names:
             m = method_by_name.get(mn)
+            if m is None and mn:
+                unresolved.append(f"AuthMethod '{mn}' not found (referenced in Service '{svc['name']}')")
             method_ids.append(m.id if m else _stable_id(mn))
 
         source_ids = []
         source_names = svc.get("authSources", [])
         for sn in source_names:
             s = source_by_name.get(sn)
+            if s is None and sn:
+                unresolved.append(f"AuthSource '{sn}' not found (referenced in Service '{svc['name']}')")
             source_ids.append(s.id if s else _stable_id(sn))
 
         rm_names = svc.get("roleMappings", [])
         rm_name = rm_names[0] if rm_names else ""
         rm = rm_by_name.get(rm_name)
+        if rm_name and rm is None:
+            unresolved.append(f"RoleMappingPolicy '{rm_name}' not found (referenced in Service '{svc['name']}')")
         rm_id = rm.id if rm else _stable_id(rm_name)
 
         ep_names = svc.get("enfPolicies", [])
         ep_name = ep_names[0] if ep_names else ""
         ep = ep_by_name.get(ep_name)
+        if ep_name and ep is None:
+            unresolved.append(f"EnforcementPolicy '{ep_name}' not found (referenced in Service '{svc['name']}')")
         ep_id = ep.id if ep else _stable_id(ep_name)
 
         ir.services[svid] = Service(
@@ -335,5 +357,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             enforcement_policy_id=ep_id,
             enforcement_policy_name=ep_name,
         )
+
+    if unresolved:
+        raise ValueError("Unresolved references:\n" + "\n".join(unresolved))
 
     return ir

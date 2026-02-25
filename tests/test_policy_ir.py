@@ -83,3 +83,90 @@ def test_roles_populated(ir):
     assert "Students" in role_names
     assert "Faculty-Staff" in role_names
     assert "Blacklisted" in role_names
+
+
+# ---------------------------------------------------------------------------
+# Fail-fast reference validation
+# ---------------------------------------------------------------------------
+
+def _minimal_raw(**overrides) -> dict:
+    """Return the smallest valid raw dict, with optional field overrides."""
+    base = {
+        "roles": [],
+        "authMethods": [],
+        "authSources": [],
+        "radiusEnfProfiles": [],
+        "postAuthEnfProfiles": [],
+        "tacacsEnfProfiles": [],
+        "roleMappings": [],
+        "enforcementPolicies": [],
+        "services": [],
+    }
+    base.update(overrides)
+    return base
+
+
+def test_unresolved_enforcement_profile_raises():
+    raw = _minimal_raw(
+        enforcementPolicies=[{
+            "name": "TestPolicy",
+            "policyType": "RADIUS",
+            "rules": [{
+                "index": 1,
+                "expression": None,
+                "results": [{"name": "Enforcement-Profile", "displayValue": "GhostProfile"}],
+            }],
+        }]
+    )
+    with pytest.raises(ValueError, match="GhostProfile"):
+        build(raw)
+
+
+def test_unresolved_role_in_rule_raises():
+    raw = _minimal_raw(
+        roleMappings=[{
+            "name": "TestRM",
+            "ruleCombineAlgo": "first-applicable",
+            "rules": [{
+                "index": 1,
+                "expression": None,
+                "results": [{"name": "Role", "displayValue": "GhostRole"}],
+            }],
+            "defaultRole": "",
+        }]
+    )
+    with pytest.raises(ValueError, match="GhostRole"):
+        build(raw)
+
+
+def test_unresolved_default_role_raises():
+    raw = _minimal_raw(
+        roleMappings=[{
+            "name": "TestRM",
+            "ruleCombineAlgo": "first-applicable",
+            "rules": [],
+            "defaultRole": "NonExistentRole",
+        }]
+    )
+    with pytest.raises(ValueError, match="NonExistentRole"):
+        build(raw)
+
+
+def test_multiple_unresolved_refs_all_reported():
+    """All unresolved names should appear in the single ValueError message."""
+    raw = _minimal_raw(
+        enforcementPolicies=[{
+            "name": "TestPolicy",
+            "policyType": "RADIUS",
+            "rules": [{
+                "index": 1,
+                "expression": None,
+                "results": [{"name": "Enforcement-Profile", "displayValue": "Alpha, Beta"}],
+            }],
+        }]
+    )
+    with pytest.raises(ValueError) as exc_info:
+        build(raw)
+    msg = str(exc_info.value)
+    assert "Alpha" in msg
+    assert "Beta" in msg

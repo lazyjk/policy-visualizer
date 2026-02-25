@@ -6,7 +6,7 @@ Parses a ClearPass TipsContents XML export into a raw object model
 """
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from pathlib import Path
 from typing import Any
 

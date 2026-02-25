@@ -20,6 +20,7 @@ export interface FlowEdge {
 export interface FlowIR {
   service_id: string;
   service_name: string;
+  service_type: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
 }
@@ -28,6 +29,7 @@ export interface ServiceSummary {
   id: string;
   name: string;
   description: string;
+  service_type: string;
 }
 
 export interface ServiceListResponse {

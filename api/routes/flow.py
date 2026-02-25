@@ -10,6 +10,9 @@ from __future__ import annotations
 import dataclasses
 import tempfile
 from pathlib import Path
+from xml.etree.ElementTree import ParseError as XMLParseError
+
+import defusedxml.common
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
@@ -20,15 +23,45 @@ from src.policy_ir import build
 
 router = APIRouter()
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+_ALLOWED_EXTENSIONS = {".xml"}
+
+
+def _check_upload(file: UploadFile) -> None:
+    """Raise 415 if the file does not have an .xml extension."""
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="Only .xml files are accepted.")
+
+
+def _read_upload(file: UploadFile) -> bytes:
+    """Read upload into memory, raising 413 if it exceeds MAX_UPLOAD_BYTES."""
+    data = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+        )
+    return data
+
 
 def _parse_and_build(file: UploadFile):
-    """Save upload to a temp file, parse XML, build PolicyIR, return (raw, ir)."""
+    """Validate, read, and parse the XML upload; return (raw, ir) or raise 4xx."""
+    _check_upload(file)
+    data = _read_upload(file)
+
     with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
-        tmp.write(file.file.read())
+        tmp.write(data)
         tmp_path = Path(tmp.name)
     try:
         raw = parse(tmp_path)
         ir = build(raw, source_file=file.filename or "")
+    except (XMLParseError, defusedxml.common.DefusedXmlException) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid XML: {exc}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Processing error.") from exc
     finally:
         tmp_path.unlink(missing_ok=True)
     return raw, ir

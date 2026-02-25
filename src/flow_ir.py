@@ -16,6 +16,7 @@ from .normalizer import expr_to_label, expr_to_node_label
 from .policy_ir import (
     ApplyProfiles,
     EnforcementPolicy,
+    EnforcementProfile,
     PolicyIR,
     Service,
     SetRole,
@@ -57,8 +58,34 @@ class FlowIR:
         self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label))
 
 
-def _is_deny(profile_names: list[str]) -> bool:
-    return any("deny" in n.lower() for n in profile_names)
+_DENY_PROFILE_TYPES = {"radius_reject", "tacacs_other"}
+_DENY_ACTIONS = {"deny", "reject"}
+
+
+def _is_deny(
+    profile_ids: list[str],
+    profile_names: list[str],
+    profiles: dict[str, EnforcementProfile],
+) -> bool:
+    """Return True if any profile in the list represents a deny/reject outcome.
+
+    Resolution order:
+    1. profile_type field ("radius_reject", "tacacs_other") — canonical
+    2. action field ("deny", "reject") — secondary signal
+    3. name heuristic — fallback for profiles not present in the IR dict
+    """
+    for pid, name in zip(profile_ids, profile_names):
+        profile = profiles.get(pid)
+        if profile is not None:
+            if profile.profile_type in _DENY_PROFILE_TYPES:
+                return True
+            if profile.action.lower() in _DENY_ACTIONS:
+                return True
+        else:
+            # Fallback: profile not in IR (should not happen post-fail-fast)
+            if "deny" in name.lower():
+                return True
+    return False
 
 
 def _profiles_label(profile_names: list[str]) -> str:
@@ -156,7 +183,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             # YES → action → end
             if isinstance(rule.then, ApplyProfiles):
                 names = rule.then.profile_names
-                deny = _is_deny(names)
+                deny = _is_deny(rule.then.profile_ids, names, ir.enforcement_profiles)
                 action = flow.add_node(FlowNode(
                     id=f"{sid}__enf_action_{rule.index}",
                     type="action",
@@ -177,7 +204,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
         # Enforcement default (last NO path)
         if ep.default is not None and isinstance(ep.default, ApplyProfiles):
             def_names = ep.default.profile_names
-            deny = _is_deny(def_names)
+            deny = _is_deny(ep.default.profile_ids, def_names, ir.enforcement_profiles)
             def_action = flow.add_node(FlowNode(
                 id=f"{sid}__enf_default_action",
                 type="action",
