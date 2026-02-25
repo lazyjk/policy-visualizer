@@ -34,7 +34,7 @@ import { jsPDF } from "jspdf";
 import "@xyflow/react/dist/style.css";
 
 import type { FlowIR } from "../api";
-import { nodeTypes } from "./nodes/nodeTypes";
+import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
 
 // Fallback sizes used only when node.measured is undefined (shouldn't happen in pass 2).
 const NODE_SIZE_FALLBACKS: Record<string, { width: number; height: number }> = {
@@ -491,10 +491,16 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
 }
 
 // ---------------------------------------------------------------------------
-// AnnotationPanel — "Add Note" button; rendered inside <ReactFlow> for hook access
+// AnnotationPanel — "Add Note" + "Snap" toggle; rendered inside <ReactFlow>
 // ---------------------------------------------------------------------------
 
-function AnnotationPanel() {
+interface AnnotationPanelProps {
+  snapToGrid: boolean;
+  setSnapToGrid: React.Dispatch<React.SetStateAction<boolean>>;
+  nodeColors: NodeColors;
+}
+
+function AnnotationPanel({ snapToGrid, setSnapToGrid, nodeColors }: AnnotationPanelProps) {
   const { screenToFlowPosition, setNodes } = useReactFlow();
 
   const addAnnotation = useCallback(() => {
@@ -508,14 +514,105 @@ function AnnotationPanel() {
         id: `annotation-${Date.now()}`,
         type: "annotation",
         position: pos,
-        data: { text: "" },
+        data: { text: "", colors: nodeColors },
       },
     ]);
-  }, [screenToFlowPosition, setNodes]);
+  }, [screenToFlowPosition, setNodes, nodeColors]);
 
   return (
     <Panel position="top-left">
-      <button onClick={addAnnotation}>Add Note</button>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={addAnnotation}>Add Note</button>
+        <button
+          onClick={() => setSnapToGrid((s) => !s)}
+          style={snapToGrid ? { background: "#AED6F1", fontWeight: 600 } : undefined}
+        >
+          {snapToGrid ? "Snap: On" : "Snap: Off"}
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StylePanel — per-shape color picker; rendered inside <ReactFlow>
+// ---------------------------------------------------------------------------
+
+interface StylePanelProps {
+  nodeColors: NodeColors;
+  setNodeColors: React.Dispatch<React.SetStateAction<NodeColors>>;
+}
+
+const NODE_COLOR_LABELS: { key: keyof NodeColors; label: string }[] = [
+  { key: "start",      label: "Start" },
+  { key: "decision",   label: "Decision" },
+  { key: "process",    label: "Process" },
+  { key: "action",     label: "Action" },
+  { key: "end",        label: "End" },
+  { key: "annotation", label: "Annotation" },
+];
+
+function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
+  return (
+    <Panel position="bottom-left" style={{ marginLeft: 62 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 5,
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 6,
+          padding: "8px 10px",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 600, color: "#333", marginBottom: 1 }}>
+          Node Colors
+        </div>
+        {NODE_COLOR_LABELS.map(({ key, label }) => (
+          <label
+            key={key}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              fontSize: 11,
+              color: "#555",
+              userSelect: "none",
+            }}
+          >
+            <span
+              style={{
+                width: 16,
+                height: 16,
+                backgroundColor: nodeColors[key],
+                border: "1px solid #aaa",
+                borderRadius: 3,
+                display: "inline-block",
+                flexShrink: 0,
+              }}
+            />
+            <input
+              type="color"
+              value={nodeColors[key]}
+              onChange={(e) =>
+                setNodeColors((prev) => ({ ...prev, [key]: e.target.value }))
+              }
+              style={{
+                width: 0,
+                height: 0,
+                opacity: 0,
+                padding: 0,
+                border: "none",
+                position: "absolute",
+              }}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
     </Panel>
   );
 }
@@ -553,6 +650,11 @@ export default function FlowDiagram({ flow }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [layoutApplied, setLayoutApplied] = useState(false);
+  const [nodeColors, setNodeColors] = useState<NodeColors>(DEFAULT_NODE_COLORS);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  // Ref so the flow-load effect always uses the current colors without re-running layout.
+  const nodeColorsRef = useRef(nodeColors);
+  nodeColorsRef.current = nodeColors;
 
   // Only annotation nodes can be deleted; diagram nodes are immutable.
   const handleNodesChange = useCallback(
@@ -600,6 +702,11 @@ export default function FlowDiagram({ flow }: Props) {
     [nodes, setEdges]
   );
 
+  // Propagate color changes to all existing nodes (including user-placed annotations).
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, colors: nodeColors } })));
+  }, [nodeColors, setNodes]);
+
   useEffect(() => {
     const rawNodes: Node[] = flow.nodes.map((n) => ({
       id: n.id,
@@ -609,6 +716,7 @@ export default function FlowDiagram({ flow }: Props) {
         sub_label: n.sub_label,
         trace_rule_id: n.trace_rule_id,
         rank_group: n.rank_group,
+        colors: nodeColorsRef.current,
       },
       position: { x: 0, y: 0 },
     }));
@@ -656,24 +764,21 @@ export default function FlowDiagram({ flow }: Props) {
         fitView={false}
         minZoom={0.1}
         maxZoom={3}
+        snapToGrid={snapToGrid}
+        snapGrid={[20, 20]}
       >
         <Background gap={16} color="#e5e7eb" />
         <Controls />
         <MiniMap
-          nodeColor={(node) => {
-            const colors: Record<string, string> = {
-              start: "#AED6F1",
-              decision: "#FAD7A0",
-              process: "#A9DFBF",
-              action: "#D7BDE2",
-              end: "#F1948A",
-              annotation: "#FFFDE7",
-            };
-            return colors[node.type ?? "process"] ?? "#ccc";
-          }}
+          nodeColor={(node) => nodeColors[node.type as keyof NodeColors] ?? "#ccc"}
           style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
         />
-        <AnnotationPanel />
+        <AnnotationPanel
+          snapToGrid={snapToGrid}
+          setSnapToGrid={setSnapToGrid}
+          nodeColors={nodeColors}
+        />
+        <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
         <LayoutEffect
           layoutApplied={layoutApplied}
           setLayoutApplied={setLayoutApplied}

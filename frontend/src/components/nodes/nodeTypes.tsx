@@ -1,13 +1,33 @@
 /**
  * Custom React Flow node types.
- * Colors match the existing Graphviz renderer in src/renderer.py.
+ * Default colors match the existing Graphviz renderer in src/renderer.py.
+ * Node fill colors are user-configurable via the StylePanel (per shape).
  */
 import React, { useState } from "react";
 import { Handle, Position, type NodeProps, NodeToolbar, useReactFlow } from "@xyflow/react";
 
+export interface NodeColors {
+  start: string;
+  decision: string;
+  process: string;
+  action: string;
+  end: string;
+  annotation: string;
+}
+
+export const DEFAULT_NODE_COLORS: NodeColors = {
+  start:      "#AED6F1",
+  decision:   "#FAD7A0",
+  process:    "#A9DFBF",
+  action:     "#D7BDE2",
+  end:        "#F1948A",
+  annotation: "#FFFDE7",
+};
+
 interface NodeData {
   label: string;
   sub_label?: string;
+  colors?: NodeColors;
   [key: string]: unknown;
 }
 
@@ -62,12 +82,13 @@ const baseStyle: React.CSSProperties = {
 // start — ellipse
 export function StartNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const fill = d.colors?.start ?? DEFAULT_NODE_COLORS.start;
   return (
     <div
       title={[d.label, d.sub_label].filter(Boolean).join("\n")}
       style={{
         ...baseStyle,
-        background: "#AED6F1",
+        background: fill,
         borderRadius: "50%",
         border: "2px solid #5DADE2",
         padding: "10px 14px",
@@ -90,6 +111,7 @@ export function DecisionNode({ data }: NodeProps) {
   const [hovered, setHovered] = useState(false);
   const { display, overflow } = truncateLines(d.label, DIAMOND_LABEL_THRESHOLD);
   const isTruncated = overflow > 0;
+  const fill = d.colors?.decision ?? DEFAULT_NODE_COLORS.decision;
 
   return (
     <div
@@ -113,7 +135,7 @@ export function DecisionNode({ data }: NodeProps) {
       <Handle type="target" position={Position.Top} id="top" />
       <div
         style={{
-          background: "#FAD7A0",
+          background: fill,
           border: "2px solid #E59866",
           transform: "rotate(45deg)",
           width: 150,
@@ -152,12 +174,13 @@ export function DecisionNode({ data }: NodeProps) {
 // process — plain rectangle
 export function ProcessNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const fill = d.colors?.process ?? DEFAULT_NODE_COLORS.process;
   return (
     <div
       title={[d.label, d.sub_label].filter(Boolean).join("\n")}
       style={{
         ...baseStyle,
-        background: "#A9DFBF",
+        background: fill,
         border: "2px solid #52BE80",
       }}
     >
@@ -172,12 +195,13 @@ export function ProcessNode({ data }: NodeProps) {
 // action — rounded rectangle
 export function ActionNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const fill = d.colors?.action ?? DEFAULT_NODE_COLORS.action;
   return (
     <div
       title={[d.label, d.sub_label].filter(Boolean).join("\n")}
       style={{
         ...baseStyle,
-        background: "#D7BDE2",
+        background: fill,
         border: "2px solid #A569BD",
         borderRadius: 12,
       }}
@@ -192,12 +216,13 @@ export function ActionNode({ data }: NodeProps) {
 // end — double circle
 export function EndNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const fill = d.colors?.end ?? DEFAULT_NODE_COLORS.end;
   return (
     <div
       title={[d.label, d.sub_label].filter(Boolean).join("\n")}
       style={{
         ...baseStyle,
-        background: "#F1948A",
+        background: fill,
         border: "4px double #E74C3C",
         borderRadius: "50%",
         padding: "10px 14px",
@@ -222,7 +247,8 @@ export function EndNode({ data }: NodeProps) {
 // TODO(wysiwyg): Replace plain textarea edit mode with a lightweight WYSIWYG editor
 // (bold, italic, bullet lists) — targeted post-2.0.0 GA. See ANN-223 in release-map-2.0.md.
 export function AnnotationNode({ data, id }: NodeProps) {
-  const d = data as { text?: string };
+  const d = data as { text?: string; colors?: NodeColors };
+  const fill = d.colors?.annotation ?? DEFAULT_NODE_COLORS.annotation;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const { updateNodeData } = useReactFlow();
@@ -241,7 +267,7 @@ export function AnnotationNode({ data, id }: NodeProps) {
     <div
       onDoubleClick={startEdit}
       style={{
-        background: "#FFFDE7",
+        background: fill,
         border: "2px dashed #F9A825",
         borderRadius: 6,
         padding: "8px 10px",
