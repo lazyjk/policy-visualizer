@@ -148,6 +148,12 @@ class PolicyIR:
 # ---------------------------------------------------------------------------
 
 def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
+    # Policy IR schema version "1.0" is the wire-format contract version.
+    # It is independent of the app release version (e.g. "2.0.0-alpha.1").
+    # Bump the schema version only when the IR JSON structure changes in a
+    # breaking way (field renames, removals, or type changes). Adding optional
+    # fields is non-breaking and does not require a schema version bump.
+    # See CLAUDE.md § 12 "Versioning & Release Policy" for full rules.
     ir = PolicyIR(version="1.0", source_file=source_file)
     unresolved: list[str] = []
 
