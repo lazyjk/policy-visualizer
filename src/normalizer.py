@@ -21,10 +21,15 @@ class Op(str, Enum):
     not_ends_with = "not_ends_with"
     regex = "regex"
     in_ = "in"
+    matches_all = "matches_all"
     exists = "exists"
     not_exists = "not_exists"
     less_than = "less_than"
+    less_than_or_equals = "less_than_or_equals"
     greater_than = "greater_than"
+    greater_than_or_equals = "greater_than_or_equals"
+    equals_ignore_case = "equals_ignore_case"
+    not_regex = "not_regex"
     belongs_to_group = "belongs_to_group"
 
     @classmethod
@@ -35,17 +40,26 @@ class Op(str, Enum):
             "CONTAINS": cls.contains,
             "NOT_CONTAINS": cls.not_contains,
             "STARTS_WITH": cls.starts_with,
+            "BEGINS_WITH": cls.starts_with,
             "ENDS_WITH": cls.ends_with,
             "NOT_ENDS_WITH": cls.not_ends_with,
             "REGEX_MATCH": cls.regex,
+            "MATCHES_REGEX": cls.regex,
+            "NOT_MATCHES_REGEX": cls.not_regex,
             "IN": cls.in_,
             # Per-predicate MATCHES_ANY means "attribute is member of set" → in
             "MATCHES_ANY": cls.in_,
+            # Per-predicate MATCHES_ALL means "attribute must match all values"
+            "MATCHES_ALL": cls.matches_all,
             "EXISTS": cls.exists,
             "NOT_EXISTS": cls.not_exists,
+            "EQUALS_IGNORE_CASE": cls.equals_ignore_case,
             "LESS_THAN": cls.less_than,
+            "LESS_THAN_OR_EQUALS": cls.less_than_or_equals,
             "GREATER_THAN": cls.greater_than,
+            "GREATER_THAN_OR_EQUALS": cls.greater_than_or_equals,
             "BELONGS_TO_GROUP": cls.belongs_to_group,
+            "BELONGS_TO": cls.belongs_to_group,
         }
         upper = raw.upper()
         if upper not in mapping:

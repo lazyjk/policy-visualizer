@@ -106,7 +106,7 @@ def _minimal_raw(**overrides) -> dict:
     return base
 
 
-def test_unresolved_enforcement_profile_raises():
+def test_unresolved_enforcement_profile_warns():
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -118,11 +118,11 @@ def test_unresolved_enforcement_profile_raises():
             }],
         }]
     )
-    with pytest.raises(ValueError, match="GhostProfile"):
-        build(raw)
+    ir = build(raw)
+    assert any("GhostProfile" in w for w in ir.warnings)
 
 
-def test_unresolved_role_in_rule_raises():
+def test_unresolved_role_in_rule_warns():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -135,11 +135,11 @@ def test_unresolved_role_in_rule_raises():
             "defaultRole": "",
         }]
     )
-    with pytest.raises(ValueError, match="GhostRole"):
-        build(raw)
+    ir = build(raw)
+    assert any("GhostRole" in w for w in ir.warnings)
 
 
-def test_unresolved_default_role_raises():
+def test_unresolved_default_role_warns():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -148,12 +148,12 @@ def test_unresolved_default_role_raises():
             "defaultRole": "NonExistentRole",
         }]
     )
-    with pytest.raises(ValueError, match="NonExistentRole"):
-        build(raw)
+    ir = build(raw)
+    assert any("NonExistentRole" in w for w in ir.warnings)
 
 
 def test_multiple_unresolved_refs_all_reported():
-    """All unresolved names should appear in the single ValueError message."""
+    """All unresolved names should appear in the warnings list."""
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -165,8 +165,7 @@ def test_multiple_unresolved_refs_all_reported():
             }],
         }]
     )
-    with pytest.raises(ValueError) as exc_info:
-        build(raw)
-    msg = str(exc_info.value)
-    assert "Alpha" in msg
-    assert "Beta" in msg
+    ir = build(raw)
+    all_warnings = "\n".join(ir.warnings)
+    assert "Alpha" in all_warnings
+    assert "Beta" in all_warnings

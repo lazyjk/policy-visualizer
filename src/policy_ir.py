@@ -7,11 +7,14 @@ Uses stable deterministic IDs derived from object names.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from .normalizer import BooleanExpr, normalize
+
+logger = logging.getLogger(__name__)
 
 
 def _stable_id(name: str) -> str:
@@ -141,6 +144,7 @@ class PolicyIR:
     roles: dict[str, Role] = field(default_factory=dict)
     auth_methods: dict[str, AuthMethod] = field(default_factory=dict)
     auth_sources: dict[str, AuthSource] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -365,6 +369,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         )
 
     if unresolved:
-        raise ValueError("Unresolved references:\n" + "\n".join(unresolved))
+        for msg in unresolved:
+            logger.warning("Unresolved reference: %s", msg)
+        ir.warnings = unresolved
 
     return ir

@@ -130,4 +130,5 @@ async def get_flow(
         service_type=flow.service_type,
         nodes=nodes,
         edges=edges,
+        warnings=ir.warnings,
     )

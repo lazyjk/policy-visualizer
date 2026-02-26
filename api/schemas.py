@@ -28,6 +28,7 @@ class FlowIRSchema(BaseModel):
     service_type: str = "RADIUS"
     nodes: list[FlowNodeSchema]
     edges: list[FlowEdgeSchema]
+    warnings: list[str] = []
 
 
 class ServiceSummary(BaseModel):
