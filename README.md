@@ -1,6 +1,6 @@
-# ClearPass Policy Visualizer
+# Policy Visualizer
 
-ClearPass Policy Visualizer converts a ClearPass XML service export into:
+Policy Visualizer converts a network policy XML service export into:
 
 - a normalized policy model,
 - a compiled decision-flow graph,

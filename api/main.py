@@ -11,9 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes.flow import router
 
 app = FastAPI(
-    title="ClearPass Policy Visualizer API",
-    version="2.0.0-rc.1",
-    description="Converts a ClearPass XML service export into a Flow IR diagram.",
+    title="Policy Visualizer API",
+    version="2.0.0-rc.2",
+    description="Converts a network policy XML service export into a Flow IR diagram.",
 )
 
 app.add_middleware(

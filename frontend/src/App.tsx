@@ -79,7 +79,7 @@ export default function App() {
               fontSize: 15,
             }}
           >
-            {loading ? "Compiling diagram…" : "Upload a ClearPass XML file to begin"}
+            {loading ? "Compiling diagram…" : "Upload a service or policy XML file to begin"}
           </div>
         )}
       </div>

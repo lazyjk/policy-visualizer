@@ -24,7 +24,7 @@ export default function UploadPanel({
 
   function handleFile(file: File) {
     if (!file.name.endsWith(".xml")) {
-      alert("Please upload a ClearPass XML export file (.xml).");
+      alert("Please upload an XML file (.xml).");
       return;
     }
     onFileSelect(file);
@@ -45,7 +45,7 @@ export default function UploadPanel({
   return (
     <div style={panelStyle}>
       <h2 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600 }}>
-        ClearPass Policy Visualizer
+        Policy Visualizer
       </h2>
 
       {/* Drop zone */}
@@ -69,7 +69,7 @@ export default function UploadPanel({
         />
         <span style={{ fontSize: 28 }}>📁</span>
         <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-          {loading ? "Processing…" : "Drop a ClearPass XML file here or click to browse"}
+          {loading ? "Processing…" : "Drop a service or policy XML file here or click to browse"}
         </p>
       </div>
 
