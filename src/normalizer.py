@@ -83,7 +83,7 @@ BooleanExpr = Union[Predicate, And, Or, Not]
 
 def _parse_namespace_attr(type_str: str, name_str: str) -> tuple[str, str]:
     """Split ClearPass 'type' and 'name' into (namespace, attribute)."""
-    # type examples: "Radius:Aruba", "Radius:IETF", "Authorization:AD", "Tips"
+    # type examples: "Radius:Aruba", "Radius:IETF", "Authorization:Directory", "Tips"
     return type_str, name_str
 
 

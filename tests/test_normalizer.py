@@ -53,7 +53,7 @@ def test_single_predicate_unwrapped():
         "operator": "OR",
         "displayOperator": "MATCHES_ANY",
         "attributes": [
-            _raw_attr("memberOf", "Authorization:AD", "EQUALS", "CN=Group,DC=msu")
+            _raw_attr("memberOf", "Authorization:Directory", "EQUALS", "CN=Group,DC=example")
         ],
     }
     result = normalize(raw)
