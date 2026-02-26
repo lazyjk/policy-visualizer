@@ -106,7 +106,7 @@ def _minimal_raw(**overrides) -> dict:
     return base
 
 
-def test_unresolved_enforcement_profile_warns():
+def test_unresolved_enforcement_profile_creates_placeholder():
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -119,10 +119,11 @@ def test_unresolved_enforcement_profile_warns():
         }]
     )
     ir = build(raw)
-    assert any("GhostProfile" in w for w in ir.warnings)
+    profiles = {p.name for p in ir.enforcement_profiles.values()}
+    assert "GhostProfile" in profiles
 
 
-def test_unresolved_role_in_rule_warns():
+def test_unresolved_role_in_rule_creates_placeholder():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -136,10 +137,11 @@ def test_unresolved_role_in_rule_warns():
         }]
     )
     ir = build(raw)
-    assert any("GhostRole" in w for w in ir.warnings)
+    roles = {r.name for r in ir.roles.values()}
+    assert "GhostRole" in roles
 
 
-def test_unresolved_default_role_warns():
+def test_unresolved_default_role_creates_placeholder():
     raw = _minimal_raw(
         roleMappings=[{
             "name": "TestRM",
@@ -149,11 +151,12 @@ def test_unresolved_default_role_warns():
         }]
     )
     ir = build(raw)
-    assert any("NonExistentRole" in w for w in ir.warnings)
+    roles = {r.name for r in ir.roles.values()}
+    assert "NonExistentRole" in roles
 
 
-def test_multiple_unresolved_refs_all_reported():
-    """All unresolved names should appear in the warnings list."""
+def test_multiple_unresolved_profiles_all_created():
+    """All unresolved profile names should become placeholder entries."""
     raw = _minimal_raw(
         enforcementPolicies=[{
             "name": "TestPolicy",
@@ -166,6 +169,6 @@ def test_multiple_unresolved_refs_all_reported():
         }]
     )
     ir = build(raw)
-    all_warnings = "\n".join(ir.warnings)
-    assert "Alpha" in all_warnings
-    assert "Beta" in all_warnings
+    profiles = {p.name for p in ir.enforcement_profiles.values()}
+    assert "Alpha" in profiles
+    assert "Beta" in profiles
