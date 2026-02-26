@@ -12,7 +12,7 @@ from api.routes.flow import router
 
 app = FastAPI(
     title="Policy Visualizer API",
-    version="2.0.0-rc.2",
+    version="2.0.0",
     description="Converts a network policy XML service export into a Flow IR diagram.",
 )
 

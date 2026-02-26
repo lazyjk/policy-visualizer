@@ -25,9 +25,9 @@ Pre-release ladder for 2.0:
 ## Release Lanes
 
 - `1.27.x`: maintenance only (bug fixes/docs/chore)
-- `2.0.0-*`: active feature train
-- `2.1.0`: reserved for ISE import implementation
-- `2.2.0+`: reserved for ISE export (if feasible after import parity)
+- `2.0.0-*`: active feature train → **GA released**
+- `2.0.x`: maintenance patches (post-GA bug fixes, chore, docs)
+- `3.0.0`: ISE integration (moved from original 2.1.0/2.2.0 plan; see release-map-3.0.md)
 
 ## Milestone Timeline
 
@@ -131,7 +131,7 @@ Exit criteria:
 - Determinism confirmed for all existing test fixtures
 - Release notes drafted
 
-### `2.0.0-rc.1` — Release Candidate → NEXT
+### `2.0.0-rc.1` — Release Candidate ✅ RELEASED
 
 - Feature freeze
 - Docs and packaging verification:
@@ -142,7 +142,7 @@ Exit criteria:
 - Release notes drafted
 - Packaging and runbook validated
 
-### `2.0.0` — Public GA
+### `2.0.0` — Public GA ✅ RELEASED
 
 - Tag and publish with final changelog
 - Maintain patch cadence via `2.0.x`
@@ -208,16 +208,16 @@ Exit criteria:
 - ⏸ COL-241: Add collapse behavior tests in [tests/test_flow_ir.py](../tests/test_flow_ir.py) and frontend test harness (if present)
   Acceptance: edge correctness and restore behavior verified.
 
-## Epic ISE — Discovery/Spec Only (2.0 Scope)
+## Epic ISE — ➡ Moved to 3.0 Track
 
-- ISE-250: Create ISE-to-IR mapping matrix using [src/parser.py](../src/parser.py), [src/policy_ir.py](../src/policy_ir.py), [src/flow_ir.py](../src/flow_ir.py)
-  Acceptance: mapping coverage, assumptions, and gaps documented.
+> **Note:** ISE integration has been moved from the originally planned `2.1.0` to the
+> `3.0.0` major release track. ISE's policy model (Policy Sets, AuthN/AuthZ policies,
+> SGTs) is expected to require breaking changes to the `PolicyIR` schema, warranting a
+> major version bump. See `docs/release-map-3.0.md` for the 3.0 roadmap.
 
-- ISE-251: Define fixtures and determinism test strategy in [tests](../tests)
-  Acceptance: proposed fixture set and validation approach approved.
-
-- ISE-252: Publish implementation recommendation for `2.1.0` ISE import
-  Acceptance: scope, risks, and phased estimate approved; no production ISE parser code in `2.0.0`.
+- ➡ ISE-250: ISE-to-IR mapping matrix → moved to 3.0-alpha.1
+- ➡ ISE-251: Fixture strategy → moved to 3.0-alpha.1
+- ➡ ISE-252: Architecture decision record → moved to 3.0-alpha.1
 
 ---
 
