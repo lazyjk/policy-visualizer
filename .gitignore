@@ -23,6 +23,8 @@ htmlcov/
 *.svg
 *.png
 *.pdf
+# Allow tracked assets (e.g. README screenshots)
+!docs/assets/**
 
 # Reference files (sensitive policy exports)
 reference-files/

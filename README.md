@@ -8,6 +8,8 @@ Policy Visualizer converts a network policy XML service export into:
 
 It also supports CLI rendering to static diagram formats for offline/scripted workflows.
 
+![Policy Visualizer screenshot](docs/assets/policy-visualizer-screenshot.png)
+
 ## What it does
 
 - Parses ClearPass service export XML (RADIUS + TACACS)
