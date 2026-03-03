@@ -25,6 +25,7 @@ export interface FlowIR {
   service_type: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  warnings: string[];
 }
 
 export interface ServiceSummary {
