@@ -8,7 +8,7 @@
  * LayoutEffect is rendered *inside* <ReactFlow> so it has access to context hooks
  * (useNodesInitialized, useReactFlow) which are not available in the parent.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import {
   ReactFlow,
   Background,
@@ -44,6 +44,54 @@ const NODE_SIZE_FALLBACKS: Record<string, { width: number; height: number }> = {
   action: { width: 160, height: 70 },
   end: { width: 130, height: 60 },
 };
+
+type DiagramNodeType = FlowIR["nodes"][number]["type"] | "annotation";
+type BranchClass = "forward" | "no" | "fail" | "unknown";
+
+// Connector policy (preference-locked):
+// - Global direction: left → right
+// - Decision exits: YES/PASS forward-right, NO downward
+// - Process exits: forward-right default, FAIL downward
+// - End entry: forward enters left, NO/FAIL enters top
+function normalizeEdgeLabel(label?: string): string | undefined {
+  const normalized = label?.trim().toUpperCase();
+  return normalized ? normalized : undefined;
+}
+
+function getBranchClass(label?: string): BranchClass {
+  const normalized = normalizeEdgeLabel(label);
+  if (normalized === "YES" || normalized === "PASS") return "forward";
+  if (normalized === "NO") return "no";
+  if (normalized === "FAIL") return "fail";
+  return "unknown";
+}
+
+function resolveSourceHandle(sourceType: DiagramNodeType | undefined, label?: string): string | undefined {
+  const branch = getBranchClass(label);
+  switch (sourceType) {
+    case "decision":
+      return branch === "no" ? "no" : "yes";
+    case "process":
+      return branch === "fail" ? "fail" : undefined;
+    case "start":
+    case "action":
+    case "end":
+    case "annotation":
+    default:
+      return undefined;
+  }
+}
+
+function resolveTargetHandle(targetType: DiagramNodeType | undefined, label?: string): string | undefined {
+  const branch = getBranchClass(label);
+  if (targetType === "decision") {
+    return branch === "no" ? "top" : "left";
+  }
+  if (targetType === "end") {
+    return branch === "no" || branch === "fail" ? "top" : "left";
+  }
+  return undefined;
+}
 
 function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   // Annotation nodes are freely positioned by the user — exclude them from dagre layout
@@ -96,8 +144,9 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const noTarget  = new Map<string, string>(); // source → NO-edge target id
   const outEdges  = new Map<string, string[]>(); // source → all target ids
   edges.forEach((e) => {
-    if (e.label === "YES") yesTarget.set(e.source, e.target);
-    if (e.label === "NO")  noTarget.set(e.source, e.target);
+    const branch = getBranchClass(e.label?.toString());
+    if (branch === "forward") yesTarget.set(e.source, e.target);
+    if (branch === "no") noTarget.set(e.source, e.target);
     if (!outEdges.has(e.source)) outEdges.set(e.source, []);
     outEdges.get(e.source)!.push(e.target);
   });
@@ -332,7 +381,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     const nw = node.measured?.width ?? nfb.width;
     const nh = node.measured?.height ?? nfb.height;
 
-    let newX = srcNode.position.x + (sb.w - nw) / 2;
+    const newX = srcNode.position.x + (sb.w - nw) / 2;
     // Use the larger LABEL_GAP for end nodes so the edge label is visible above them.
     let newY = srcNode.position.y + sb.h + (node.type === "end" ? LABEL_GAP : VERT_GAP);
 
@@ -620,23 +669,22 @@ function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
 // ---------------------------------------------------------------------------
 
 interface LayoutEffectProps {
-  layoutApplied: boolean;
-  setLayoutApplied: (val: boolean) => void;
+  layoutAppliedRef: MutableRefObject<boolean>;
 }
 
 /** Rendered inside <ReactFlow> so it can use React Flow context hooks. */
-function LayoutEffect({ layoutApplied, setLayoutApplied }: LayoutEffectProps) {
+function LayoutEffect({ layoutAppliedRef }: LayoutEffectProps) {
   const nodesInitialized = useNodesInitialized();
   const { setNodes, fitView, getEdges } = useReactFlow();
 
   useEffect(() => {
-    if (!nodesInitialized || layoutApplied) return;
+    if (!nodesInitialized || layoutAppliedRef.current) return;
     const edges = getEdges();
     setNodes((nds) => applyDagreLayout(nds, edges));
-    setLayoutApplied(true);
+    layoutAppliedRef.current = true;
     // Brief delay to let React Flow commit the position update before fitting the view.
     setTimeout(() => fitView({ padding: 0.15 }), 50);
-  }, [nodesInitialized, layoutApplied, getEdges, setNodes, fitView, setLayoutApplied]);
+  }, [nodesInitialized, getEdges, setNodes, fitView, layoutAppliedRef]);
 
   return null;
 }
@@ -649,12 +697,14 @@ export default function FlowDiagram({ flow }: Props) {
   const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [layoutApplied, setLayoutApplied] = useState(false);
+  const layoutAppliedRef = useRef(false);
   const [nodeColors, setNodeColors] = useState<NodeColors>(DEFAULT_NODE_COLORS);
   const [snapToGrid, setSnapToGrid] = useState(false);
   // Ref so the flow-load effect always uses the current colors without re-running layout.
   const nodeColorsRef = useRef(nodeColors);
-  nodeColorsRef.current = nodeColors;
+  useEffect(() => {
+    nodeColorsRef.current = nodeColors;
+  }, [nodeColors]);
 
   // Only annotation nodes can be deleted; diagram nodes are immutable.
   const handleNodesChange = useCallback(
@@ -727,19 +777,8 @@ export default function FlowDiagram({ flow }: Props) {
       type: "smoothstep",
       source: e.from_id,
       target: e.to_id,
-      sourceHandle: e.label === "YES" ? "yes" : e.label === "NO" ? "no" : e.label === "FAIL" ? "fail" : undefined,
-      targetHandle: (() => {
-        const tt = nodeTypeById.get(e.to_id);
-        // NO chain edges arrive from above — use top handle.
-        if (e.label === "NO" && tt === "decision") return "top";
-        // NO/FAIL terminal edges arrive from above — use top handle.
-        if ((e.label === "NO" || e.label === "FAIL") && tt === "end") return "top";
-        // All other forward-path edges to decisions use the explicit left handle.
-        if (tt === "decision") return "left";
-        // All other forward-path edges to end nodes use the explicit left handle.
-        if (tt === "end") return "left";
-        return undefined;
-      })(),
+      sourceHandle: resolveSourceHandle(nodeTypeById.get(e.from_id), e.label),
+      targetHandle: resolveTargetHandle(nodeTypeById.get(e.to_id), e.label),
       label: e.label || undefined,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
       style: { stroke: "#555", strokeWidth: 1.5 },
@@ -749,7 +788,7 @@ export default function FlowDiagram({ flow }: Props) {
 
     setNodes(rawNodes);
     setEdges(rawEdges);
-    setLayoutApplied(false); // Reset so layout runs again when a new flow loads.
+    layoutAppliedRef.current = false; // Reset so layout runs again when a new flow loads.
   }, [flow, setNodes, setEdges]);
 
   return (
@@ -780,8 +819,7 @@ export default function FlowDiagram({ flow }: Props) {
         />
         <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
         <LayoutEffect
-          layoutApplied={layoutApplied}
-          setLayoutApplied={setLayoutApplied}
+          layoutAppliedRef={layoutAppliedRef}
         />
         <ExportPanel wrapperRef={flowWrapperRef} serviceName={flow.service_name} />
       </ReactFlow>

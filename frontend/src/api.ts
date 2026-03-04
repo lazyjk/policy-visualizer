@@ -11,10 +11,12 @@ export interface FlowNode {
   rank_group: string;
 }
 
+export type FlowEdgeLabel = "" | "YES" | "NO" | "FAIL" | "PASS";
+
 export interface FlowEdge {
   from_id: string;
   to_id: string;
-  label: string;
+  label: FlowEdgeLabel;
 }
 
 export interface FlowIR {
@@ -23,6 +25,7 @@ export interface FlowIR {
   service_type: string;
   nodes: FlowNode[];
   edges: FlowEdge[];
+  warnings: string[];
 }
 
 export interface ServiceSummary {

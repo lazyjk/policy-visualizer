@@ -106,7 +106,7 @@ python -m src.cli path/to/service.xml --output diagram.pdf --format pdf
 - `POST /api/services` — upload XML and list services
 - `POST /api/flow` — upload XML and compile selected/default service to Flow IR
 
-Expected API error statuses include `413` (oversized upload), `415` (wrong extension), `422` (invalid XML/unresolved references), and `500` (processing error).
+The maximum upload size is **10 MB**; files larger than this return HTTP `413`. Other error statuses: `415` (wrong extension), `422` (invalid XML structure or no services found), `500` (processing error). Unresolved object references are soft-failed — the API returns HTTP `200` with a `warnings` array in the response.
 
 ## Test suite
 

@@ -83,3 +83,22 @@ def test_deterministic_compilation(flow):
     edges1 = sorted((e.from_id, e.to_id, e.label) for e in flow.edges)
     edges2 = sorted((e.from_id, e.to_id, e.label) for e in flow2.edges)
     assert edges1 == edges2
+
+
+def test_non_empty_edge_labels_use_known_contract(flow):
+    known = {"YES", "NO", "FAIL", "PASS"}
+    labels = {e.label for e in flow.edges if e.label}
+    assert labels.issubset(known), f"Unknown edge labels found: {sorted(labels - known)}"
+
+
+def test_pass_edge_is_single_forward_transition_from_auth(flow):
+    node_by_id = {n.id: n for n in flow.nodes}
+    pass_edges = [e for e in flow.edges if e.label == "PASS"]
+    assert len(pass_edges) == 1
+
+    edge = pass_edges[0]
+    source = node_by_id[edge.from_id]
+    target = node_by_id[edge.to_id]
+
+    assert source.type == "process"
+    assert target.type in {"decision", "end"}

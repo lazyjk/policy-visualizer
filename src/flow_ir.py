@@ -23,6 +23,7 @@ from .policy_ir import (
 )
 
 NodeType = Literal["start", "process", "decision", "action", "end"]
+EdgeLabel = Literal["", "YES", "NO", "FAIL", "PASS"]
 
 
 @dataclass
@@ -39,7 +40,7 @@ class FlowNode:
 class FlowEdge:
     from_id: str
     to_id: str
-    label: str = ""
+    label: EdgeLabel = ""
 
 
 @dataclass
@@ -54,7 +55,7 @@ class FlowIR:
         self.nodes.append(node)
         return node
 
-    def add_edge(self, from_id: str, to_id: str, label: str = "") -> None:
+    def add_edge(self, from_id: str, to_id: str, label: EdgeLabel = "") -> None:
         self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label))
 
 

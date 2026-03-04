@@ -9,6 +9,13 @@ This roadmap targets first public GA release `2.0.0` with:
 - Hardening: full test sweep, determinism verification, Docker packaging validation
 - Cisco ISE work limited to discovery/spec only (no ISE parser implementation in 2.0.0)
 
+Connector routing policy baseline (implemented in interactive flow):
+- Left-to-right primary progression
+- Decision exits: `YES`/`PASS` on right, `NO` on bottom
+- Process exits: forward/default on right, `FAIL` on bottom
+- End-node entry: forward on left, `NO`/`FAIL` on top
+- Chain constraints: rm/enf decisions remain fixed x-columns; actions remain to the right
+
 ## Versioning Scheme
 
 Use strict Semantic Versioning:
@@ -92,14 +99,13 @@ Exit criteria met:
 - Color selections reflected consistently and export-visible
 - Snap-to-grid functional and stable
 
-### `2.0.0-beta.1` — Vertical Collapse v1 ⏸ DEFERRED (TBD)
+### `2.0.0-beta.1` — Vertical Collapse v1 ❌ PERMANENTLY ABANDONED
 
-> **Status**: Deferred indefinitely. An implementation was attempted and reverted.
-> The chain compression post-process in `applyDagreLayout` conflicts with collapsed
-> summary nodes (wrong x-positions). The `buildVisibleGraph` absorption also needs
-> to be iterative (decision → action → end), not one-shot.
-> Preserved plan: `~/.claude/plans/cozy-enchanting-cocoa.md`.
-> Infrastructure hooks remain in place (`rank_group` on FlowNode).
+> **Status**: Implementation attempted and permanently abandoned. The chain
+> compression post-process in `applyDagreLayout` conflicts with collapsed summary
+> nodes (wrong x-positions). The `buildVisibleGraph` absorption also needs to be
+> iterative (decision → action → end), not one-shot. See Epic COL below.
+> Root-cause analysis preserved at `~/.claude/plans/cozy-enchanting-cocoa.md`.
 
 - Implement vertical chain collapse/expand for:
   - role-mapping decision chain
@@ -195,18 +201,28 @@ Exit criteria:
   Acceptance: color selections are reflected consistently and export-visible.
   _Shipped: alpha.4._
 
-- ⏸ UX-230: Session drag persistence — deferred to post-2.0.0 GA or TBD.
-- ⏸ UX-231: Auto-align action — deferred to post-2.0.0 GA or TBD.
-- ⏸ UX-233: Multi-service tabbed flow viewing — deferred to post-2.0.0 GA or TBD.
+- ❌ UX-230: Session drag persistence — **won't fix** (low user demand vs. complexity; not worth the state-management overhead post-GA).
+- ❌ UX-231: Auto-align action — **won't fix** (edge-case utility; conflicts with user manual layout intent).
+- ❌ UX-233: Multi-service tabbed flow viewing — **won't fix** (deferred to 3.0 track if ISE multi-service model needs it).
 
-## Epic COL — Vertical Collapse v1 ⏸ DEFERRED (TBD)
+- ⏸ UX-234: Expose `HORIZ_GAP` constant as a user-adjustable toolbar input
+  (slider or number input) in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
+  Hook: `// TODO(interactive)` comment at ~line 159.
+  Acceptance: user can adjust horizontal column spacing; change reflected live without reloading the diagram.
+  Target: 2.1.0.
 
-- ⏸ COL-240: Implement vertical chain collapse/expand in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx) using `rank_group` from [src/flow_ir.py](../src/flow_ir.py)
-  Acceptance: rm/enf chains collapse and expand without semantic breakage.
-  _Preserved plan: `~/.claude/plans/cozy-enchanting-cocoa.md`._
+## Epic COL — Vertical Collapse v1 ❌ WON'T FIX
 
-- ⏸ COL-241: Add collapse behavior tests in [tests/test_flow_ir.py](../tests/test_flow_ir.py) and frontend test harness (if present)
-  Acceptance: edge correctness and restore behavior verified.
+> **Status**: Permanently abandoned. Implementation was attempted and reverted.
+> Root cause: the chain compression post-process in `applyDagreLayout` conflicts
+> with collapsed summary nodes (wrong x-positions); `buildVisibleGraph` absorption
+> would also need to be iterative rather than one-shot.
+> Root-cause analysis preserved at `~/.claude/plans/cozy-enchanting-cocoa.md`.
+> Infrastructure hook (`rank_group` on FlowNode) remains in place but is unused.
+
+- ❌ COL-240: Implement vertical chain collapse/expand — **won't fix** (see epic note above).
+
+- ❌ COL-241: Add collapse behavior tests — **won't fix** (no implementation to test).
 
 ## Epic ISE — ➡ Moved to 3.0 Track
 
@@ -221,29 +237,24 @@ Exit criteria:
 
 ---
 
-## Deferred — Post-2.0.0 GA
+## Open — Post-2.0.0 GA
 
-Items with infrastructure hooks in place but intentionally out of 2.0.0 scope.
+Items with infrastructure hooks in place, explicitly scheduled or open for 2.1.0+.
 **Do not implement until explicitly scheduled.**
 
-- ANN-223: Replace plain-textarea annotation editing with a mini WYSIWYG editor
+- **[NEXT] ANN-223**: Replace plain-textarea annotation editing with a mini WYSIWYG editor
   (bold, italic, bullet lists) in [frontend/src/components/nodes/nodeTypes.tsx](../frontend/src/components/nodes/nodeTypes.tsx)
   Acceptance: formatted text renders correctly in both the diagram UI and all export formats.
   Hook: `// TODO(wysiwyg)` comment on `AnnotationNode` in nodeTypes.tsx.
-  Target: `2.1.0` or later.
+  Target: `2.1.0`.
 
-- UX-230: Session drag persistence in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
-  Acceptance: nodes remain where placed during workflow.
+- UX-234: Expose `HORIZ_GAP` as a user-adjustable toolbar input in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
+  Hook: `// TODO(interactive)` at ~line 159.
+  Target: `2.1.0`.
 
-- UX-231: Add auto-align action in [frontend/src/components/FlowDiagram.tsx](../frontend/src/components/FlowDiagram.tsx)
-  Acceptance: diagram can be normalized to clean vertical/horizontal alignment.
+**ISE integration** → moved to 3.0 track (see Epic ISE above).
 
-- UX-233: Add multi-service tabbed flow viewing in [frontend/src/App.tsx](../frontend/src/App.tsx), [frontend/src/components/UploadPanel.tsx](../frontend/src/components/UploadPanel.tsx), and [frontend/src/api.ts](../frontend/src/api.ts)
-  Acceptance: multiple services viewable in tabs; no merged graph.
-
-- COL-240 / COL-241: Vertical chain collapse/expand (see Epic COL above).
-  Preserved plan: `~/.claude/plans/cozy-enchanting-cocoa.md`.
-  Target: `2.1.0` or later.
+**Closed items** (UX-230, UX-231, UX-233, COL-240, COL-241) — marked won't-fix in their respective epics above.
 
 ---
 
