@@ -27,7 +27,7 @@ import {
   type EdgeChange,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import { toPng, toSvg, toJpeg } from "html-to-image";
+import { toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
@@ -623,11 +623,10 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
         return { dataUrl, pixelRatio };
       }
 
-      // Raster capture — always transparent so the viewport transform doesn't
-      // cause background offset artifacts.
-      const rawDataUrl = format === "jpeg"
-        ? await toJpeg(viewportEl, { ...options, quality: 0.92 })
-        : await toPng(viewportEl, options);
+      // Always capture as transparent PNG. Using toJpeg here would encode
+      // transparent pixels as black *before* applyBackground can add the white
+      // fill, causing a black background on the output.
+      const rawDataUrl = await toPng(viewportEl, options);
 
       // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
       // Composite onto a white canvas to guarantee a clean, full-coverage background.
