@@ -133,3 +133,7 @@ From repository root:
 - Annotations support rich text (bold, italic, bullets, fonts, images) via the WYSIWYG editor.
 - The app is deterministic by design: same XML input produces the same compiled graph structure.
 - Current workflow is upload/view-only (no policy editing UI).
+
+## License
+
+MIT © 2026 James Jackson

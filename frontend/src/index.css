@@ -20,6 +20,12 @@ button {
   cursor: pointer;
 }
 
+/* Hide connection handles on diagram nodes — edges still render; only annotation nodes show handles */
+.react-flow__node:not(.react-flow__node-annotation) .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Tiptap annotation node content */
 .tiptap { outline: none; }
 .tiptap p { margin: 0 0 4px; }
