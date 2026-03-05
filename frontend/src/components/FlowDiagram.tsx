@@ -503,7 +503,7 @@ interface ExportPanelProps {
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
 const EXPORT_MAX_PIXELS = 16_000_000; // ~16 MP  (e.g. 4000×4000)
-const EXPORT_PADDING    = 50;         // px padding around diagram in exports
+const EXPORT_PADDING    = 80;         // px padding around diagram in exports (extra room for edge curves)
 
 /** Compute the highest integer pixelRatio that stays within a pixel budget. */
 function clampPixelRatio(
@@ -626,6 +626,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     setExporting(true);
     try {
       // Use JPEG for PDF — dramatically smaller file size vs PNG with no visible quality loss.
+      // JPEG has no alpha channel, so transparentBg is intentionally ignored here.
       const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
       const img = new Image();
       img.src = dataUrl;
