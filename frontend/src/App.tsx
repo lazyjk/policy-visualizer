@@ -4,6 +4,7 @@ import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
 import { fetchServices, fetchFlow } from "./api";
 import type { FlowIR, ServiceSummary } from "./api";
+import { version } from "../package.json";
 import "./App.css";
 
 export default function App() {
@@ -112,6 +113,13 @@ export default function App() {
             {loading ? "Compiling diagram…" : "Upload a service or policy XML file to begin"}
           </div>
         )}
+      </div>
+      <div style={{
+        position: "fixed", bottom: 10, left: 10, zIndex: 100,
+        fontFamily: "Helvetica, Arial, sans-serif", fontSize: 11,
+        color: "#9ca3af", pointerEvents: "none", userSelect: "none",
+      }}>
+        v{version}
       </div>
     </div>
   );

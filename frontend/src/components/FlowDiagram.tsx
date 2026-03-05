@@ -500,91 +500,203 @@ interface ExportPanelProps {
   serviceName: string;
 }
 
+// Maximum total pixels for rasterised exports.  Keeps file size and memory
+// usage reasonable even for very large diagrams.
+const EXPORT_MAX_PIXELS = 64_000_000; // ~64 MP — allows pixelRatio ≥ 2 even for large diagrams
+const EXPORT_PADDING    = 80;         // px padding around diagram in exports (extra room for edge curves)
+
+/**
+ * Composite a captured (potentially transparent) dataUrl onto a solid white
+ * canvas.  html-to-image's backgroundColor option is applied to the target
+ * element, not the canvas — so when the element is CSS-transformed the
+ * background is offset and transparent pixels leak through.  Compositing here
+ * fixes that by filling the full canvas first.
+ */
+async function applyBackground(
+  dataUrl: string,
+  widthPx: number,
+  heightPx: number,
+  mimeType: "image/png" | "image/jpeg",
+  quality = 0.92,
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = widthPx;
+  canvas.height = heightPx;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, widthPx, heightPx);
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Failed to load capture for background compositing"));
+  });
+  ctx.drawImage(img, 0, 0);
+  return canvas.toDataURL(mimeType, quality);
+}
+
+/** Compute the highest integer pixelRatio that stays within a pixel budget. */
+function clampPixelRatio(
+  logicalW: number,
+  logicalH: number,
+  desired: number,
+  maxPixels: number,
+): number {
+  const ratio = Math.sqrt(maxPixels / (logicalW * logicalH));
+  return Math.max(1, Math.min(desired, Math.floor(ratio)));
+}
+
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
-  const { fitView, getViewport, setViewport, getNodes, getEdges } = useReactFlow();
+  const { getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [transparentBg, setTransparentBg] = useState(false);
   const [includeGrid, setIncludeGrid] = useState(false);
 
+  /**
+   * Capture the diagram by targeting .react-flow__viewport directly and
+   * overriding its CSS transform to render at scale=1 with a tight
+   * bounding box.  This makes the export independent of the user's
+   * current pan/zoom and eliminates wasted whitespace.
+   */
   const captureImage = useCallback(
-    async (format: "png" | "svg", transparent: boolean, withGrid: boolean): Promise<string> => {
-      const saved = getViewport();
-      fitView({ duration: 0, padding: 0.1 });
-      // Wait two animation frames so React Flow commits the viewport change.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      );
+    async (
+      format: "png" | "svg" | "jpeg",
+      transparent: boolean,
+      withGrid: boolean,
+      maxPixels: number,
+    ): Promise<{ dataUrl: string; pixelRatio: number }> => {
+      const viewportEl = wrapperRef.current!.querySelector(
+        ".react-flow__viewport"
+      ) as HTMLElement;
+      if (!viewportEl) throw new Error("Could not find .react-flow__viewport");
+
+      const nodes = getNodes();
+      if (nodes.length === 0) throw new Error("No nodes to export");
+
+      // Compute tight bounding box using per-type fallback sizes.
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of nodes) {
+        const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+        const w = n.measured?.width ?? fb.width;
+        const h = n.measured?.height ?? fb.height;
+        minX = Math.min(minX, n.position.x);
+        minY = Math.min(minY, n.position.y);
+        maxX = Math.max(maxX, n.position.x + w);
+        maxY = Math.max(maxY, n.position.y + h);
+      }
+
+      const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
+      const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
+      const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
+
       const options = {
         filter: (el: HTMLElement) => {
           const cl = el.classList;
           if (!cl) return true;
-          // Exclude React Flow UI chrome (controls, panels) from the export.
           return (
             !cl.contains("react-flow__panel") &&
             !cl.contains("react-flow__controls") &&
             (withGrid || !cl.contains("react-flow__background"))
           );
         },
-        ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        // No backgroundColor here — applying it to the translated viewport element
+        // offsets the fill rect, leaving transparent strips that JPEG renders as black.
+        // White background is composited at canvas level below (applyBackground).
+        // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
+        // by the transform offset issue, so we pass it directly for SVG only.
+        width: imgW,
+        height: imgH,
+        style: {
+          width: `${imgW}px`,
+          height: `${imgH}px`,
+          transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
+        },
+        pixelRatio,
       };
-      const dataUrl =
-        format === "svg"
-          ? await toSvg(wrapperRef.current!, options)
-          : await toPng(wrapperRef.current!, options);
-      setViewport(saved, { duration: 0 });
-      return dataUrl;
+
+      if (format === "svg") {
+        const dataUrl = await toSvg(viewportEl, {
+          ...options,
+          ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        });
+        return { dataUrl, pixelRatio };
+      }
+
+      // Always capture as transparent PNG. Using toJpeg here would encode
+      // transparent pixels as black *before* applyBackground can add the white
+      // fill, causing a black background on the output.
+      const rawDataUrl = await toPng(viewportEl, options);
+
+      // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
+      // Composite onto a white canvas to guarantee a clean, full-coverage background.
+      const needsWhite = !transparent || format === "jpeg";
+      if (needsWhite) {
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        const dataUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+        return { dataUrl, pixelRatio };
+      }
+
+      return { dataUrl: rawDataUrl, pixelRatio };
     },
-    [fitView, getViewport, setViewport, wrapperRef]
+    [getNodes, wrapperRef]
   );
+
+  const download = useCallback((dataUrl: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }, []);
 
   const handleExportPng = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg, includeGrid);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.png`;
-      a.click();
+      const { dataUrl } = await captureImage("png", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
+      download(dataUrl, `${serviceName}.png`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportSvg = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("svg", transparentBg, includeGrid);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.svg`;
-      a.click();
+      const { dataUrl } = await captureImage("svg", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
+      download(dataUrl, `${serviceName}.svg`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportPdf = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg, includeGrid);
+      // Use JPEG for PDF — dramatically smaller file size vs PNG with no visible quality loss.
+      // JPEG has no alpha channel, so transparentBg is intentionally ignored here.
+      const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
       const img = new Image();
       img.src = dataUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
-      const pdf = new jsPDF({
-        orientation: img.width > img.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [img.width, img.height],
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to decode exported image"));
       });
-      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      const pdfW = img.width / pixelRatio;
+      const pdfH = img.height / pixelRatio;
+      const pdf = new jsPDF({
+        orientation: pdfW > pdfH ? "landscape" : "portrait",
+        unit: "px",
+        format: [pdfW, pdfH],
+      });
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
       pdf.save(`${serviceName}.pdf`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportDrawio = useCallback(() => {
     const nodes = getNodes();
