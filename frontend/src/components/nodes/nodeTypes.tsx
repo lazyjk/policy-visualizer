@@ -11,6 +11,8 @@ import StarterKit from "@tiptap/starter-kit";
 import TiptapImage from "@tiptap/extension-image";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
+import { TextAlign } from "@tiptap/extension-text-align";
+import { Color } from "@tiptap/extension-color";
 
 export interface NodeColors {
   start: string;
@@ -262,7 +264,7 @@ const FONTS = [
 ];
 const DEFAULT_FONT = FONTS[0].value;
 
-const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 24];
+const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 24, 28, 36];
 const DEFAULT_FONT_SIZE = "12";
 
 // Minimal inline font-size extension (adds fontSize attribute to the textStyle mark)
@@ -406,6 +408,48 @@ function AnnotationToolbar({ editor, onImageFile, annotationStyle, onAnnotationS
         ))}
       </select>
 
+      {/* Alignment */}
+      <div style={{ width: 1, height: 16, background: "#ddd", flexShrink: 0, margin: "0 2px" }} />
+      <button
+        style={btnStyle(editor.isActive({ textAlign: "left" }))}
+        title="Align left"
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("left").run(); }}
+      >L</button>
+      <button
+        style={btnStyle(editor.isActive({ textAlign: "center" }))}
+        title="Center"
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("center").run(); }}
+      >C</button>
+      <button
+        style={btnStyle(editor.isActive({ textAlign: "right" }))}
+        title="Align right"
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().setTextAlign("right").run(); }}
+      >R</button>
+
+      {/* Text color */}
+      <div style={{ width: 1, height: 16, background: "#ddd", flexShrink: 0, margin: "0 2px" }} />
+      <span
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: 3,
+          border: "1px solid #aaa",
+          background: editor.getAttributes("textStyle").color ?? "#000000",
+          display: "inline-block",
+          flexShrink: 0,
+          cursor: "pointer",
+          position: "relative",
+        }}
+        title="Text color"
+      >
+        <input
+          type="color"
+          value={editor.getAttributes("textStyle").color ?? "#000000"}
+          onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+          style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer", padding: 0, border: "none" }}
+        />
+      </span>
+
       {/* Appearance divider */}
       <div style={{ width: 1, height: 16, background: "#ddd", flexShrink: 0, margin: "0 2px" }} />
 
@@ -488,6 +532,8 @@ export function AnnotationNode({ data, id, selected }: NodeProps) {
       TextStyle,
       FontFamily,
       FontSizeExtension,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Color,
     ],
     content: d.text || "",
     editable: false,
@@ -554,7 +600,6 @@ export function AnnotationNode({ data, id, selected }: NodeProps) {
         display: "flex",
         flexDirection: "column",
         position: "relative",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
         boxSizing: "border-box",
       }}
     >
@@ -565,11 +610,6 @@ export function AnnotationNode({ data, id, selected }: NodeProps) {
         lineStyle={{ borderColor }}
         handleStyle={{ borderColor, background: "#fff" }}
       />
-      <Handle type="source" position={Position.Top} id="top" />
-      <Handle type="source" position={Position.Right} id="right" />
-      <Handle type="source" position={Position.Bottom} id="bottom" />
-      <Handle type="source" position={Position.Left} id="left" />
-
       {editing && (
         <AnnotationToolbar
           editor={editor}

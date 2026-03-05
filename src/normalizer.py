@@ -6,6 +6,7 @@ Single-predicate boolean wrappers are unwrapped to bare Predicate nodes.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Union
@@ -232,10 +233,18 @@ def expr_to_node_label(expr: BooleanExpr | None) -> str:
             lines.append(remaining)
         return "\n".join(lines)
 
+    _NUMERIC_CSV = re.compile(r"^\d+(?:,\d+)*$")
+
+    def _pick_rhs(raw: str, display: str) -> str:
+        """Prefer display when raw is a bare numeric ID or numeric CSV."""
+        if _NUMERIC_CSV.match(raw.strip()) and display.strip():
+            return display.strip()
+        return raw
+
     def _pred(e: Predicate) -> str:
         attr = e.attribute.split(":")[-1]
         op = e.raw_operator or e.op.value.upper()
-        rhs = _wrap_value(e.rhs_raw)
+        rhs = _wrap_value(_pick_rhs(e.rhs_raw, e.rhs_display))
         return f"{attr}\n{op}\n{rhs}"
 
     def _lines(e: BooleanExpr) -> list[str]:

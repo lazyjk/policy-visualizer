@@ -1,7 +1,7 @@
 """Tests for Phase 2: Condition Normalization."""
 import pytest
 
-from src.normalizer import And, Op, Or, Predicate, normalize, expr_to_label
+from src.normalizer import And, Op, Or, Predicate, normalize, expr_to_label, expr_to_node_label
 
 
 def _raw_attr(name, type_, operator, value, displayValue=""):
@@ -215,3 +215,66 @@ def test_expr_to_label_truncated():
 def test_expr_to_label_none():
     label = expr_to_label(None)
     assert "no condition" in label
+
+
+# ---------------------------------------------------------------------------
+# expr_to_node_label — displayValue preference for numeric RHS
+# ---------------------------------------------------------------------------
+
+def test_node_label_uses_display_for_numeric_rhs():
+    """Numeric raw value should use displayValue in decision node labels."""
+    raw = {
+        "operator": "and",
+        "displayOperator": "MATCHES_ALL",
+        "attributes": [
+            {
+                "name": "NAS-Port-Type",
+                "type": "Radius:IETF",
+                "operator": "EQUALS",
+                "value": "19",
+                "displayValue": "Wireless-802.11 (19)",
+            }
+        ],
+    }
+    label = expr_to_node_label(normalize(raw))
+    assert "Wireless-802.11 (19)" in label
+    assert "19\n" not in label  # bare numeric must not appear as its own line
+
+
+def test_node_label_uses_display_for_numeric_csv_rhs():
+    """Comma-separated numeric raw value should use displayValue."""
+    raw = {
+        "operator": "and",
+        "displayOperator": "MATCHES_ALL",
+        "attributes": [
+            {
+                "name": "Service-Type",
+                "type": "Radius:IETF",
+                "operator": "BELONGS_TO",
+                "value": "1,2,8",
+                "displayValue": "Login-User (1), Framed-User (2), Authenticate-Only (8)",
+            }
+        ],
+    }
+    label = expr_to_node_label(normalize(raw))
+    assert "Login-User (1)" in label
+    assert label.count("1,2,8") == 0
+
+
+def test_node_label_uses_raw_for_string_rhs():
+    """String raw values should not be replaced by displayValue."""
+    raw = {
+        "operator": "and",
+        "displayOperator": "MATCHES_ALL",
+        "attributes": [
+            {
+                "name": "UserDN",
+                "type": "Authorization:BPS7.Local",
+                "operator": "CONTAINS",
+                "value": "OU=BSD7-User-Student",
+                "displayValue": "OU=BSD7-User-Student",
+            }
+        ],
+    }
+    label = expr_to_node_label(normalize(raw))
+    assert "OU=BSD7-User-Student" in label
