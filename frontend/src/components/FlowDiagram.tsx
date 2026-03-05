@@ -60,7 +60,7 @@ function normalizeEdgeLabel(label?: string): string | undefined {
 
 function getBranchClass(label?: string): BranchClass {
   const normalized = normalizeEdgeLabel(label);
-  if (normalized === "YES" || normalized === "PASS") return "forward";
+  if (normalized === "YES" || normalized === "PASS" || normalized === "CONTINUE") return "forward";
   if (normalized === "NO") return "no";
   if (normalized === "FAIL") return "fail";
   return "unknown";
@@ -72,7 +72,9 @@ function resolveSourceHandle(sourceType: DiagramNodeType | undefined, label?: st
     case "decision":
       return branch === "no" ? "no" : "yes";
     case "process":
-      return branch === "fail" ? "fail" : undefined;
+      if (branch === "fail") return "fail";
+      if (normalizeEdgeLabel(label) === "CONTINUE") return "continue";
+      return undefined;
     case "start":
     case "action":
     case "end":
@@ -165,7 +167,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     const target = nodeById.get(targetId);
     if (!target) return;
     const rg = target.data.rank_group as string | undefined;
-    if (rg === "rm_chain" || rg === "enf_chain") return; // handled separately
+    if (rg === "rm_chain" || rg === "enf_chain" || rg === "authen_chain") return; // handled separately
     const dfb = NODE_SIZE_FALLBACKS[target.type ?? "end"] ?? { width: 130, height: 60 };
     const ah  = actionNode.measured?.height ?? fallbackAction.height;
     const dh  = target.measured?.height ?? dfb.height;
@@ -185,19 +187,27 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   let enfChainStartX: number | null = null;
 
   const rmGroup = result.filter(
-    (n) => (n.data.rank_group as string | undefined) === "rm_chain"
+    (n) =>
+      (n.data.rank_group as string | undefined) === "rm_chain" ||
+      (n.data.rank_group as string | undefined) === "authen_chain"
   );
   if (rmGroup.length >= 1) {
     rmGroup.sort((a, b) => a.position.x - b.position.x);
     const chainX = rmGroup[0].position.x;
     let y = rmGroup[0].position.y;
     let maxRightX = chainX;
+    // Tracks the bottom y of all FAIL end nodes placed inline in the YES-column.
+    // Used to push the terminal NO node (default auth rule) below them.
+    let failEndBottomY = -Infinity;
 
     for (let i = 0; i < rmGroup.length; i++) {
       const chainNode = rmGroup[i];
       const h = chainNode.measured?.height ?? fallbackDecision.height;
       const w = chainNode.measured?.width  ?? fallbackDecision.width;
       chainNode.position = { x: chainX, y };
+
+      // Bottom of any FAIL end node placed during this iteration (used to advance y).
+      let procFailBottomY = -Infinity;
 
       // YES branch: role action node → its downstream (enf_chain entry is skipped)
       const actionId = yesTarget.get(chainNode.id);
@@ -212,13 +222,46 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
           };
           const actionRight = chainX + w + ACTION_INSET + aw;
           maxRightX = Math.max(maxRightX, actionRight);
-          (outEdges.get(actionId) ?? []).forEach((tid) =>
-            placeAdjacentRight(actionNode, tid, actionRight)
-          );
+
+          if (actionNode.type === "process") {
+            // authen_chain process node: place the FAIL end node directly below it
+            // rather than via placeAdjacentRight (which would put it in the enf_chain
+            // x-column, causing the overlap-resolution nudge loop to push it past the
+            // terminal NO / default-rule process node that shares the same x-column).
+            const failEdge = edges.find(
+              (e) => e.source === actionId && e.label?.toString() === "FAIL"
+            );
+            if (failEdge) {
+              const failNode = nodeById.get(failEdge.target);
+              if (failNode) {
+                const fnfb = NODE_SIZE_FALLBACKS[failNode.type ?? "end"] ?? { width: 130, height: 60 };
+                const fnh = failNode.measured?.height ?? fnfb.height;
+                const fnw = failNode.measured?.width  ?? fnfb.width;
+                failNode.position = {
+                  x: actionNode.position.x + (aw - fnw) / 2,
+                  y: actionNode.position.y + ah + LABEL_GAP,
+                };
+                procFailBottomY = failNode.position.y + fnh;
+                failEndBottomY = Math.max(failEndBottomY, procFailBottomY);
+                maxRightX = Math.max(maxRightX, actionNode.position.x + fnw);
+              }
+            }
+            // Still route any non-FAIL downstream through placeAdjacentRight (e.g. CONTINUE).
+            (outEdges.get(actionId) ?? []).forEach((tid) => {
+              if (failEdge && tid === failEdge.target) return; // already placed above
+              placeAdjacentRight(actionNode, tid, actionRight);
+            });
+          } else {
+            // rm_chain action nodes: original behaviour unchanged.
+            (outEdges.get(actionId) ?? []).forEach((tid) =>
+              placeAdjacentRight(actionNode, tid, actionRight)
+            );
+          }
         }
       }
 
-      // Terminal NO node of the last decision (rm_default or no_role_end)
+      // Terminal NO node of the last decision (rm_default or no_role_end).
+      // For authen_chain, push it below any FAIL end nodes placed in the YES-column.
       if (i === rmGroup.length - 1) {
         const termId = noTarget.get(chainNode.id);
         if (termId) {
@@ -226,7 +269,11 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
           if (term && !(term.data.rank_group as string | undefined)) {
             const tw = term.measured?.width
               ?? (NODE_SIZE_FALLBACKS[term.type ?? "action"]?.width ?? 160);
-            term.position = { x: chainX + w + ACTION_INSET, y: y + h + VERT_GAP };
+            const naturalTermY = y + h + VERT_GAP;
+            const termY = failEndBottomY > -Infinity
+              ? Math.max(naturalTermY, failEndBottomY + VERT_GAP)
+              : naturalTermY;
+            term.position = { x: chainX + w + ACTION_INSET, y: termY };
             const termRight = chainX + w + ACTION_INSET + tw;
             maxRightX = Math.max(maxRightX, termRight);
             if (term.type === "action") {
@@ -238,7 +285,12 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
         }
       }
 
-      y += h + VERT_GAP;
+      // Advance y: ensure the next chain decision clears any FAIL end node placed
+      // inline in this iteration (handles chains with N conditional rules).
+      const naturalNextY = y + h + VERT_GAP;
+      y = procFailBottomY > -Infinity
+        ? Math.max(naturalNextY, procFailBottomY + VERT_GAP)
+        : naturalNextY;
     }
 
     enfChainStartX = maxRightX + HORIZ_GAP;
@@ -299,6 +351,30 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
       y += h + VERT_GAP;
     }
   }
+
+  // ---- Process FAIL exits: place FAIL end nodes below their process source ----
+  // Match-all authen rules have no decision node so they are absent from rmGroup;
+  // the FAIL placement inside the rmGroup loop never fires for them.  Run a
+  // dedicated pass here so every process→FAIL end lands below its source node,
+  // regardless of whether it was handled by chain logic above.
+  result.forEach((node) => {
+    if (node.type !== "process") return;
+    const failEdge = edges.find(
+      (e) => e.source === node.id && normalizeEdgeLabel(e.label?.toString()) === "FAIL"
+    );
+    if (!failEdge) return;
+    const failNode = nodeById.get(failEdge.target);
+    if (!failNode) return;
+    const rg = failNode.data.rank_group as string | undefined;
+    if (rg === "rm_chain" || rg === "enf_chain" || rg === "authen_chain") return;
+    const nb = nodeBBox(node);
+    const fnfb = NODE_SIZE_FALLBACKS[failNode.type ?? "end"] ?? { width: 130, height: 60 };
+    const fnw = failNode.measured?.width ?? fnfb.width;
+    failNode.position = {
+      x: node.position.x + (nb.w - fnw) / 2,
+      y: node.position.y + nb.h + LABEL_GAP,
+    };
+  });
 
   // ---- Overlap detection and resolution ----
   // After chain compression, non-chain nodes (e.g. auth_fail) keep their original
@@ -772,19 +848,27 @@ export default function FlowDiagram({ flow }: Props) {
     }));
 
     const nodeTypeById = new Map(flow.nodes.map((n) => [n.id, n.type]));
-    const rawEdges: Edge[] = flow.edges.map((e, i) => ({
-      id: `edge-${i}`,
-      type: "smoothstep",
-      source: e.from_id,
-      target: e.to_id,
-      sourceHandle: resolveSourceHandle(nodeTypeById.get(e.from_id), e.label),
-      targetHandle: resolveTargetHandle(nodeTypeById.get(e.to_id), e.label),
-      label: e.label || undefined,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-      style: { stroke: "#555", strokeWidth: 1.5 },
-      labelStyle: { fontSize: 10, fontFamily: "Helvetica, Arial, sans-serif" },
-      labelBgStyle: { fill: "#fff", fillOpacity: 0.8 },
-    }));
+    const rawEdges: Edge[] = flow.edges.map((e, i) => {
+      const isContinue = normalizeEdgeLabel(e.label) === "CONTINUE";
+      const displayLabel = isContinue && e.reason
+        ? `CONTINUE (${e.reason})`
+        : (e.label || undefined);
+      return {
+        id: `edge-${i}`,
+        type: "smoothstep",
+        source: e.from_id,
+        target: e.to_id,
+        sourceHandle: resolveSourceHandle(nodeTypeById.get(e.from_id), e.label),
+        targetHandle: resolveTargetHandle(nodeTypeById.get(e.to_id), e.label),
+        label: displayLabel,
+        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
+        style: isContinue
+          ? { stroke: "#888", strokeWidth: 1.5, strokeDasharray: "5,3" }
+          : { stroke: "#555", strokeWidth: 1.5 },
+        labelStyle: { fontSize: 10, fontFamily: "Helvetica, Arial, sans-serif" },
+        labelBgStyle: { fill: "#fff", fillOpacity: 0.8 },
+      };
+    });
 
     setNodes(rawNodes);
     setEdges(rawEdges);

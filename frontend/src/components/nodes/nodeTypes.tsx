@@ -188,6 +188,7 @@ export function ProcessNode({ data }: NodeProps) {
       <div>{multilineLabel(d.label)}</div>
       <Handle type="source" position={Position.Right} />
       <Handle type="source" position={Position.Bottom} id="fail" />
+      <Handle type="source" position={Position.Left} id="continue" style={{ top: "75%" }} />
     </div>
   );
 }
