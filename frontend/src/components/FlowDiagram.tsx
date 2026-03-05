@@ -502,8 +502,38 @@ interface ExportPanelProps {
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
-const EXPORT_MAX_PIXELS = 16_000_000; // ~16 MP  (e.g. 4000×4000)
+const EXPORT_MAX_PIXELS = 64_000_000; // ~64 MP — allows pixelRatio ≥ 2 even for large diagrams
 const EXPORT_PADDING    = 80;         // px padding around diagram in exports (extra room for edge curves)
+
+/**
+ * Composite a captured (potentially transparent) dataUrl onto a solid white
+ * canvas.  html-to-image's backgroundColor option is applied to the target
+ * element, not the canvas — so when the element is CSS-transformed the
+ * background is offset and transparent pixels leak through.  Compositing here
+ * fixes that by filling the full canvas first.
+ */
+async function applyBackground(
+  dataUrl: string,
+  widthPx: number,
+  heightPx: number,
+  mimeType: "image/png" | "image/jpeg",
+  quality = 0.92,
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = widthPx;
+  canvas.height = heightPx;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, widthPx, heightPx);
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Failed to load capture for background compositing"));
+  });
+  ctx.drawImage(img, 0, 0);
+  return canvas.toDataURL(mimeType, quality);
+}
 
 /** Compute the highest integer pixelRatio that stays within a pixel budget. */
 function clampPixelRatio(
@@ -570,7 +600,11 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
             (withGrid || !cl.contains("react-flow__background"))
           );
         },
-        ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        // No backgroundColor here — applying it to the translated viewport element
+        // offsets the fill rect, leaving transparent strips that JPEG renders as black.
+        // White background is composited at canvas level below (applyBackground).
+        // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
+        // by the transform offset issue, so we pass it directly for SVG only.
         width: imgW,
         height: imgH,
         style: {
@@ -581,13 +615,30 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
         pixelRatio,
       };
 
-      const dataUrl = format === "svg"
-        ? await toSvg(viewportEl, options)
-        : format === "jpeg"
+      if (format === "svg") {
+        const dataUrl = await toSvg(viewportEl, {
+          ...options,
+          ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        });
+        return { dataUrl, pixelRatio };
+      }
+
+      // Raster capture — always transparent so the viewport transform doesn't
+      // cause background offset artifacts.
+      const rawDataUrl = format === "jpeg"
         ? await toJpeg(viewportEl, { ...options, quality: 0.92 })
         : await toPng(viewportEl, options);
 
-      return { dataUrl, pixelRatio };
+      // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
+      // Composite onto a white canvas to guarantee a clean, full-coverage background.
+      const needsWhite = !transparent || format === "jpeg";
+      if (needsWhite) {
+        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+        const dataUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+        return { dataUrl, pixelRatio };
+      }
+
+      return { dataUrl: rawDataUrl, pixelRatio };
     },
     [getNodes, wrapperRef]
   );
