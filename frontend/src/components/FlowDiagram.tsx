@@ -27,7 +27,7 @@ import {
   type EdgeChange,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
-import { toPng, toSvg } from "html-to-image";
+import { toPng, toSvg, toJpeg } from "html-to-image";
 import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
@@ -500,26 +500,70 @@ interface ExportPanelProps {
   serviceName: string;
 }
 
+// Maximum total pixels for rasterised exports.  Keeps file size and memory
+// usage reasonable even for very large diagrams.
+const EXPORT_MAX_PIXELS = 16_000_000; // ~16 MP  (e.g. 4000×4000)
+const EXPORT_PADDING    = 50;         // px padding around diagram in exports
+
+/** Compute the highest integer pixelRatio that stays within a pixel budget. */
+function clampPixelRatio(
+  logicalW: number,
+  logicalH: number,
+  desired: number,
+  maxPixels: number,
+): number {
+  const ratio = Math.sqrt(maxPixels / (logicalW * logicalH));
+  return Math.max(1, Math.min(desired, Math.floor(ratio)));
+}
+
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
-  const { fitView, getViewport, setViewport, getNodes, getEdges } = useReactFlow();
+  const { getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [transparentBg, setTransparentBg] = useState(false);
   const [includeGrid, setIncludeGrid] = useState(false);
 
+  /**
+   * Capture the diagram by targeting .react-flow__viewport directly and
+   * overriding its CSS transform to render at scale=1 with a tight
+   * bounding box.  This makes the export independent of the user's
+   * current pan/zoom and eliminates wasted whitespace.
+   */
   const captureImage = useCallback(
-    async (format: "png" | "svg", transparent: boolean, withGrid: boolean): Promise<string> => {
-      const saved = getViewport();
-      fitView({ duration: 0, padding: 0.1 });
-      // Wait two animation frames so React Flow commits the viewport change.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      );
+    async (
+      format: "png" | "svg" | "jpeg",
+      transparent: boolean,
+      withGrid: boolean,
+      maxPixels: number,
+    ): Promise<{ dataUrl: string; pixelRatio: number }> => {
+      const viewportEl = wrapperRef.current!.querySelector(
+        ".react-flow__viewport"
+      ) as HTMLElement;
+      if (!viewportEl) throw new Error("Could not find .react-flow__viewport");
+
+      const nodes = getNodes();
+      if (nodes.length === 0) throw new Error("No nodes to export");
+
+      // Compute tight bounding box using per-type fallback sizes.
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of nodes) {
+        const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+        const w = n.measured?.width ?? fb.width;
+        const h = n.measured?.height ?? fb.height;
+        minX = Math.min(minX, n.position.x);
+        minY = Math.min(minY, n.position.y);
+        maxX = Math.max(maxX, n.position.x + w);
+        maxY = Math.max(maxY, n.position.y + h);
+      }
+
+      const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
+      const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
+      const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
+
       const options = {
         filter: (el: HTMLElement) => {
           const cl = el.classList;
           if (!cl) return true;
-          // Exclude React Flow UI chrome (controls, panels) from the export.
           return (
             !cl.contains("react-flow__panel") &&
             !cl.contains("react-flow__controls") &&
@@ -527,64 +571,81 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
           );
         },
         ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+        width: imgW,
+        height: imgH,
+        style: {
+          width: `${imgW}px`,
+          height: `${imgH}px`,
+          transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
+        },
+        pixelRatio,
       };
-      const dataUrl =
-        format === "svg"
-          ? await toSvg(wrapperRef.current!, options)
-          : await toPng(wrapperRef.current!, options);
-      setViewport(saved, { duration: 0 });
-      return dataUrl;
+
+      const dataUrl = format === "svg"
+        ? await toSvg(viewportEl, options)
+        : format === "jpeg"
+        ? await toJpeg(viewportEl, { ...options, quality: 0.92 })
+        : await toPng(viewportEl, options);
+
+      return { dataUrl, pixelRatio };
     },
-    [fitView, getViewport, setViewport, wrapperRef]
+    [getNodes, wrapperRef]
   );
+
+  const download = useCallback((dataUrl: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }, []);
 
   const handleExportPng = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg, includeGrid);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.png`;
-      a.click();
+      const { dataUrl } = await captureImage("png", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
+      download(dataUrl, `${serviceName}.png`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportSvg = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("svg", transparentBg, includeGrid);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.svg`;
-      a.click();
+      const { dataUrl } = await captureImage("svg", transparentBg, includeGrid, EXPORT_MAX_PIXELS);
+      download(dataUrl, `${serviceName}.svg`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportPdf = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg, includeGrid);
+      // Use JPEG for PDF — dramatically smaller file size vs PNG with no visible quality loss.
+      const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
       const img = new Image();
       img.src = dataUrl;
-      await new Promise<void>((resolve) => { img.onload = () => resolve(); });
-      const pdf = new jsPDF({
-        orientation: img.width > img.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [img.width, img.height],
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to decode exported image"));
       });
-      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      const pdfW = img.width / pixelRatio;
+      const pdfH = img.height / pixelRatio;
+      const pdf = new jsPDF({
+        orientation: pdfW > pdfH ? "landscape" : "portrait",
+        unit: "px",
+        format: [pdfW, pdfH],
+      });
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
       pdf.save(`${serviceName}.pdf`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
   const handleExportDrawio = useCallback(() => {
     const nodes = getNodes();
