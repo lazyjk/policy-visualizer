@@ -378,9 +378,9 @@ interface ExportPanelProps {
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
-const EXPORT_MAX_PIXELS_PNG = 16_000_000; // ~16MP (e.g. 4000×4000)
-const EXPORT_MAX_PIXELS_PDF = 25_000_000; // ~25MP — higher budget for print quality
-const EXPORT_PADDING = 50; // px padding around diagram in exports
+const EXPORT_MAX_PIXELS_PNG = 16_000_000; // ~16 MP  (e.g. 4000×4000)
+const EXPORT_MAX_PIXELS_PDF = 25_000_000; // ~25 MP  — higher budget for print quality
+const EXPORT_PADDING        = 50;         // px padding around diagram in exports
 
 /** Compute the highest integer pixelRatio that stays within a pixel budget. */
 function clampPixelRatio(
@@ -399,10 +399,10 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
   const [transparentBg, setTransparentBg] = useState(false);
 
   /**
-   * Capture the diagram by rendering .react-flow__viewport directly with an
-   * overridden CSS transform.  This is the official React Flow approach:
-   * we bypass the current viewport zoom/pan entirely and render at scale=1
-   * with a tight bounding box — no wasted whitespace, no viewport-size dependency.
+   * Capture the diagram by targeting .react-flow__viewport directly and
+   * overriding its CSS transform to render at scale=1 with a tight
+   * bounding box.  This makes the export independent of the user's
+   * current pan/zoom and eliminates wasted whitespace.
    */
   const captureImage = useCallback(
     async (
@@ -455,33 +455,34 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     [getNodes, wrapperRef]
   );
 
+  const download = useCallback((dataUrl: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+  }, []);
+
   const handleExportPng = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
       const { dataUrl } = await captureImage("png", transparentBg, EXPORT_MAX_PIXELS_PNG);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.png`;
-      a.click();
+      download(dataUrl, `${serviceName}.png`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef, download]);
 
   const handleExportSvg = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
       const { dataUrl } = await captureImage("svg", transparentBg, EXPORT_MAX_PIXELS_PNG);
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `${serviceName}.svg`;
-      a.click();
+      download(dataUrl, `${serviceName}.svg`);
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef, download]);
 
   const handleExportPdf = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
@@ -506,7 +507,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef, download]);
 
   const btnLabel = exporting ? "Exporting…" : null;
 
