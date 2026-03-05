@@ -4,10 +4,20 @@ import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
 import { fetchServices, fetchFlow } from "./api";
 import type { FlowIR, ServiceSummary } from "./api";
+import { DiagramSessionProvider, useDiagramSession } from "./context/DiagramSessionContext";
 import { version } from "../package.json";
 import "./App.css";
 
 export default function App() {
+  return (
+    <DiagramSessionProvider>
+      <AppContent />
+    </DiagramSessionProvider>
+  );
+}
+
+function AppContent() {
+  const { dispatch: sessionDispatch } = useDiagramSession();
   const fileRef = useRef<File | null>(null);
   const [services, setServices] = useState<ServiceSummary[]>([]);
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -18,6 +28,7 @@ export default function App() {
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
   async function handleFileSelect(file: File) {
+    sessionDispatch({ type: "CLEAR_SESSION" });
     fileRef.current = file;
     setFileName(file.name);
     setFlow(null);
