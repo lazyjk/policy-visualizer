@@ -12,19 +12,20 @@ It also supports CLI rendering to static diagram formats for offline/scripted wo
 
 ## What it does
 
-- Parses ClearPass service export XML (RADIUS + TACACS)
+- Parses **Aruba ClearPass** and **Cisco ISE** service export XML (RADIUS + TACACS); format is auto-detected on upload
 - Normalizes policy conditions into canonical Boolean expressions
 - Builds deterministic Policy IR and Flow IR
 - Serves Flow IR from a FastAPI backend
-- Renders an interactive flow diagram in a React Flow frontend
-- Supports static SVG/PNG/PDF generation through a CLI path
+- Renders an interactive flow diagram in a React Flow frontend with WYSIWYG annotation support
+- Exports diagrams to PNG, SVG, PDF, and Draw.io format (BETA)
+- Supports static SVG/PNG/PDF generation through a CLI path (ClearPass only)
 
 ## Tech Stack
 
 - **Backend/API:** FastAPI, defusedxml
-- **Compiler pipeline:** Python (`src/parser.py`, `src/normalizer.py`, `src/policy_ir.py`, `src/flow_ir.py`)
-- **Frontend:** React + Vite + React Flow + Dagre
-- **Static rendering:** Graphviz
+- **Compiler pipeline:** Python — ClearPass (`src/parser.py`, `src/normalizer.py`, `src/policy_ir.py`, `src/flow_ir.py`) and Cisco ISE (`src/ise_parser.py`, `src/ise_normalizer.py`, `src/ise_policy_ir.py`, `src/ise_flow_ir.py`)
+- **Frontend:** React + Vite + React Flow + Dagre + Tiptap
+- **Static rendering:** Graphviz (ClearPass only)
 - **Packaging:** Docker + docker-compose
 
 ## Prerequisites
@@ -80,7 +81,7 @@ Default frontend dev URL: http://localhost:5173
 
 ## CLI usage (static diagram generation)
 
-From repository root:
+ClearPass XML only. From repository root:
 
 ```bash
 python -m src.cli path/to/service.xml --output diagram.svg
@@ -103,7 +104,7 @@ python -m src.cli path/to/service.xml --output diagram.pdf --format pdf
 ## API endpoints
 
 - `GET /api/health` — liveness check
-- `POST /api/services` — upload XML and list services
+- `POST /api/services` — upload XML and list services (ClearPass or ISE; format auto-detected)
 - `POST /api/flow` — upload XML and compile selected/default service to Flow IR
 
 The maximum upload size is **10 MB**; files larger than this return HTTP `413`. Other error statuses: `415` (wrong extension), `422` (invalid XML structure or no services found), `500` (processing error). Unresolved object references are soft-failed — the API returns HTTP `200` with a `warnings` array in the response.
@@ -116,9 +117,11 @@ From repository root:
 .venv/bin/pytest tests/
 ```
 
+185 tests across ClearPass pipeline (71), ISE pipeline (74), and API boundary (14) + misc (26).
+
 ## Project structure (high level)
 
-- `src/` — parser, normalizer, policy IR, flow IR, renderer, CLI
+- `src/` — ClearPass and ISE parser, normalizer, policy IR, flow IR, renderer, CLI
 - `api/` — FastAPI app and routes
 - `frontend/` — React app and diagram components
 - `tests/` — parser/normalizer/policy/flow/API tests and fixtures
@@ -126,5 +129,7 @@ From repository root:
 
 ## Notes
 
-- The app is deterministic by design: same XML input should produce the same compiled graph structure.
+- Supports both Aruba ClearPass and Cisco ISE XML exports; format is auto-detected on upload.
+- Annotations support rich text (bold, italic, bullets, fonts, images) via the WYSIWYG editor.
+- The app is deterministic by design: same XML input produces the same compiled graph structure.
 - Current workflow is upload/view-only (no policy editing UI).

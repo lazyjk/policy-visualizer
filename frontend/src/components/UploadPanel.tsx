@@ -11,7 +11,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   onFileSelect: (file: File) => void;
-  onServiceSelect: (name: string) => void;
+  onServiceSelect: (id: string) => void;
 }
 
 export default function UploadPanel({
@@ -102,15 +102,16 @@ export default function UploadPanel({
           </p>
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {services.map((svc) => {
-              const isActive = svc.name === selectedService;
+              const isActive = svc.id === selectedService;
               return (
                 <li key={svc.id} style={{ marginBottom: 6 }}>
                   <button
                     style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
-                    onClick={() => onServiceSelect(svc.name)}
+                    onClick={() => onServiceSelect(svc.id)}
                     title={svc.description || undefined}
                   >
-                    {svc.name}
+                    <span>{svc.name}</span>
+                    <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
                   </button>
                 </li>
               );
@@ -182,4 +183,15 @@ const activeServiceButtonStyle: React.CSSProperties = {
   border: "1px solid #6366f1",
   color: "#4338ca",
   fontWeight: 600,
+};
+
+const serviceTypeBadgeStyle: React.CSSProperties = {
+  marginLeft: 6,
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#6b7280",
+  background: "#e5e7eb",
+  borderRadius: 4,
+  padding: "1px 5px",
+  verticalAlign: "middle",
 };

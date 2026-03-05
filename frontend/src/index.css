@@ -19,3 +19,13 @@ body {
 button {
   cursor: pointer;
 }
+
+/* Tiptap annotation node content */
+.tiptap { outline: none; }
+.tiptap p { margin: 0 0 4px; }
+.tiptap p:last-child { margin-bottom: 0; }
+.tiptap ul, .tiptap ol { padding-left: 18px; margin: 4px 0; }
+.tiptap li { margin: 1px 0; }
+.tiptap img { max-width: 100%; height: auto; display: block; margin: 4px 0; border-radius: 3px; }
+.tiptap strong { font-weight: 700; }
+.tiptap em { font-style: italic; }

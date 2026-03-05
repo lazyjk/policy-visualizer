@@ -3,8 +3,14 @@
  * Default colors match the existing Graphviz renderer in src/renderer.py.
  * Node fill colors are user-configurable via the StylePanel (per shape).
  */
-import React, { useState } from "react";
-import { Handle, Position, type NodeProps, NodeToolbar, useReactFlow } from "@xyflow/react";
+import React, { useState, useRef, useEffect } from "react";
+import { Handle, Position, type NodeProps, NodeToolbar, useReactFlow, NodeResizer } from "@xyflow/react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import { Extension } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import TiptapImage from "@tiptap/extension-image";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
 
 export interface NodeColors {
   start: string;
@@ -188,6 +194,7 @@ export function ProcessNode({ data }: NodeProps) {
       <div>{multilineLabel(d.label)}</div>
       <Handle type="source" position={Position.Right} />
       <Handle type="source" position={Position.Bottom} id="fail" />
+      <Handle type="source" position={Position.Left} id="continue" style={{ top: "75%" }} />
     </div>
   );
 }
@@ -243,89 +250,370 @@ export function EndNode({ data }: NodeProps) {
   );
 }
 
-// annotation — sticky note with inline editing and connectable handles on all sides
-// TODO(wysiwyg): Replace plain textarea edit mode with a lightweight WYSIWYG editor
-// (bold, italic, bullet lists) — targeted post-2.0.0 GA. See ANN-223 in release-map-2.0.md.
-export function AnnotationNode({ data, id }: NodeProps) {
-  const d = data as { text?: string; colors?: NodeColors };
-  const fill = d.colors?.annotation ?? DEFAULT_NODE_COLORS.annotation;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const { updateNodeData } = useReactFlow();
+// annotation — sticky note with WYSIWYG editing, resizable, connectable handles on all sides
 
-  const startEdit = () => {
-    setDraft(d.text ?? "");
-    setEditing(true);
+// Curated font list for diagram documentation
+const FONTS = [
+  { label: "Helvetica", value: "Helvetica, Arial, sans-serif" },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Verdana", value: "Verdana, sans-serif" },
+  { label: "Trebuchet MS", value: "'Trebuchet MS', sans-serif" },
+  { label: "Courier New", value: "'Courier New', monospace" },
+];
+const DEFAULT_FONT = FONTS[0].value;
+
+const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 24];
+const DEFAULT_FONT_SIZE = "12";
+
+// Minimal inline font-size extension (adds fontSize attribute to the textStyle mark)
+const FontSizeExtension = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (el) => el.style.fontSize?.replace(/px$/, "") || null,
+            renderHTML: (attrs) =>
+              attrs.fontSize ? { style: `font-size: ${attrs.fontSize}px` } : {},
+          },
+        },
+      },
+    ];
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addCommands(): any {
+    return {
+      setFontSize: (size: string) => ({ chain }: { chain: () => any }) =>
+        chain().setMark("textStyle", { fontSize: size }).run(),
+    };
+  },
+});
+
+export type AnnotationStyle = {
+  noFill?: boolean;
+  borderStyle?: "dashed" | "solid" | "dotted" | "none";
+  borderColor?: string;
+};
+
+type AnnotationToolbarProps = {
+  editor: ReturnType<typeof useEditor>;
+  onImageFile: () => void;
+  annotationStyle: AnnotationStyle;
+  onAnnotationStyleChange: (patch: Partial<AnnotationStyle>) => void;
+};
+
+function AnnotationToolbar({ editor, onImageFile, annotationStyle, onAnnotationStyleChange }: AnnotationToolbarProps) {
+  if (!editor) return null;
+
+  const btnStyle = (active: boolean): React.CSSProperties => ({
+    fontWeight: active ? "bold" : "normal",
+    fontStyle: "normal",
+    background: active ? "#ffe082" : "transparent",
+    border: "1px solid #ccc",
+    borderRadius: 3,
+    padding: "1px 6px",
+    fontSize: 11,
+    cursor: "pointer",
+    lineHeight: "18px",
+    color: "#333",
+    flexShrink: 0,
+  });
+
+  const selectStyle: React.CSSProperties = {
+    fontSize: 11,
+    border: "1px solid #ccc",
+    borderRadius: 3,
+    padding: "1px 2px",
+    cursor: "pointer",
+    background: "transparent",
+    color: "#333",
+    maxWidth: 100,
   };
 
-  const commit = () => {
-    updateNodeData(id, { text: draft });
+  const activeFont = editor.getAttributes("textStyle").fontFamily ?? DEFAULT_FONT;
+  const activeFontSize = editor.getAttributes("textStyle").fontSize ?? DEFAULT_FONT_SIZE;
+
+  return (
+    <div
+      className="nodrag nopan nowheel"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 3,
+        marginBottom: 4,
+        paddingBottom: 4,
+        borderBottom: "1px solid #F9A825",
+        flexShrink: 0,
+        flexWrap: "wrap",
+      }}
+    >
+      <button
+        style={btnStyle(editor.isActive("bold"))}
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }}
+        title="Bold"
+      >
+        <strong>B</strong>
+      </button>
+      <button
+        style={btnStyle(editor.isActive("italic"))}
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }}
+        title="Italic"
+      >
+        <em>I</em>
+      </button>
+      <button
+        style={btnStyle(editor.isActive("bulletList"))}
+        onMouseDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); }}
+        title="Bullet list"
+      >
+        &#8226;&#8212;
+      </button>
+      <button
+        style={btnStyle(false)}
+        onMouseDown={(e) => { e.preventDefault(); onImageFile(); }}
+        title="Upload image"
+      >
+        &#128247;
+      </button>
+
+      <select
+        style={selectStyle}
+        value={activeFont}
+        title="Font"
+        onChange={(e) => {
+          editor.chain().focus().setFontFamily(e.target.value).run();
+        }}
+      >
+        {FONTS.map((f) => (
+          <option key={f.value} value={f.value}>{f.label}</option>
+        ))}
+      </select>
+
+      <select
+        style={{ ...selectStyle, maxWidth: 52 }}
+        value={String(activeFontSize)}
+        title="Size"
+        onChange={(e) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (editor.chain().focus() as any).setFontSize(e.target.value).run();
+        }}
+      >
+        {FONT_SIZES.map((s) => (
+          <option key={s} value={String(s)}>{s}</option>
+        ))}
+      </select>
+
+      {/* Appearance divider */}
+      <div style={{ width: 1, height: 16, background: "#ddd", flexShrink: 0, margin: "0 2px" }} />
+
+      {/* No fill toggle */}
+      <button
+        style={btnStyle(annotationStyle.noFill ?? false)}
+        title="No fill (transparent background)"
+        onMouseDown={(e) => { e.preventDefault(); onAnnotationStyleChange({ noFill: !(annotationStyle.noFill ?? false) }); }}
+      >
+        &#9635;
+      </button>
+
+      {/* Border style */}
+      <select
+        style={selectStyle}
+        value={annotationStyle.borderStyle ?? "dashed"}
+        title="Border style"
+        onChange={(e) => onAnnotationStyleChange({ borderStyle: e.target.value as AnnotationStyle["borderStyle"] })}
+      >
+        <option value="dashed">Dashed</option>
+        <option value="solid">Solid</option>
+        <option value="dotted">Dotted</option>
+        <option value="none">No border</option>
+      </select>
+
+      {/* Border color — hidden when border is off */}
+      {(annotationStyle.borderStyle ?? "dashed") !== "none" && (
+        <span
+          style={{
+            width: 16,
+            height: 16,
+            borderRadius: 3,
+            border: "1px solid #aaa",
+            background: annotationStyle.borderColor ?? "#F9A825",
+            display: "inline-block",
+            flexShrink: 0,
+            cursor: "pointer",
+            position: "relative",
+          }}
+          title="Border color"
+        >
+          <input
+            type="color"
+            value={annotationStyle.borderColor ?? "#F9A825"}
+            onChange={(e) => onAnnotationStyleChange({ borderColor: e.target.value })}
+            style={{ opacity: 0, position: "absolute", inset: 0, width: "100%", height: "100%", cursor: "pointer", padding: 0, border: "none" }}
+          />
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function AnnotationNode({ data, id, selected }: NodeProps) {
+  const d = data as { text?: string; colors?: NodeColors; annotationStyle?: AnnotationStyle };
+  const annStyle: AnnotationStyle = d.annotationStyle ?? {};
+  const fill = annStyle.noFill ? "transparent" : (d.colors?.annotation ?? DEFAULT_NODE_COLORS.annotation);
+  const borderStyle = annStyle.borderStyle ?? "dashed";
+  const borderColor = annStyle.borderColor ?? "#F9A825";
+  const border = borderStyle === "none" ? "none" : `2px ${borderStyle} ${borderColor}`;
+  const [editing, setEditing] = useState(false);
+  const { updateNodeData } = useReactFlow();
+
+  const handleAnnotationStyleChange = (patch: Partial<AnnotationStyle>) => {
+    updateNodeData(id, { annotationStyle: { ...annStyle, ...patch } });
+  };
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const commitAndExit = (e: ReturnType<typeof useEditor>) => {
+    updateNodeData(id, { text: e.getHTML() });
     setEditing(false);
+  };
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TiptapImage.configure({ inline: false }),
+      TextStyle,
+      FontFamily,
+      FontSizeExtension,
+    ],
+    content: d.text || "",
+    editable: false,
+    onFocus: () => {
+      if (blurTimerRef.current) {
+        clearTimeout(blurTimerRef.current);
+        blurTimerRef.current = null;
+      }
+    },
+    onBlur: ({ editor: e }) => {
+      // Delay exit so focus can return from toolbar selects without flicker
+      blurTimerRef.current = setTimeout(() => {
+        if (containerRef.current?.contains(document.activeElement)) return;
+        commitAndExit(e);
+      }, 150);
+    },
+  });
+
+  // Clean up blur timer on unmount
+  useEffect(() => {
+    return () => { if (blurTimerRef.current) clearTimeout(blurTimerRef.current); };
+  }, []);
+
+  // Sync external text changes into editor when not editing
+  useEffect(() => {
+    if (editor && !editing) {
+      const next = d.text || "";
+      if (next !== editor.getHTML()) editor.commands.setContent(next);
+    }
+  }, [d.text, editor, editing]);
+
+  // Toggle editable and auto-focus when editing state changes
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(editing);
+    if (editing) editor.commands.focus("end");
+  }, [editing, editor]);
+
+  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string")
+        editor?.chain().focus().setImage({ src: reader.result }).run();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   return (
     <div
-      onDoubleClick={startEdit}
+      ref={containerRef}
+      onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
       style={{
         background: fill,
-        border: "2px dashed #F9A825",
+        border,
         borderRadius: 6,
         padding: "8px 10px",
         minWidth: 140,
         minHeight: 60,
+        width: "100%",
+        height: "100%",
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "flex-start",
+        flexDirection: "column",
         position: "relative",
         boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+        boxSizing: "border-box",
       }}
     >
+      <NodeResizer
+        minWidth={140}
+        minHeight={60}
+        isVisible={selected}
+        lineStyle={{ borderColor }}
+        handleStyle={{ borderColor, background: "#fff" }}
+      />
       <Handle type="source" position={Position.Top} id="top" />
       <Handle type="source" position={Position.Right} id="right" />
       <Handle type="source" position={Position.Bottom} id="bottom" />
       <Handle type="source" position={Position.Left} id="left" />
-      {editing ? (
-        <textarea
-          className="nodrag"
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setEditing(false);
-            }
-          }}
-          style={{
-            border: "none",
-            background: "transparent",
-            resize: "none",
-            fontFamily: "Helvetica, Arial, sans-serif",
-            fontSize: 12,
-            outline: "none",
-            width: "100%",
-            minHeight: 44,
-            lineHeight: 1.4,
-            color: "#333",
-          }}
+
+      {editing && (
+        <AnnotationToolbar
+          editor={editor}
+          onImageFile={() => imageFileInputRef.current?.click()}
+          annotationStyle={annStyle}
+          onAnnotationStyleChange={handleAnnotationStyleChange}
         />
-      ) : (
-        <div
-          className="nodrag"
-          style={{
-            fontFamily: "Helvetica, Arial, sans-serif",
-            fontSize: 12,
-            lineHeight: 1.4,
-            color: d.text ? "#333" : "#aaa",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            minWidth: 100,
-            minHeight: 44,
-          }}
-        >
-          {d.text || "Double-click to add note…"}
-        </div>
       )}
+
+      <div
+        className="nodrag nopan nowheel"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            if (editor) commitAndExit(editor);
+          }
+        }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+          fontFamily: "Helvetica, Arial, sans-serif",
+          fontSize: 12,
+          lineHeight: 1.4,
+          color: "#333",
+          position: "relative",
+        }}
+      >
+        {editor?.isEmpty && !editing && (
+          <span style={{ color: "#aaa", pointerEvents: "none", userSelect: "none" }}>
+            Double-click to add note…
+          </span>
+        )}
+        <EditorContent editor={editor} />
+      </div>
+
+      <input
+        ref={imageFileInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleImageFile}
+        className="nodrag"
+      />
     </div>
   );
 }

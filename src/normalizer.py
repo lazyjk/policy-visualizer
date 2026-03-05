@@ -39,6 +39,12 @@ class Op(str, Enum):
     not_matches_all = "not_matches_all"
     not_matches_any = "not_matches_any"
     in_range = "in_range"
+    # ISE-specific operators
+    ip_equals = "ip_equals"
+    ip_not_equals = "ip_not_equals"
+    ip_greater_than = "ip_greater_than"
+    ip_less_than = "ip_less_than"
+    not_in = "not_in"
 
     @classmethod
     def from_raw(cls, raw: str) -> "Op":

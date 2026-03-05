@@ -13,7 +13,6 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   Panel,
   addEdge,
   useNodesState,
@@ -60,7 +59,7 @@ function normalizeEdgeLabel(label?: string): string | undefined {
 
 function getBranchClass(label?: string): BranchClass {
   const normalized = normalizeEdgeLabel(label);
-  if (normalized === "YES" || normalized === "PASS") return "forward";
+  if (normalized === "YES" || normalized === "PASS" || normalized === "CONTINUE") return "forward";
   if (normalized === "NO") return "no";
   if (normalized === "FAIL") return "fail";
   return "unknown";
@@ -72,7 +71,9 @@ function resolveSourceHandle(sourceType: DiagramNodeType | undefined, label?: st
     case "decision":
       return branch === "no" ? "no" : "yes";
     case "process":
-      return branch === "fail" ? "fail" : undefined;
+      if (branch === "fail") return "fail";
+      if (normalizeEdgeLabel(label) === "CONTINUE") return "continue";
+      return undefined;
     case "start":
     case "action":
     case "end":
@@ -165,7 +166,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
     const target = nodeById.get(targetId);
     if (!target) return;
     const rg = target.data.rank_group as string | undefined;
-    if (rg === "rm_chain" || rg === "enf_chain") return; // handled separately
+    if (rg === "rm_chain" || rg === "enf_chain" || rg === "authen_chain") return; // handled separately
     const dfb = NODE_SIZE_FALLBACKS[target.type ?? "end"] ?? { width: 130, height: 60 };
     const ah  = actionNode.measured?.height ?? fallbackAction.height;
     const dh  = target.measured?.height ?? dfb.height;
@@ -185,19 +186,27 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   let enfChainStartX: number | null = null;
 
   const rmGroup = result.filter(
-    (n) => (n.data.rank_group as string | undefined) === "rm_chain"
+    (n) =>
+      (n.data.rank_group as string | undefined) === "rm_chain" ||
+      (n.data.rank_group as string | undefined) === "authen_chain"
   );
   if (rmGroup.length >= 1) {
     rmGroup.sort((a, b) => a.position.x - b.position.x);
     const chainX = rmGroup[0].position.x;
     let y = rmGroup[0].position.y;
     let maxRightX = chainX;
+    // Tracks the bottom y of all FAIL end nodes placed inline in the YES-column.
+    // Used to push the terminal NO node (default auth rule) below them.
+    let failEndBottomY = -Infinity;
 
     for (let i = 0; i < rmGroup.length; i++) {
       const chainNode = rmGroup[i];
       const h = chainNode.measured?.height ?? fallbackDecision.height;
       const w = chainNode.measured?.width  ?? fallbackDecision.width;
       chainNode.position = { x: chainX, y };
+
+      // Bottom of any FAIL end node placed during this iteration (used to advance y).
+      let procFailBottomY = -Infinity;
 
       // YES branch: role action node → its downstream (enf_chain entry is skipped)
       const actionId = yesTarget.get(chainNode.id);
@@ -212,13 +221,46 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
           };
           const actionRight = chainX + w + ACTION_INSET + aw;
           maxRightX = Math.max(maxRightX, actionRight);
-          (outEdges.get(actionId) ?? []).forEach((tid) =>
-            placeAdjacentRight(actionNode, tid, actionRight)
-          );
+
+          if (actionNode.type === "process") {
+            // authen_chain process node: place the FAIL end node directly below it
+            // rather than via placeAdjacentRight (which would put it in the enf_chain
+            // x-column, causing the overlap-resolution nudge loop to push it past the
+            // terminal NO / default-rule process node that shares the same x-column).
+            const failEdge = edges.find(
+              (e) => e.source === actionId && e.label?.toString() === "FAIL"
+            );
+            if (failEdge) {
+              const failNode = nodeById.get(failEdge.target);
+              if (failNode) {
+                const fnfb = NODE_SIZE_FALLBACKS[failNode.type ?? "end"] ?? { width: 130, height: 60 };
+                const fnh = failNode.measured?.height ?? fnfb.height;
+                const fnw = failNode.measured?.width  ?? fnfb.width;
+                failNode.position = {
+                  x: actionNode.position.x + (aw - fnw) / 2,
+                  y: actionNode.position.y + ah + LABEL_GAP,
+                };
+                procFailBottomY = failNode.position.y + fnh;
+                failEndBottomY = Math.max(failEndBottomY, procFailBottomY);
+                maxRightX = Math.max(maxRightX, actionNode.position.x + fnw);
+              }
+            }
+            // Still route any non-FAIL downstream through placeAdjacentRight (e.g. CONTINUE).
+            (outEdges.get(actionId) ?? []).forEach((tid) => {
+              if (failEdge && tid === failEdge.target) return; // already placed above
+              placeAdjacentRight(actionNode, tid, actionRight);
+            });
+          } else {
+            // rm_chain action nodes: original behaviour unchanged.
+            (outEdges.get(actionId) ?? []).forEach((tid) =>
+              placeAdjacentRight(actionNode, tid, actionRight)
+            );
+          }
         }
       }
 
-      // Terminal NO node of the last decision (rm_default or no_role_end)
+      // Terminal NO node of the last decision (rm_default or no_role_end).
+      // For authen_chain, push it below any FAIL end nodes placed in the YES-column.
       if (i === rmGroup.length - 1) {
         const termId = noTarget.get(chainNode.id);
         if (termId) {
@@ -226,7 +268,11 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
           if (term && !(term.data.rank_group as string | undefined)) {
             const tw = term.measured?.width
               ?? (NODE_SIZE_FALLBACKS[term.type ?? "action"]?.width ?? 160);
-            term.position = { x: chainX + w + ACTION_INSET, y: y + h + VERT_GAP };
+            const naturalTermY = y + h + VERT_GAP;
+            const termY = failEndBottomY > -Infinity
+              ? Math.max(naturalTermY, failEndBottomY + VERT_GAP)
+              : naturalTermY;
+            term.position = { x: chainX + w + ACTION_INSET, y: termY };
             const termRight = chainX + w + ACTION_INSET + tw;
             maxRightX = Math.max(maxRightX, termRight);
             if (term.type === "action") {
@@ -238,7 +284,12 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
         }
       }
 
-      y += h + VERT_GAP;
+      // Advance y: ensure the next chain decision clears any FAIL end node placed
+      // inline in this iteration (handles chains with N conditional rules).
+      const naturalNextY = y + h + VERT_GAP;
+      y = procFailBottomY > -Infinity
+        ? Math.max(naturalNextY, procFailBottomY + VERT_GAP)
+        : naturalNextY;
     }
 
     enfChainStartX = maxRightX + HORIZ_GAP;
@@ -299,6 +350,30 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
       y += h + VERT_GAP;
     }
   }
+
+  // ---- Process FAIL exits: place FAIL end nodes below their process source ----
+  // Match-all authen rules have no decision node so they are absent from rmGroup;
+  // the FAIL placement inside the rmGroup loop never fires for them.  Run a
+  // dedicated pass here so every process→FAIL end lands below its source node,
+  // regardless of whether it was handled by chain logic above.
+  result.forEach((node) => {
+    if (node.type !== "process") return;
+    const failEdge = edges.find(
+      (e) => e.source === node.id && normalizeEdgeLabel(e.label?.toString()) === "FAIL"
+    );
+    if (!failEdge) return;
+    const failNode = nodeById.get(failEdge.target);
+    if (!failNode) return;
+    const rg = failNode.data.rank_group as string | undefined;
+    if (rg === "rm_chain" || rg === "enf_chain" || rg === "authen_chain") return;
+    const nb = nodeBBox(node);
+    const fnfb = NODE_SIZE_FALLBACKS[failNode.type ?? "end"] ?? { width: 130, height: 60 };
+    const fnw = failNode.measured?.width ?? fnfb.width;
+    failNode.position = {
+      x: node.position.x + (nb.w - fnw) / 2,
+      y: node.position.y + nb.h + LABEL_GAP,
+    };
+  });
 
   // ---- Overlap detection and resolution ----
   // After chain compression, non-chain nodes (e.g. auth_fail) keep their original
@@ -426,12 +501,14 @@ interface ExportPanelProps {
 }
 
 function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
-  const { fitView, getViewport, setViewport } = useReactFlow();
+  const { fitView, getViewport, setViewport, getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [transparentBg, setTransparentBg] = useState(false);
+  const [includeGrid, setIncludeGrid] = useState(false);
 
   const captureImage = useCallback(
-    async (format: "png" | "svg", transparent: boolean): Promise<string> => {
+    async (format: "png" | "svg", transparent: boolean, withGrid: boolean): Promise<string> => {
       const saved = getViewport();
       fitView({ duration: 0, padding: 0.1 });
       // Wait two animation frames so React Flow commits the viewport change.
@@ -442,11 +519,11 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
         filter: (el: HTMLElement) => {
           const cl = el.classList;
           if (!cl) return true;
-          // Exclude React Flow UI chrome (controls, minimap, panels) from the export.
+          // Exclude React Flow UI chrome (controls, panels) from the export.
           return (
             !cl.contains("react-flow__panel") &&
             !cl.contains("react-flow__controls") &&
-            !cl.contains("react-flow__minimap")
+            (withGrid || !cl.contains("react-flow__background"))
           );
         },
         ...(transparent ? {} : { backgroundColor: "#ffffff" }),
@@ -465,7 +542,7 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg);
+      const dataUrl = await captureImage("png", transparentBg, includeGrid);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${serviceName}.png`;
@@ -473,13 +550,13 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
 
   const handleExportSvg = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("svg", transparentBg);
+      const dataUrl = await captureImage("svg", transparentBg, includeGrid);
       const a = document.createElement("a");
       a.href = dataUrl;
       a.download = `${serviceName}.svg`;
@@ -487,13 +564,13 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
 
   const handleExportPdf = useCallback(async () => {
     if (exporting || !wrapperRef.current) return;
     setExporting(true);
     try {
-      const dataUrl = await captureImage("png", transparentBg);
+      const dataUrl = await captureImage("png", transparentBg, includeGrid);
       const img = new Image();
       img.src = dataUrl;
       await new Promise<void>((resolve) => { img.onload = () => resolve(); });
@@ -507,33 +584,118 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     } finally {
       setExporting(false);
     }
-  }, [exporting, captureImage, serviceName, transparentBg, wrapperRef]);
+  }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef]);
 
-  const btnLabel = exporting ? "Exporting…" : null;
+  const handleExportDrawio = useCallback(() => {
+    const nodes = getNodes();
+    const edges = getEdges();
+
+    const xmlAttr = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const styleMap: Record<string, string> = {
+      start:      "ellipse;whiteSpace=wrap;html=1;",
+      decision:   "rhombus;whiteSpace=wrap;html=1;",
+      process:    "rounded=0;whiteSpace=wrap;html=1;",
+      action:     "rounded=1;arcSize=12;whiteSpace=wrap;html=1;",
+      end:        "ellipse;whiteSpace=wrap;html=1;strokeWidth=3;",
+      annotation: "text;html=1;strokeColor=none;align=left;verticalAlign=top;whiteSpace=wrap;overflow=hidden;",
+    };
+
+    const cells: string[] = [
+      '<mxCell id="0"/>',
+      '<mxCell id="1" parent="0"/>',
+    ];
+
+    for (const n of nodes) {
+      const w = n.measured?.width  ?? 180;
+      const h = n.measured?.height ?? 80;
+      const x = n.position.x;
+      const y = n.position.y;
+      const ntype = n.type ?? "process";
+      const fill = (n.data as Record<string, unknown>)?.color as string | undefined;
+      const baseStyle = styleMap[ntype] ?? styleMap.process;
+      const style = fill ? `${baseStyle}fillColor=${fill};` : baseStyle;
+      const label = xmlAttr(String((n.data as Record<string, unknown>)?.label ?? "").replace(/\n/g, "<br>"));
+      cells.push(
+        `<mxCell id="${n.id}" value="${label}" vertex="1" parent="1" style="${style}">` +
+        `<mxGeometry x="${x}" y="${y}" width="${w}" height="${h}" as="geometry"/>` +
+        `</mxCell>`
+      );
+    }
+
+    for (const e of edges) {
+      const label = xmlAttr(String((e.data as Record<string, unknown>)?.label ?? e.label ?? ""));
+      cells.push(
+        `<mxCell id="${e.id}" value="${label}" edge="1" source="${e.source}" target="${e.target}" parent="1">` +
+        `<mxGeometry relative="1" as="geometry"/>` +
+        `</mxCell>`
+      );
+    }
+
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<mxGraphModel><root>${cells.join("")}</root></mxGraphModel>`;
+
+    const blob = new Blob([xml], { type: "application/xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${serviceName}.drawio`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [getNodes, getEdges, serviceName]);
 
   return (
     <Panel position="top-right">
       <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={handleExportPng} disabled={exporting}>
-            {btnLabel ?? "Export PNG"}
-          </button>
-          <button onClick={handleExportSvg} disabled={exporting}>
-            {btnLabel ?? "Export SVG"}
-          </button>
-          <button onClick={handleExportPdf} disabled={exporting}>
-            {btnLabel ?? "Export PDF"}
-          </button>
-        </div>
-        <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
-          <input
-            type="checkbox"
-            checked={transparentBg}
-            onChange={(e) => setTransparentBg(e.target.checked)}
-            style={{ marginRight: 4 }}
-          />
-          Transparent background
-        </label>
+        <button onClick={() => setMenuOpen((o) => !o)} disabled={exporting}>
+          {exporting ? "Exporting…" : `Export ${menuOpen ? "▲" : "▼"}`}
+        </button>
+        {menuOpen && (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "stretch" }}>
+              <button onClick={handleExportPng} disabled={exporting}>PNG</button>
+              <button onClick={handleExportSvg} disabled={exporting}>SVG</button>
+              <button onClick={handleExportPdf} disabled={exporting}>PDF</button>
+              <button
+                onClick={handleExportDrawio}
+                disabled={exporting}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
+              >
+                <span>Draw.io</span>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.03em",
+                  background: "#f59e0b",
+                  color: "#fff",
+                  borderRadius: 3,
+                  padding: "1px 4px",
+                  lineHeight: 1.4,
+                }}>BETA</span>
+              </button>
+            </div>
+            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={transparentBg}
+                onChange={(e) => setTransparentBg(e.target.checked)}
+                style={{ marginRight: 4 }}
+              />
+              Transparent background
+            </label>
+            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={includeGrid}
+                onChange={(e) => setIncludeGrid(e.target.checked)}
+                style={{ marginRight: 4 }}
+              />
+              Include grid dots
+            </label>
+          </>
+        )}
       </div>
     </Panel>
   );
@@ -544,12 +706,10 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
 // ---------------------------------------------------------------------------
 
 interface AnnotationPanelProps {
-  snapToGrid: boolean;
-  setSnapToGrid: React.Dispatch<React.SetStateAction<boolean>>;
   nodeColors: NodeColors;
 }
 
-function AnnotationPanel({ snapToGrid, setSnapToGrid, nodeColors }: AnnotationPanelProps) {
+function AnnotationPanel({ nodeColors }: AnnotationPanelProps) {
   const { screenToFlowPosition, setNodes } = useReactFlow();
 
   const addAnnotation = useCallback(() => {
@@ -564,19 +724,53 @@ function AnnotationPanel({ snapToGrid, setSnapToGrid, nodeColors }: AnnotationPa
         type: "annotation",
         position: pos,
         data: { text: "", colors: nodeColors },
+        style: { width: 220, height: 100 },
       },
     ]);
   }, [screenToFlowPosition, setNodes, nodeColors]);
 
   return (
     <Panel position="top-left">
-      <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={addAnnotation}>Add Note</button>
+      <button onClick={addAnnotation}>Add Note</button>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SelectionHintPanel — dismissable multi-select tip; rendered inside <ReactFlow>
+// ---------------------------------------------------------------------------
+
+function SelectionHintPanel() {
+  const [visible, setVisible] = useState(
+    () => !localStorage.getItem("multiSelectHintDismissed")
+  );
+
+  const dismiss = () => {
+    localStorage.setItem("multiSelectHintDismissed", "1");
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Panel position="bottom-center">
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        background: "#fff", border: "1px solid #d1d5db",
+        borderRadius: 6, padding: "6px 10px", fontSize: 12, color: "#555",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+      }}>
+        <span>
+          Tip: <strong>Shift+click</strong> or <strong>drag the canvas</strong> to
+          select multiple nodes, then drag to move as a group.
+        </span>
         <button
-          onClick={() => setSnapToGrid((s) => !s)}
-          style={snapToGrid ? { background: "#AED6F1", fontWeight: 600 } : undefined}
+          onClick={dismiss}
+          style={{ background: "none", border: "none", cursor: "pointer",
+                   fontSize: 14, color: "#999", lineHeight: 1, padding: 0 }}
+          aria-label="Dismiss"
         >
-          {snapToGrid ? "Snap: On" : "Snap: Off"}
+          ✕
         </button>
       </div>
     </Panel>
@@ -699,7 +893,6 @@ export default function FlowDiagram({ flow }: Props) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const layoutAppliedRef = useRef(false);
   const [nodeColors, setNodeColors] = useState<NodeColors>(DEFAULT_NODE_COLORS);
-  const [snapToGrid, setSnapToGrid] = useState(false);
   // Ref so the flow-load effect always uses the current colors without re-running layout.
   const nodeColorsRef = useRef(nodeColors);
   useEffect(() => {
@@ -772,19 +965,27 @@ export default function FlowDiagram({ flow }: Props) {
     }));
 
     const nodeTypeById = new Map(flow.nodes.map((n) => [n.id, n.type]));
-    const rawEdges: Edge[] = flow.edges.map((e, i) => ({
-      id: `edge-${i}`,
-      type: "smoothstep",
-      source: e.from_id,
-      target: e.to_id,
-      sourceHandle: resolveSourceHandle(nodeTypeById.get(e.from_id), e.label),
-      targetHandle: resolveTargetHandle(nodeTypeById.get(e.to_id), e.label),
-      label: e.label || undefined,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-      style: { stroke: "#555", strokeWidth: 1.5 },
-      labelStyle: { fontSize: 10, fontFamily: "Helvetica, Arial, sans-serif" },
-      labelBgStyle: { fill: "#fff", fillOpacity: 0.8 },
-    }));
+    const rawEdges: Edge[] = flow.edges.map((e, i) => {
+      const isContinue = normalizeEdgeLabel(e.label) === "CONTINUE";
+      const displayLabel = isContinue && e.reason
+        ? `CONTINUE (${e.reason})`
+        : (e.label || undefined);
+      return {
+        id: `edge-${i}`,
+        type: "smoothstep",
+        source: e.from_id,
+        target: e.to_id,
+        sourceHandle: resolveSourceHandle(nodeTypeById.get(e.from_id), e.label),
+        targetHandle: resolveTargetHandle(nodeTypeById.get(e.to_id), e.label),
+        label: displayLabel,
+        markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
+        style: isContinue
+          ? { stroke: "#888", strokeWidth: 1.5, strokeDasharray: "5,3" }
+          : { stroke: "#555", strokeWidth: 1.5 },
+        labelStyle: { fontSize: 10, fontFamily: "Helvetica, Arial, sans-serif" },
+        labelBgStyle: { fill: "#fff", fillOpacity: 0.8 },
+      };
+    });
 
     setNodes(rawNodes);
     setEdges(rawEdges);
@@ -803,20 +1004,13 @@ export default function FlowDiagram({ flow }: Props) {
         fitView={false}
         minZoom={0.1}
         maxZoom={3}
-        snapToGrid={snapToGrid}
-        snapGrid={[20, 20]}
       >
         <Background gap={16} color="#e5e7eb" />
         <Controls />
-        <MiniMap
-          nodeColor={(node) => nodeColors[node.type as keyof NodeColors] ?? "#ccc"}
-          style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}
-        />
         <AnnotationPanel
-          snapToGrid={snapToGrid}
-          setSnapToGrid={setSnapToGrid}
           nodeColors={nodeColors}
         />
+        <SelectionHintPanel />
         <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
         <LayoutEffect
           layoutAppliedRef={layoutAppliedRef}

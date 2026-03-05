@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "2.0.3",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,11 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
+    "@tiptap/extension-font-family": "^3.20.0",
+    "@tiptap/extension-image": "^3.20.0",
+    "@tiptap/extension-text-style": "^3.20.0",
+    "@tiptap/react": "^3.20.0",
+    "@tiptap/starter-kit": "^3.20.0",
     "@types/dagre": "^0.7.53",
     "@xyflow/react": "^12.10.1",
     "html-to-image": "^1.11.13",

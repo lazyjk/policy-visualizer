@@ -29,7 +29,7 @@ export default function App() {
       setServices(result.services);
       if (result.services.length === 1) {
         // Only one service — render immediately
-        await loadFlow(file, result.services[0].name);
+        await loadFlow(file, result.services[0].id);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -38,14 +38,14 @@ export default function App() {
     }
   }
 
-  async function loadFlow(file: File, serviceName: string) {
+  async function loadFlow(file: File, serviceId: string) {
     setError(null);
     setDismissedWarnings(false);
     setLoading(true);
     try {
-      const flowData = await fetchFlow(file, serviceName);
+      const flowData = await fetchFlow(file, serviceId);
       setFlow(flowData);
-      setSelectedService(serviceName);
+      setSelectedService(serviceId);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -53,9 +53,9 @@ export default function App() {
     }
   }
 
-  async function handleServiceSelect(name: string) {
+  async function handleServiceSelect(id: string) {
     if (!fileRef.current) return;
-    await loadFlow(fileRef.current, name);
+    await loadFlow(fileRef.current, id);
   }
 
   return (
