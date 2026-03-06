@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Fri Mar 06 09:10:09 MST 2026" version="6.11"/>
+  <RadiusEnforcementServices>
+    <RadiusEnforcementService description="802.1X Wireless Access Service" name="test-evaluate-all" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Wireless-802.11 (19)" value="19" operator="EQUALS" name="NAS-Port-Type" type="Radius:IETF"/>
+          <RuleAttribute displayValue="Login-User (1), Framed-User (2), Authenticate-Only (8)" value="1,2,8" operator="BELONGS_TO" name="Service-Type" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRELESS</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[EAP PEAP]</string>
+        <string>[EAP TTLS]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>test-uni</string>
+      </AuthSourceNameList>
+      <RoleMappingNameList>
+        <string>test-eval-all-rm</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>eval-all-enf-policy</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+  </RadiusEnforcementServices>
+  <AuthMethods>
+    <AuthMethod description="Default settings for PAP" name="[PAP]" methodType="PAP">
+      <NVPair value="auto" name="encryption_scheme"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for MSCHAP" name="[MSCHAP]" methodType="MSCHAP">
+      <NVPair value="Challenge" name="pass_reset_flow"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-TLS" name="[EAP TLS]" methodType="EAP-TLS">
+      <NVPair value="false" name="override_cert_url"/>
+      <NVPair value="none" name="ocsp_enable"/>
+      <NVPair value="true" name="session_cache_enable"/>
+      <NVPair value="true" name="autz_required"/>
+      <NVPair value="none" name="certificate_comparison"/>
+      <NVPair value="6" name="session_timeout"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-TTLS" name="[EAP TTLS]" methodType="EAP-TTLS">
+      <NVPair value="true" name="session_cache_enable"/>
+      <NVPair value="6" name="session_timeout"/>
+      <InnerMethodNames>
+        <string>[PAP]</string>
+        <string>[EAP TLS]</string>
+        <string>[EAP GTC]</string>
+        <string>[EAP MSCHAPv2]</string>
+        <string>[MSCHAP]</string>
+        <string>[CHAP]</string>
+      </InnerMethodNames>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-PEAP" name="[EAP PEAP]" methodType="EAP-PEAP">
+      <NVPair value="true" name="allow_fast_reconnect"/>
+      <NVPair value="true" name="nap_support_enable"/>
+      <NVPair value="true" name="session_cache_enable"/>
+      <NVPair value="false" name="eap_peap_skip_auth"/>
+      <NVPair value="6" name="session_timeout"/>
+      <NVPair value="none" name="enforce_crypto_binding"/>
+      <InnerMethodNames>
+        <string>[EAP MSCHAPv2]</string>
+        <string>[EAP TLS]</string>
+        <string>[EAP GTC]</string>
+      </InnerMethodNames>
+    </AuthMethod>
+    <AuthMethod description="Default settings for CHAP" name="[CHAP]" methodType="CHAP"/>
+    <AuthMethod description="Default settings for EAP-MSCHAPv2" name="[EAP MSCHAPv2]" methodType="EAP-MSCHAPv2">
+      <NVPair value="3" name="no_of_retries"/>
+    </AuthMethod>
+    <AuthMethod description="Default settings for EAP-GTC" name="[EAP GTC]" methodType="EAP-GTC">
+      <NVPair value="Password: " name="challenge"/>
+    </AuthMethod>
+  </AuthMethods>
+  <AuthSources>
+    <AuthSource description="" name="test-uni" isAuthorizationSource="true" type="AD">
+      <NVPair value="10" name="timeout"/>
+      <NVPair value="36000" name="cache_timeout"/>
+      <NVPair value="dc=uni,dc=state,dc=com" name="basedn"/>
+      <NVPair value="sub" name="scope_type"/>
+      <NVPair value="false" name="allow_referral"/>
+      <NVPair value="dc.uni.state.com" name="server"/>
+      <NVPair value="ssl" name="connect_type"/>
+      <NVPair value="636" name="port"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="uni" name="netbios_name"/>
+      <NVPair value="true" name="authentication_source"/>
+      <NVPair value="userCertificate" name="certificate_attr"/>
+      <NVPair value="false" name="override_domain_name"/>
+      <NVPair value="true" name="verify_peer"/>
+      <NVPair value="true" name="replace_special_char"/>
+      <Filters>
+        <Filter paramValues="%{Authentication:Username}=*" filterQuery="(&amp;(sAMAccountName=%{Authentication:Username})(objectClass=user))" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="UserDN" attrName="distinguishedName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Department" attrName="department"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Title" attrName="title"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="company" attrName="company"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="memberOf" attrName="memberOf"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Phone" attrName="telephoneNumber"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Email" attrName="mail"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Name" attrName="displayName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer64" aliasName="Account Expires" attrName="accountExpires"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{memberOf}=" filterQuery="(distinguishedName=%{memberOf})" filterName="Group">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Groups" attrName="cn"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Host:Name}=" filterQuery="(&amp;(sAMAccountName=%{Host:Name}$)(objectClass=computer))" filterName="Machine">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="HostName" attrName="dNSHostName"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="OperatingSystem" attrName="operatingSystem"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="OSServicePack" attrName="operatingSystemServicePack"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Onboard:Owner}=*" filterQuery="(&amp;(sAMAccountName=%{Onboard:Owner})(objectClass=user))" filterName="Onboard Device Owner">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Onboard memberOf" attrName="memberOf"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="%{Onboard memberOf}=" filterQuery="(distinguishedName=%{Onboard memberOf})" filterName="Onboard Device Owner Group">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Onboard Groups" attrName="cn"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+  </AuthSources>
+  <Roles>
+    <Role description="Default role for a contractor" name="[Contractor]"/>
+    <Role description="Default role for another user or device" name="[Other]"/>
+    <Role description="Default role for an employee" name="[Employee]"/>
+    <Role description="" name="staff"/>
+  </Roles>
+  <RoleMappings>
+    <RoleMapping description="" name="test-eval-all-rm" ruleCombineAlgo="evaluate-all" dftRoleName="[Other]">
+      <Policy ruleCombiningAlgorithm="evaluate-all">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="test-staff" value="test-staff" operator="EQUALS" name="memberOf" type="Authorization:test-uni"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="staff" value="3001" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="companyA" value="companyA" operator="EQUALS" name="company" type="Authorization:test-uni"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Contractor]" value="20" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="companyB" value="companyB" operator="EQUALS" name="company" type="Authorization:test-uni"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Employee]" value="22" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </RoleMapping>
+  </RoleMappings>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="" name="eval-all-enf-policy" policyType="RADIUS" defaultProfileName="[Deny Access Profile]">
+      <Policy ruleCombiningAlgorithm="evaluate-all">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="staff" value="staff" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Allow Access Profile]" value="1" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="[Contractor]" value="[Contractor]" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Return Device Sponsor Name - RADIUS User-Name]" value="43" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <RadiusEnfProfiles>
+    <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="System-defined profile to deny network access" name="[Deny Access Profile]" action="Reject"/>
+    <RadiusEnfProfile description="Returns a device's owner (sponsor name) as the IETF User-Name" name="[Return Device Sponsor Name - RADIUS User-Name]" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="%{Authorization:[Guest Device Repository]:SponsorName}" value="%{Authorization:[Guest Device Repository]:SponsorName}" name="User-Name" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+  </RadiusEnfProfiles>
+</TipsContents>

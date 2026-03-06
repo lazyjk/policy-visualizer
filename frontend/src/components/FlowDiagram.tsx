@@ -8,7 +8,7 @@
  * LayoutEffect is rendered *inside* <ReactFlow> so it has access to context hooks
  * (useNodesInitialized, useReactFlow) which are not available in the parent.
  */
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -34,6 +34,11 @@ import "@xyflow/react/dist/style.css";
 
 import type { FlowIR } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
+import {
+  useDiagramSession,
+  type DiagramEditState,
+  type AnnotationClipboard,
+} from "../context/DiagramSessionContext";
 
 // Fallback sizes used only when node.measured is undefined (shouldn't happen in pass 2).
 const NODE_SIZE_FALLBACKS: Record<string, { width: number; height: number }> = {
@@ -832,7 +837,7 @@ function AnnotationPanel({ nodeColors }: AnnotationPanelProps) {
     setNodes((nds) => [
       ...nds,
       {
-        id: `annotation-${Date.now()}`,
+        id: crypto.randomUUID(),
         type: "annotation",
         position: pos,
         data: { text: "", colors: nodeColors },
@@ -975,7 +980,7 @@ function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
 // ---------------------------------------------------------------------------
 
 interface LayoutEffectProps {
-  layoutAppliedRef: MutableRefObject<boolean>;
+  layoutAppliedRef: React.RefObject<boolean>;
 }
 
 /** Rendered inside <ReactFlow> so it can use React Flow context hooks. */
@@ -995,11 +1000,153 @@ function LayoutEffect({ layoutAppliedRef }: LayoutEffectProps) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// KeyboardHandler — copy/paste for annotation nodes; rendered inside <ReactFlow>
+// so it has access to useReactFlow() (screenToFlowPosition, getNodes, etc.)
+// ---------------------------------------------------------------------------
+
+interface KeyboardHandlerProps {
+  serviceId: string;
+  localClipboardRef: React.RefObject<AnnotationClipboard | null>;
+  contextClipboardRef: React.RefObject<AnnotationClipboard | null>;
+  sessionDispatch: ReturnType<typeof useDiagramSession>["dispatch"];
+}
+
+function KeyboardHandler({
+  serviceId,
+  localClipboardRef,
+  contextClipboardRef,
+  sessionDispatch,
+}: KeyboardHandlerProps) {
+  const { screenToFlowPosition, getNodes, getEdges, setNodes, setEdges } = useReactFlow();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const platform =
+        (navigator as Navigator & { userAgentData?: { platform?: string } })
+          .userAgentData?.platform ?? navigator.userAgent;
+      const isMac = /mac/i.test(platform);
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key !== "c" && e.key !== "v") return;
+
+      // Tiptap guard: if focus is inside a ProseMirror editor, let the browser
+      // handle text copy/paste normally.
+      const ae = document.activeElement;
+      if (ae && ae.closest(".ProseMirror")) return;
+
+      if (e.key === "c") {
+        const nodes = getNodes();
+        const selectedAnnotations = nodes.filter(
+          (n) => n.selected && n.type === "annotation"
+        );
+        if (selectedAnnotations.length === 0) return;
+        e.preventDefault();
+
+        const idMap = new Map<string, string>();
+        const newNodes: Node[] = selectedAnnotations.map((n) => {
+          const newId = crypto.randomUUID();
+          idMap.set(n.id, newId);
+          return { ...n, id: newId };
+        });
+
+        const edges = getEdges();
+        const newEdges: Edge[] = edges
+          .filter(
+            (ed) =>
+              (ed.data as Record<string, unknown>)?.isAnnotation &&
+              idMap.has(ed.source) &&
+              idMap.has(ed.target)
+          )
+          .map((ed) => ({
+            ...ed,
+            id: crypto.randomUUID(),
+            source: idMap.get(ed.source)!,
+            target: idMap.get(ed.target)!,
+          }));
+
+        const payload: AnnotationClipboard = {
+          nodes: newNodes,
+          edges: newEdges,
+          sourceServiceId: serviceId,
+        };
+        localClipboardRef.current = payload;
+        sessionDispatch({ type: "SET_CLIPBOARD", payload });
+      } else if (e.key === "v") {
+        const clipboard = localClipboardRef.current ?? contextClipboardRef.current;
+        if (!clipboard || clipboard.nodes.length === 0) return;
+        e.preventDefault();
+
+        const isSameService = clipboard.sourceServiceId === serviceId;
+
+        // Anchor position for cross-diagram paste: flow coords at viewport center.
+        let anchorPos = { x: 0, y: 0 };
+        if (!isSameService) {
+          anchorPos = screenToFlowPosition({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+          });
+        }
+
+        // Relative offset from the first copied node's position (preserves group layout).
+        const originPos = clipboard.nodes[0].position;
+
+        const idMap = new Map<string, string>();
+        const newNodes: Node[] = clipboard.nodes.map((n) => {
+          const newId = crypto.randomUUID();
+          idMap.set(n.id, newId);
+          const position = isSameService
+            ? { x: n.position.x + 20, y: n.position.y + 20 }
+            : {
+                x: anchorPos.x + (n.position.x - originPos.x),
+                y: anchorPos.y + (n.position.y - originPos.y),
+              };
+          return { ...n, id: newId, position, selected: false };
+        });
+
+        // Keep only edges whose both endpoints were in the copied set.
+        // Drop edges to diagram nodes (those IDs won't exist in another service).
+        const newEdges: Edge[] = clipboard.edges
+          .filter((ed) => idMap.has(ed.source) && idMap.has(ed.target))
+          .map((ed) => ({
+            ...ed,
+            id: crypto.randomUUID(),
+            source: idMap.get(ed.source)!,
+            target: idMap.get(ed.target)!,
+          }));
+
+        setNodes((nds) => [...nds, ...newNodes]);
+        setEdges((eds) => [...eds, ...newEdges]);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [
+    serviceId,
+    localClipboardRef,
+    contextClipboardRef,
+    sessionDispatch,
+    screenToFlowPosition,
+    getNodes,
+    getEdges,
+    setNodes,
+    setEdges,
+  ]);
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+
 interface Props {
   flow: FlowIR;
 }
 
 export default function FlowDiagram({ flow }: Props) {
+  const { state: sessionState, dispatch: sessionDispatch } = useDiagramSession();
+  const serviceId = flow.service_id;
+
   const flowWrapperRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -1010,6 +1157,39 @@ export default function FlowDiagram({ flow }: Props) {
   useEffect(() => {
     nodeColorsRef.current = nodeColors;
   }, [nodeColors]);
+
+  // Keep a ref to sessionState so the load effect can read saved annotations without
+  // adding sessionState to its dependency array (which would cause re-layout on every
+  // annotation change).
+  const sessionStateRef = useRef(sessionState);
+  sessionStateRef.current = sessionState;
+
+  // Local clipboard ref (fastest path for within-diagram paste).
+  // Also mirrors to context via SET_CLIPBOARD for cross-diagram paste.
+  const localClipboardRef = useRef<AnnotationClipboard | null>(null);
+
+  // contextClipboardRef lets KeyboardHandler read context.clipboard without it
+  // being a reactive dependency.
+  const contextClipboardRef = useRef<AnnotationClipboard | null>(sessionState.clipboard);
+  contextClipboardRef.current = sessionState.clipboard;
+
+  // Debounced save: persist annotation nodes/edges + nodeColors to session context
+  // ~300 ms after the last change (avoids excessive dispatches during drag).
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      const editState: DiagramEditState = {
+        annotationNodes: nodes.filter((n) => n.type === "annotation"),
+        annotationEdges: edges.filter((e) => (e.data as Record<string, unknown>)?.isAnnotation),
+        nodeColors,
+      };
+      sessionDispatch({ type: "SAVE_EDIT_STATE", serviceId, state: editState });
+    }, 300);
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [nodes, edges, nodeColors, serviceId, sessionDispatch]);
 
   // Only annotation nodes can be deleted; diagram nodes are immutable.
   const handleNodesChange = useCallback(
@@ -1044,7 +1224,7 @@ export default function FlowDiagram({ flow }: Props) {
         addEdge(
           {
             ...connection,
-            id: `ann-edge-${Date.now()}`,
+            id: crypto.randomUUID(),
             type: "smoothstep",
             style: { stroke: "#9B59B6", strokeWidth: 1.5, strokeDasharray: "5,5" },
             markerEnd: { type: MarkerType.ArrowClosed, color: "#9B59B6", width: 12, height: 12 },
@@ -1099,9 +1279,20 @@ export default function FlowDiagram({ flow }: Props) {
       };
     });
 
-    setNodes(rawNodes);
-    setEdges(rawEdges);
+    // Restore saved annotations and colors for this service (if any).
+    // sessionStateRef.current is intentionally NOT in the dependency array — reading
+    // it via ref avoids re-running layout every time annotations change.
+    const saved = sessionStateRef.current.editStates[flow.service_id];
+    if (saved) {
+      setNodes([...rawNodes, ...saved.annotationNodes]);
+      setEdges([...rawEdges, ...saved.annotationEdges]);
+      setNodeColors(saved.nodeColors);
+    } else {
+      setNodes(rawNodes);
+      setEdges(rawEdges);
+    }
     layoutAppliedRef.current = false; // Reset so layout runs again when a new flow loads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flow, setNodes, setEdges]);
 
   return (
@@ -1126,6 +1317,12 @@ export default function FlowDiagram({ flow }: Props) {
         <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
         <LayoutEffect
           layoutAppliedRef={layoutAppliedRef}
+        />
+        <KeyboardHandler
+          serviceId={serviceId}
+          localClipboardRef={localClipboardRef}
+          contextClipboardRef={contextClipboardRef}
+          sessionDispatch={sessionDispatch}
         />
         <ExportPanel wrapperRef={flowWrapperRef} serviceName={flow.service_name} />
       </ReactFlow>

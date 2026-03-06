@@ -172,3 +172,42 @@ def test_multiple_unresolved_profiles_all_created():
     profiles = {p.name for p in ir.enforcement_profiles.values()}
     assert "Alpha" in profiles
     assert "Beta" in profiles
+
+
+# ---------------------------------------------------------------------------
+# evaluate-all algorithm tests
+# ---------------------------------------------------------------------------
+
+EVAL_ALL_FIXTURE = Path(__file__).parent / "fixtures" / "EvaluateAll.xml"
+
+
+@pytest.fixture(scope="module")
+def eval_all_ir():
+    raw = parse(EVAL_ALL_FIXTURE)
+    return build(raw, source_file=str(EVAL_ALL_FIXTURE))
+
+
+def test_eval_all_rm_rule_combine_algo(eval_all_ir):
+    rm = next(iter(eval_all_ir.role_mapping_policies.values()))
+    assert rm.rule_combine_algo == "evaluate-all"
+
+
+def test_eval_all_enf_rule_combine_algo(eval_all_ir):
+    ep = next(iter(eval_all_ir.enforcement_policies.values()))
+    assert ep.rule_combine_algo == "evaluate-all"
+
+
+def test_first_applicable_enf_default_algo(ir):
+    """Existing fixture enforcement policy should default to first-applicable."""
+    ep = next(iter(ir.enforcement_policies.values()))
+    assert ep.rule_combine_algo == "first-applicable"
+
+
+def test_eval_all_rm_has_three_rules(eval_all_ir):
+    rm = next(iter(eval_all_ir.role_mapping_policies.values()))
+    assert len(rm.rules) == 3
+
+
+def test_eval_all_enf_has_two_rules(eval_all_ir):
+    ep = next(iter(eval_all_ir.enforcement_policies.values()))
+    assert len(ep.rules) == 2
