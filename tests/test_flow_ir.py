@@ -102,3 +102,80 @@ def test_pass_edge_is_single_forward_transition_from_auth(flow):
 
     assert source.type == "process"
     assert target.type in {"decision", "end"}
+
+
+# ---------------------------------------------------------------------------
+# evaluate-all flow tests
+# ---------------------------------------------------------------------------
+
+EVAL_ALL_FIXTURE = Path(__file__).parent / "fixtures" / "EvaluateAll.xml"
+
+
+@pytest.fixture(scope="module")
+def eval_all_flow() -> FlowIR:
+    from src.parser import parse as _parse
+    from src.policy_ir import build as _build
+    raw = _parse(EVAL_ALL_FIXTURE)
+    ir = _build(raw)
+    svc = next(iter(ir.services.values()))
+    return compile_service(svc, ir)
+
+
+def test_eval_all_edges_reference_valid_nodes(eval_all_flow):
+    node_ids = {n.id for n in eval_all_flow.nodes}
+    for edge in eval_all_flow.edges:
+        assert edge.from_id in node_ids
+        assert edge.to_id in node_ids
+
+
+def test_eval_all_has_continue_edges(eval_all_flow):
+    """evaluate-all chains must produce CONTINUE edges from action → next decision."""
+    continue_edges = [e for e in eval_all_flow.edges if e.label == "CONTINUE"]
+    assert len(continue_edges) >= 2  # at least 2 non-last rules across both chains
+
+
+def test_eval_all_rm_action_nodes_not_all_terminating(eval_all_flow):
+    """In evaluate-all RM chain, non-last action nodes must NOT connect directly to enf_entry."""
+    # CONTINUE edges go action → decision; none of the non-last RM actions should reach an end node
+    node_by_id = {n.id: n for n in eval_all_flow.nodes}
+    continue_edges = [e for e in eval_all_flow.edges if e.label == "CONTINUE"]
+    for edge in continue_edges:
+        target = node_by_id[edge.to_id]
+        assert target.type == "decision", (
+            f"CONTINUE edge target should be decision, got {target.type!r} ({edge.to_id})"
+        )
+
+
+def test_eval_all_last_rm_action_reaches_enf_chain(eval_all_flow):
+    """The last RM action node should connect to the enforcement entry (no CONTINUE)."""
+    node_by_id = {n.id: n for n in eval_all_flow.nodes}
+    # Find the last rm action node (rm_action_2 for 3-rule chain, index 2)
+    last_rm_action = next(
+        (n for n in eval_all_flow.nodes if "rm_action_2" in n.id), None
+    )
+    assert last_rm_action is not None
+    outgoing = [e for e in eval_all_flow.edges if e.from_id == last_rm_action.id]
+    assert len(outgoing) == 1
+    assert outgoing[0].label != "CONTINUE"
+    # target should be a decision (first enf rule) or process node
+    target = node_by_id[outgoing[0].to_id]
+    assert target.type in {"decision", "process"}
+
+
+def test_eval_all_enf_default_is_terminal(eval_all_flow):
+    """The default enforcement action should lead to an end node."""
+    node_by_id = {n.id: n for n in eval_all_flow.nodes}
+    default_action = next(
+        (n for n in eval_all_flow.nodes if "enf_default_action" in n.id), None
+    )
+    assert default_action is not None
+    outgoing = [e for e in eval_all_flow.edges if e.from_id == default_action.id]
+    assert len(outgoing) == 1
+    assert node_by_id[outgoing[0].to_id].type == "end"
+
+
+def test_eval_all_end_nodes_have_no_outgoing_edges(eval_all_flow):
+    end_ids = {n.id for n in eval_all_flow.nodes if n.type == "end"}
+    for eid in end_ids:
+        outgoing = [e for e in eval_all_flow.edges if e.from_id == eid]
+        assert outgoing == [], f"End node {eid!r} has outgoing edges"

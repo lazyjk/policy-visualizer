@@ -186,11 +186,17 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
         rules = []
         for i, rule_el in enumerate(ep.findall(f".//{_tag('Rule')}")):
             rules.append(_parse_rule(rule_el, i))
+        policy_el = ep.find(f".//{_tag('Policy')}")
+        rule_combine_algo = (
+            policy_el.get("ruleCombiningAlgorithm", "first-applicable")
+            if policy_el is not None else "first-applicable"
+        )
         model["enforcementPolicies"].append({
             "name": ep.get("name", ""),
             "description": ep.get("description", ""),
             "policyType": ep.get("policyType", ""),
             "defaultProfile": ep.get("defaultProfileName", ""),
+            "ruleCombineAlgo": rule_combine_algo,
             "rules": rules,
         })
 

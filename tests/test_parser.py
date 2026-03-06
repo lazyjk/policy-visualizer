@@ -123,3 +123,31 @@ def test_tacacs_enf_profiles_parsed(tacacs_raw):
     names = [p["name"] for p in tacacs_raw["tacacsEnfProfiles"]]
     assert "TACACS Cisco Priv 15" in names
     assert "[TACACS Network Admin]" in names
+
+
+# ---------------------------------------------------------------------------
+# evaluate-all fixture tests
+# ---------------------------------------------------------------------------
+
+EVAL_ALL_FIXTURE = Path(__file__).parent / "fixtures" / "EvaluateAll.xml"
+
+
+@pytest.fixture(scope="module")
+def eval_all_raw():
+    return parse(EVAL_ALL_FIXTURE)
+
+
+def test_eval_all_role_mapping_algo(eval_all_raw):
+    rm = eval_all_raw["roleMappings"][0]
+    assert rm["ruleCombineAlgo"] == "evaluate-all"
+
+
+def test_eval_all_enforcement_policy_algo(eval_all_raw):
+    ep = eval_all_raw["enforcementPolicies"][0]
+    assert ep["ruleCombineAlgo"] == "evaluate-all"
+
+
+def test_first_applicable_enforcement_policy_algo(raw):
+    """Existing fixture should default to first-applicable."""
+    ep = raw["enforcementPolicies"][0]
+    assert ep["ruleCombineAlgo"] == "first-applicable"

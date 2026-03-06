@@ -106,6 +106,7 @@ class EnforcementPolicy:
     id: str
     name: str
     policy_type: str
+    rule_combine_algo: str = "first-applicable"
     rules: list[PolicyRule] = field(default_factory=list)
     default: ApplyProfiles | None = None
 
@@ -334,6 +335,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             id=epid,
             name=ep["name"],
             policy_type=ep.get("policyType", ""),
+            rule_combine_algo=ep.get("ruleCombineAlgo", "first-applicable"),
             rules=rules,
             default=default,
         )

@@ -166,11 +166,15 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
         enf_entry_id = deny_end.id
     else:
         # Build each enforcement rule as a decision node
+        evaluate_all_enf = ep.rule_combine_algo == "evaluate-all"
         first_enf_id = f"{sid}__enf_rule_0"
         enf_entry_id = first_enf_id
 
         prev_enf_id: str | None = None
-        for rule in ep.rules:
+        prev_enf_action_id: str | None = None
+        enf_rules = list(ep.rules)
+        for i, rule in enumerate(enf_rules):
+            is_last_enf = (i == len(enf_rules) - 1)
             cond_label = expr_to_node_label(rule.when)
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__enf_rule_{rule.index}",
@@ -181,8 +185,12 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             ))
             if prev_enf_id is not None:
                 flow.add_edge(prev_enf_id, dec.id, "NO")
+            # evaluate-all: wire previous action → this decision via CONTINUE
+            if evaluate_all_enf and prev_enf_action_id is not None:
+                flow.add_edge(prev_enf_action_id, dec.id, "CONTINUE")
+            prev_enf_action_id = None
 
-            # YES → action → end
+            # YES → action
             if isinstance(rule.then, ApplyProfiles):
                 names = rule.then.profile_names
                 deny = _is_deny(rule.then.profile_ids, names, ir.enforcement_profiles)
@@ -193,13 +201,18 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                     trace_rule_id=rule.id,
                 ))
                 flow.add_edge(dec.id, action.id, "YES")
-                access = "DENY" if deny else "ALLOW"
-                end_node = flow.add_node(FlowNode(
-                    id=f"{sid}__enf_end_{rule.index}",
-                    type="end",
-                    label=f"Access: {access}",
-                ))
-                flow.add_edge(action.id, end_node.id)
+                if not evaluate_all_enf or is_last_enf:
+                    # first-applicable, or last rule in evaluate-all: terminate
+                    access = "DENY" if deny else "ALLOW"
+                    end_node = flow.add_node(FlowNode(
+                        id=f"{sid}__enf_end_{rule.index}",
+                        type="end",
+                        label=f"Access: {access}",
+                    ))
+                    flow.add_edge(action.id, end_node.id)
+                else:
+                    # evaluate-all non-last: stash for CONTINUE edge on next iteration
+                    prev_enf_action_id = action.id
 
             prev_enf_id = dec.id
 
@@ -243,7 +256,11 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
     current_label = "PASS"
 
     if rm is not None:
-        for rule in rm.rules:
+        evaluate_all_rm = rm.rule_combine_algo == "evaluate-all"
+        prev_rm_action_id: str | None = None
+        rm_rules = list(rm.rules)
+        for i, rule in enumerate(rm_rules):
+            is_last_rm = (i == len(rm_rules) - 1)
             cond_label = expr_to_node_label(rule.when)
             dec = flow.add_node(FlowNode(
                 id=f"{sid}__rm_rule_{rule.index}",
@@ -253,6 +270,10 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 rank_group="rm_chain",
             ))
             flow.add_edge(current_tail, dec.id, current_label)
+            # evaluate-all: wire previous action → this decision via CONTINUE
+            if evaluate_all_rm and prev_rm_action_id is not None:
+                flow.add_edge(prev_rm_action_id, dec.id, "CONTINUE")
+            prev_rm_action_id = None
 
             if isinstance(rule.then, SetRole):
                 role_action = flow.add_node(FlowNode(
@@ -262,8 +283,12 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                     trace_rule_id=rule.id,
                 ))
                 flow.add_edge(dec.id, role_action.id, "YES")
-                # Converge to the shared enforcement chain
-                flow.add_edge(role_action.id, enf_entry_id)
+                if not evaluate_all_rm or is_last_rm:
+                    # first-applicable, or last rule in evaluate-all: converge to enforcement
+                    flow.add_edge(role_action.id, enf_entry_id)
+                else:
+                    # evaluate-all non-last: stash for CONTINUE edge on next iteration
+                    prev_rm_action_id = role_action.id
 
             current_tail = dec.id
             current_label = "NO"
