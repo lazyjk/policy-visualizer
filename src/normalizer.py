@@ -242,7 +242,7 @@ def expr_to_node_label(expr: BooleanExpr | None) -> str:
         return raw
 
     def _pred(e: Predicate) -> str:
-        attr = e.attribute.split(":")[-1]
+        attr = f"{e.namespace}:{e.attribute}" if e.namespace else e.attribute
         op = e.raw_operator or e.op.value.upper()
         rhs = _wrap_value(_pick_rhs(e.rhs_raw, e.rhs_display))
         return f"{attr}\n{op}\n{rhs}"
