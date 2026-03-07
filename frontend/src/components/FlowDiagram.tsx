@@ -32,7 +32,8 @@ import { jsPDF } from "jspdf";
 
 import "@xyflow/react/dist/style.css";
 
-import type { FlowIR } from "../api";
+import { fetchFlow } from "../api";
+import type { FlowIR, ServiceSummary } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
 import {
   useDiagramSession,
@@ -503,6 +504,11 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 interface ExportPanelProps {
   wrapperRef: React.RefObject<HTMLDivElement | null>;
   serviceName: string;
+  allServices: ServiceSummary[];
+  fileRef: React.RefObject<File | null> | undefined;
+  layoutReadyRef: React.RefObject<(() => void) | null>;
+  layoutAppliedRef: React.RefObject<boolean>;
+  onBatchFlowChange: (f: FlowIR | null) => void;
 }
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
@@ -551,12 +557,23 @@ function clampPixelRatio(
   return Math.max(1, Math.min(desired, Math.floor(ratio)));
 }
 
-function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
+function ExportPanel({
+  wrapperRef,
+  serviceName,
+  allServices,
+  fileRef,
+  layoutReadyRef,
+  layoutAppliedRef,
+  onBatchFlowChange,
+}: ExportPanelProps) {
   const { getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [transparentBg, setTransparentBg] = useState(false);
   const [includeGrid, setIncludeGrid] = useState(false);
+  const [batchExporting, setBatchExporting] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [batchFormat, setBatchFormat] = useState<"png" | "svg" | "pdf" | "drawio">("png");
 
   /**
    * Capture the diagram by targeting .react-flow__viewport directly and
@@ -763,7 +780,148 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
     URL.revokeObjectURL(url);
   }, [getNodes, getEdges, serviceName]);
 
+  const handleExportAll = useCallback(async () => {
+    if (batchExporting || exporting || !fileRef?.current || allServices.length < 2) return;
+
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
+    const fileBaseName = fileRef.current.name.replace(/\.[^.]+$/, "");
+    const seenNames = new Set<string>();
+    const failed: string[] = [];
+
+    // Draw.io XML generation helper — duplicated from handleExportDrawio so it
+    // can run inside the loop using the post-layout getNodes/getEdges snapshot.
+    const buildDrawioXml = () => {
+      const nodes = getNodes();
+      const edges = getEdges();
+      const xmlAttr = (s: string) =>
+        s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const styleMap: Record<string, string> = {
+        start:      "ellipse;whiteSpace=wrap;html=1;",
+        decision:   "rhombus;whiteSpace=wrap;html=1;",
+        process:    "rounded=0;whiteSpace=wrap;html=1;",
+        action:     "rounded=1;arcSize=12;whiteSpace=wrap;html=1;",
+        end:        "ellipse;whiteSpace=wrap;html=1;strokeWidth=3;",
+        annotation: "text;html=1;strokeColor=none;align=left;verticalAlign=top;whiteSpace=wrap;overflow=hidden;",
+      };
+      const cells: string[] = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>'];
+      for (const n of nodes) {
+        const w = n.measured?.width ?? 180, h = n.measured?.height ?? 80;
+        const ntype = n.type ?? "process";
+        const fill = (n.data as Record<string, unknown>)?.color as string | undefined;
+        const style = fill ? `${styleMap[ntype] ?? styleMap.process}fillColor=${fill};` : (styleMap[ntype] ?? styleMap.process);
+        const label = xmlAttr(String((n.data as Record<string, unknown>)?.label ?? "").replace(/\n/g, "<br>"));
+        cells.push(
+          `<mxCell id="${n.id}" value="${label}" vertex="1" parent="1" style="${style}">` +
+          `<mxGeometry x="${n.position.x}" y="${n.position.y}" width="${w}" height="${h}" as="geometry"/>` +
+          `</mxCell>`
+        );
+      }
+      for (const e of edges) {
+        const label = xmlAttr(String((e.data as Record<string, unknown>)?.label ?? e.label ?? ""));
+        cells.push(
+          `<mxCell id="${e.id}" value="${label}" edge="1" source="${e.source}" target="${e.target}" parent="1">` +
+          `<mxGeometry relative="1" as="geometry"/></mxCell>`
+        );
+      }
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<mxGraphModel><root>${cells.join("")}</root></mxGraphModel>`;
+    };
+
+    setBatchExporting(true);
+
+    for (let i = 0; i < allServices.length; i++) {
+      const svc = allServices[i];
+      setBatchProgress({ current: i + 1, total: allServices.length });
+      try {
+        const flowData = await fetchFlow(fileRef.current, svc.id);
+        layoutAppliedRef.current = false;
+        onBatchFlowChange(flowData);
+        await waitForLayout(layoutReadyRef);
+        // Small buffer for React to paint after fitView.
+        await new Promise<void>((r) => setTimeout(r, 100));
+
+        let name = svc.name.replace(/[^a-zA-Z0-9_\-. ]/g, "_").trim() || "service";
+        if (seenNames.has(name)) name = `${name}_${i}`;
+        seenNames.add(name);
+
+        if (batchFormat === "png") {
+          const { dataUrl } = await captureImage("png", false, false, EXPORT_MAX_PIXELS);
+          zip.file(`${name}.png`, dataUrl.split(",")[1], { base64: true });
+        } else if (batchFormat === "svg") {
+          const { dataUrl } = await captureImage("svg", false, false, EXPORT_MAX_PIXELS);
+          // toSvg returns a URL-encoded data URL, not base64 — decode to raw SVG text.
+          const svgText = decodeURIComponent(dataUrl.split(",").slice(1).join(","));
+          zip.file(`${name}.svg`, svgText);
+        } else if (batchFormat === "pdf") {
+          const { dataUrl, pixelRatio } = await captureImage("jpeg", false, false, EXPORT_MAX_PIXELS);
+          const img = new Image();
+          img.src = dataUrl;
+          await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error("img load failed")); });
+          const pdfW = img.width / pixelRatio;
+          const pdfH = img.height / pixelRatio;
+          const pdf = new jsPDF({ orientation: pdfW > pdfH ? "landscape" : "portrait", unit: "px", format: [pdfW, pdfH] });
+          pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
+          zip.file(`${name}.pdf`, pdf.output("blob"));
+        } else {
+          // drawio
+          zip.file(`${name}.drawio`, buildDrawioXml());
+        }
+      } catch {
+        failed.push(svc.name);
+      }
+    }
+
+    onBatchFlowChange(null);
+    setBatchExporting(false);
+    setBatchProgress(null);
+
+    if (Object.keys(zip.files).length === 0) {
+      console.error("Export All: all services failed", failed);
+      return;
+    }
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fileBaseName}-all-services.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [
+    batchExporting, exporting, fileRef, batchFormat, allServices,
+    captureImage, layoutReadyRef, layoutAppliedRef, onBatchFlowChange,
+    getNodes, getEdges,
+  ]);
+
   return (
+    <>
+    {batchExporting && batchProgress && (
+      <div style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
+        zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <div style={{
+          background: "#1f2937", borderRadius: 10, padding: "28px 40px",
+          textAlign: "center", minWidth: 260, color: "#fff",
+          fontFamily: "Helvetica, Arial, sans-serif",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>
+            Exporting All Services…
+          </div>
+          <div style={{ fontSize: 14, color: "#d1d5db", marginBottom: 16 }}>
+            {batchProgress.current} of {batchProgress.total}
+          </div>
+          <div style={{ height: 6, background: "#374151", borderRadius: 3, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", background: "#3b82f6", borderRadius: 3,
+              width: `${(batchProgress.current / batchProgress.total) * 100}%`,
+              transition: "width 0.2s ease",
+            }} />
+          </div>
+        </div>
+      </div>
+    )}
     <Panel position="top-right">
       <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
         <button onClick={() => setMenuOpen((o) => !o)} disabled={exporting}>
@@ -811,10 +969,56 @@ function ExportPanel({ wrapperRef, serviceName }: ExportPanelProps) {
               />
               Include grid dots
             </label>
+            {allServices.length > 1 && (
+              <>
+                <div style={{ borderTop: "1px solid #e5e7eb", margin: "4px 0" }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {(["png", "svg"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setBatchFormat(f)}
+                        style={{
+                          flex: 1,
+                          fontWeight: batchFormat === f ? 700 : 400,
+                          background: batchFormat === f ? "#dbeafe" : undefined,
+                        }}
+                      >
+                        {f.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {(["pdf", "drawio"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setBatchFormat(f)}
+                        style={{
+                          flex: 1,
+                          fontWeight: batchFormat === f ? 700 : 400,
+                          background: batchFormat === f ? "#dbeafe" : undefined,
+                        }}
+                      >
+                        {f === "drawio" ? "Draw.io" : f.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={handleExportAll}
+                  disabled={exporting || batchExporting}
+                >
+                  {batchExporting
+                    ? `Exporting ${batchProgress?.current ?? 0}/${batchProgress?.total ?? allServices.length}…`
+                    : "Export All (ZIP)"}
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
     </Panel>
+    </>
   );
 }
 
@@ -981,10 +1185,11 @@ function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
 
 interface LayoutEffectProps {
   layoutAppliedRef: React.RefObject<boolean>;
+  layoutReadyRef: React.RefObject<(() => void) | null>;
 }
 
 /** Rendered inside <ReactFlow> so it can use React Flow context hooks. */
-function LayoutEffect({ layoutAppliedRef }: LayoutEffectProps) {
+function LayoutEffect({ layoutAppliedRef, layoutReadyRef }: LayoutEffectProps) {
   const nodesInitialized = useNodesInitialized();
   const { setNodes, fitView, getEdges } = useReactFlow();
 
@@ -994,10 +1199,25 @@ function LayoutEffect({ layoutAppliedRef }: LayoutEffectProps) {
     setNodes((nds) => applyDagreLayout(nds, edges));
     layoutAppliedRef.current = true;
     // Brief delay to let React Flow commit the position update before fitting the view.
-    setTimeout(() => fitView({ padding: 0.15 }), 50);
-  }, [nodesInitialized, getEdges, setNodes, fitView, layoutAppliedRef]);
+    setTimeout(() => {
+      fitView({ padding: 0.15 });
+      // Signal batch export (if active) that layout is complete.
+      if (layoutReadyRef.current) {
+        layoutReadyRef.current();
+        layoutReadyRef.current = null;
+      }
+    }, 50);
+  }, [nodesInitialized, getEdges, setNodes, fitView, layoutAppliedRef, layoutReadyRef]);
 
   return null;
+}
+
+/** Promise that resolves when dagre layout completes, with a 3 s safety timeout. */
+function waitForLayout(layoutReadyRef: React.RefObject<(() => void) | null>): Promise<void> {
+  return new Promise((resolve) => {
+    layoutReadyRef.current = resolve;
+    setTimeout(resolve, 3000);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1141,9 +1361,11 @@ function KeyboardHandler({
 
 interface Props {
   flow: FlowIR;
+  allServices?: ServiceSummary[];
+  fileRef?: React.RefObject<File | null>;
 }
 
-export default function FlowDiagram({ flow }: Props) {
+export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) {
   const { state: sessionState, dispatch: sessionDispatch } = useDiagramSession();
   const serviceId = flow.service_id;
 
@@ -1151,6 +1373,11 @@ export default function FlowDiagram({ flow }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const layoutAppliedRef = useRef(false);
+  const layoutReadyRef = useRef<(() => void) | null>(null);
+
+  // During batch export, temporarily override the displayed flow without changing the prop.
+  const [batchFlow, setBatchFlow] = useState<FlowIR | null>(null);
+  const activeFlow = batchFlow ?? flow;
   const [nodeColors, setNodeColors] = useState<NodeColors>(DEFAULT_NODE_COLORS);
   // Ref so the flow-load effect always uses the current colors without re-running layout.
   const nodeColorsRef = useRef(nodeColors);
@@ -1237,13 +1464,19 @@ export default function FlowDiagram({ flow }: Props) {
     [nodes, setEdges]
   );
 
+  // Callback for ExportPanel to swap the displayed flow during batch export.
+  const handleBatchFlowChange = useCallback((f: FlowIR | null) => {
+    layoutAppliedRef.current = false;
+    setBatchFlow(f);
+  }, []);
+
   // Propagate color changes to all existing nodes (including user-placed annotations).
   useEffect(() => {
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, colors: nodeColors } })));
   }, [nodeColors, setNodes]);
 
   useEffect(() => {
-    const rawNodes: Node[] = flow.nodes.map((n) => ({
+    const rawNodes: Node[] = activeFlow.nodes.map((n) => ({
       id: n.id,
       type: n.type,
       data: {
@@ -1256,8 +1489,8 @@ export default function FlowDiagram({ flow }: Props) {
       position: { x: 0, y: 0 },
     }));
 
-    const nodeTypeById = new Map(flow.nodes.map((n) => [n.id, n.type]));
-    const rawEdges: Edge[] = flow.edges.map((e, i) => {
+    const nodeTypeById = new Map(activeFlow.nodes.map((n) => [n.id, n.type]));
+    const rawEdges: Edge[] = activeFlow.edges.map((e, i) => {
       const isContinue = normalizeEdgeLabel(e.label) === "CONTINUE";
       const displayLabel = isContinue && e.reason
         ? `CONTINUE (${e.reason})`
@@ -1279,10 +1512,8 @@ export default function FlowDiagram({ flow }: Props) {
       };
     });
 
-    // Restore saved annotations and colors for this service (if any).
-    // sessionStateRef.current is intentionally NOT in the dependency array — reading
-    // it via ref avoids re-running layout every time annotations change.
-    const saved = sessionStateRef.current.editStates[flow.service_id];
+    // During batch export skip annotation restore — only restore for the real selected flow.
+    const saved = batchFlow ? null : sessionStateRef.current.editStates[activeFlow.service_id];
     if (saved) {
       setNodes([...rawNodes, ...saved.annotationNodes]);
       setEdges([...rawEdges, ...saved.annotationEdges]);
@@ -1293,7 +1524,7 @@ export default function FlowDiagram({ flow }: Props) {
     }
     layoutAppliedRef.current = false; // Reset so layout runs again when a new flow loads.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flow, setNodes, setEdges]);
+  }, [activeFlow, setNodes, setEdges]);
 
   return (
     <div ref={flowWrapperRef} style={{ width: "100%", height: "100%" }}>
@@ -1317,6 +1548,7 @@ export default function FlowDiagram({ flow }: Props) {
         <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
         <LayoutEffect
           layoutAppliedRef={layoutAppliedRef}
+          layoutReadyRef={layoutReadyRef}
         />
         <KeyboardHandler
           serviceId={serviceId}
@@ -1324,7 +1556,15 @@ export default function FlowDiagram({ flow }: Props) {
           contextClipboardRef={contextClipboardRef}
           sessionDispatch={sessionDispatch}
         />
-        <ExportPanel wrapperRef={flowWrapperRef} serviceName={flow.service_name} />
+        <ExportPanel
+          wrapperRef={flowWrapperRef}
+          serviceName={flow.service_name}
+          allServices={allServices}
+          fileRef={fileRef}
+          layoutReadyRef={layoutReadyRef}
+          layoutAppliedRef={layoutAppliedRef}
+          onBatchFlowChange={handleBatchFlowChange}
+        />
       </ReactFlow>
     </div>
   );

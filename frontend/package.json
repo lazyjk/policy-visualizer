@@ -22,6 +22,7 @@
     "@types/dagre": "^0.7.53",
     "@xyflow/react": "^12.10.1",
     "html-to-image": "^1.11.13",
+    "jszip": "^3.10.1",
     "jspdf": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

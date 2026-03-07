@@ -107,7 +107,7 @@ function AppContent() {
         )}
         {flow ? (
           <ReactFlowProvider>
-            <FlowDiagram flow={flow} />
+            <FlowDiagram flow={flow} allServices={services} fileRef={fileRef} />
           </ReactFlowProvider>
         ) : (
           <div
