@@ -36,6 +36,7 @@ interface NodeData {
   label: string;
   sub_label?: string;
   colors?: NodeColors;
+  diamondScale?: number;
   [key: string]: unknown;
 }
 
@@ -116,8 +117,10 @@ export function StartNode({ data }: NodeProps) {
 // a styled NodeToolbar tooltip reveals the full condition on hover.
 export function DecisionNode({ data }: NodeProps) {
   const d = data as NodeData;
+  const scale = d.diamondScale ?? 1;
   const [hovered, setHovered] = useState(false);
-  const { display, overflow } = truncateLines(d.label, DIAMOND_LABEL_THRESHOLD);
+  const threshold = Math.round(DIAMOND_LABEL_THRESHOLD * scale);
+  const { display, overflow } = truncateLines(d.label, threshold);
   const isTruncated = overflow > 0;
   const fill = d.colors?.decision ?? DEFAULT_NODE_COLORS.decision;
 
@@ -127,8 +130,8 @@ export function DecisionNode({ data }: NodeProps) {
       onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
-        width: 220,
-        height: 220,
+        width: 220 * scale,
+        height: 220 * scale,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -146,8 +149,8 @@ export function DecisionNode({ data }: NodeProps) {
           background: fill,
           border: "2px solid #E59866",
           transform: "rotate(45deg)",
-          width: 150,
-          height: 150,
+          width: 150 * scale,
+          height: 150 * scale,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -162,7 +165,7 @@ export function DecisionNode({ data }: NodeProps) {
             fontSize: 10,
             fontFamily: "Helvetica, Arial, sans-serif",
             lineHeight: 1.3,
-            maxWidth: 130,
+            maxWidth: 130 * scale,
             wordBreak: "break-word",
             padding: "4px",
           }}

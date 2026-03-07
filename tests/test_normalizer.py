@@ -278,3 +278,22 @@ def test_node_label_uses_raw_for_string_rhs():
     }
     label = expr_to_node_label(normalize(raw))
     assert "OU=BSD7-User-Student" in label
+
+
+def test_node_label_includes_namespace():
+    """Decision node labels must include the namespace prefix before the attribute name."""
+    raw = {
+        "operator": "and",
+        "displayOperator": "MATCHES_ALL",
+        "attributes": [
+            {
+                "name": "memberOf",
+                "type": "Authorization:MSU-AD",
+                "operator": "CONTAINS",
+                "value": "Tier-2-Aux-Networking-Admins",
+                "displayValue": "",
+            }
+        ],
+    }
+    label = expr_to_node_label(normalize(raw))
+    assert "Authorization:MSU-AD:memberOf" in label

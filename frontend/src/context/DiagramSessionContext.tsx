@@ -23,6 +23,7 @@ export interface AnnotationClipboard {
 interface DiagramSessionState {
   editStates: Record<string, DiagramEditState>;
   clipboard: AnnotationClipboard | null;
+  diamondScale: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -32,11 +33,13 @@ interface DiagramSessionState {
 export type DiagramSessionAction =
   | { type: "SAVE_EDIT_STATE"; serviceId: string; state: DiagramEditState }
   | { type: "SET_CLIPBOARD"; payload: AnnotationClipboard }
+  | { type: "SET_DIAMOND_SCALE"; scale: number }
   | { type: "CLEAR_SESSION" };
 
 const initialState: DiagramSessionState = {
   editStates: {},
   clipboard: null,
+  diamondScale: 1,
 };
 
 function reducer(state: DiagramSessionState, action: DiagramSessionAction): DiagramSessionState {
@@ -48,6 +51,8 @@ function reducer(state: DiagramSessionState, action: DiagramSessionAction): Diag
       };
     case "SET_CLIPBOARD":
       return { ...state, clipboard: action.payload };
+    case "SET_DIAMOND_SCALE":
+      return { ...state, diamondScale: action.scale };
     case "CLEAR_SESSION":
       return initialState;
     default:

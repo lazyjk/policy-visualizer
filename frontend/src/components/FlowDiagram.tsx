@@ -1105,6 +1105,8 @@ function SelectionHintPanel() {
 interface StylePanelProps {
   nodeColors: NodeColors;
   setNodeColors: React.Dispatch<React.SetStateAction<NodeColors>>;
+  diamondScale: number;
+  setDiamondScale: (scale: number) => void;
 }
 
 const NODE_COLOR_LABELS: { key: keyof NodeColors; label: string }[] = [
@@ -1116,7 +1118,7 @@ const NODE_COLOR_LABELS: { key: keyof NodeColors; label: string }[] = [
   { key: "annotation", label: "Annotation" },
 ];
 
-function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
+function StylePanel({ nodeColors, setNodeColors, diamondScale, setDiamondScale }: StylePanelProps) {
   return (
     <Panel position="bottom-left" style={{ marginLeft: 62 }}>
       <div
@@ -1176,6 +1178,25 @@ function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
             {label}
           </label>
         ))}
+        <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 4, paddingTop: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#333", marginBottom: 3 }}>
+            Diamond Size
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="range"
+              min={1}
+              max={1.5}
+              step={0.1}
+              value={diamondScale}
+              onChange={(e) => setDiamondScale(parseFloat(e.target.value))}
+              style={{ width: 90 }}
+            />
+            <span style={{ fontSize: 11, color: "#555", minWidth: 32 }}>
+              {Math.round(diamondScale * 100)}%
+            </span>
+          </div>
+        </div>
       </div>
     </Panel>
   );
@@ -1186,10 +1207,11 @@ function StylePanel({ nodeColors, setNodeColors }: StylePanelProps) {
 interface LayoutEffectProps {
   layoutAppliedRef: React.RefObject<boolean>;
   layoutReadyRef: React.RefObject<(() => void) | null>;
+  layoutTrigger: number;
 }
 
 /** Rendered inside <ReactFlow> so it can use React Flow context hooks. */
-function LayoutEffect({ layoutAppliedRef, layoutReadyRef }: LayoutEffectProps) {
+function LayoutEffect({ layoutAppliedRef, layoutReadyRef, layoutTrigger }: LayoutEffectProps) {
   const nodesInitialized = useNodesInitialized();
   const { setNodes, fitView, getEdges } = useReactFlow();
 
@@ -1207,7 +1229,7 @@ function LayoutEffect({ layoutAppliedRef, layoutReadyRef }: LayoutEffectProps) {
         layoutReadyRef.current = null;
       }
     }, 50);
-  }, [nodesInitialized, getEdges, setNodes, fitView, layoutAppliedRef, layoutReadyRef]);
+  }, [nodesInitialized, layoutTrigger, getEdges, setNodes, fitView, layoutAppliedRef, layoutReadyRef]);
 
   return null;
 }
@@ -1367,6 +1389,9 @@ interface Props {
 
 export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) {
   const { state: sessionState, dispatch: sessionDispatch } = useDiagramSession();
+  const diamondScale = sessionState.diamondScale;
+  const setDiamondScale = (scale: number) =>
+    sessionDispatch({ type: "SET_DIAMOND_SCALE", scale });
   const serviceId = flow.service_id;
 
   const flowWrapperRef = useRef<HTMLDivElement>(null);
@@ -1377,6 +1402,7 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
 
   // During batch export, temporarily override the displayed flow without changing the prop.
   const [batchFlow, setBatchFlow] = useState<FlowIR | null>(null);
+  const [layoutTrigger, setLayoutTrigger] = useState(0);
   const activeFlow = batchFlow ?? flow;
   const [nodeColors, setNodeColors] = useState<NodeColors>(DEFAULT_NODE_COLORS);
   // Ref so the flow-load effect always uses the current colors without re-running layout.
@@ -1475,6 +1501,16 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, colors: nodeColors } })));
   }, [nodeColors, setNodes]);
 
+  // Propagate diamond scale changes and re-run dagre with new measured dimensions.
+  // The setTimeout gives React Flow's ResizeObserver time to update node.measured
+  // before LayoutEffect fires — without it dagre would lay out with stale sizes.
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, diamondScale } })));
+    layoutAppliedRef.current = false;
+    const id = setTimeout(() => setLayoutTrigger((t) => t + 1), 100);
+    return () => clearTimeout(id);
+  }, [diamondScale, setNodes]);
+
   useEffect(() => {
     const rawNodes: Node[] = activeFlow.nodes.map((n) => ({
       id: n.id,
@@ -1485,6 +1521,7 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
         trace_rule_id: n.trace_rule_id,
         rank_group: n.rank_group,
         colors: nodeColorsRef.current,
+        diamondScale: sessionStateRef.current.diamondScale,
       },
       position: { x: 0, y: 0 },
     }));
@@ -1545,10 +1582,16 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
           nodeColors={nodeColors}
         />
         <SelectionHintPanel />
-        <StylePanel nodeColors={nodeColors} setNodeColors={setNodeColors} />
+        <StylePanel
+          nodeColors={nodeColors}
+          setNodeColors={setNodeColors}
+          diamondScale={diamondScale}
+          setDiamondScale={setDiamondScale}
+        />
         <LayoutEffect
           layoutAppliedRef={layoutAppliedRef}
           layoutReadyRef={layoutReadyRef}
+          layoutTrigger={layoutTrigger}
         />
         <KeyboardHandler
           serviceId={serviceId}
