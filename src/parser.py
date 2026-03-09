@@ -123,6 +123,24 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
         })
 
+    # --- Radius Proxy Services ---
+    for svc in root.findall(f".//{_tag('RadiusProxyService')}"):
+        expr_el = svc.find(f".//{_tag('RuleExpression')}")
+        model["services"].append({
+            "name": svc.get("name", ""),
+            "description": svc.get("description", ""),
+            "enabled": svc.get("enabled", "true"),
+            "serviceType": "RADIUS_PROXY",
+            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
+            "matchExpression": _rule_expressions(expr_el),
+            "authMethods": [],
+            "authSources": [],
+            "autzSources": [],
+            "roleMappings": [],
+            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
+            "proxyNames": _string_list(svc, "ProxyNameList"),
+        })
+
     # --- Auth Methods ---
     for am in root.findall(f".//{_tag('AuthMethod')}"):
         inner = [s.text or "" for s in am.findall(f".//{_tag('string')}")] if am.find(_tag("InnerMethodNames")) is not None else []

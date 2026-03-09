@@ -48,9 +48,11 @@ export default function UploadPanel({
 
   return (
     <div style={panelStyle}>
-      <h2 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 600 }}>
-        Policy Visualizer
-      </h2>
+      <img
+        src="/policy_visualizer_logo.svg"
+        alt="Policy Visualizer"
+        style={{ display: "block", width: "100%", marginBottom: 16 }}
+      />
 
       {/* Drop zone */}
       <div

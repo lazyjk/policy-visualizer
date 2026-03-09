@@ -17,6 +17,9 @@ VALID_XML = FIXTURE.read_bytes()
 ISE_FIXTURE = Path(__file__).parent / "fixtures" / "ISEPolicyConfig.xml"
 ISE_XML = ISE_FIXTURE.read_bytes()
 
+RADIUS_PROXY_FIXTURE = Path(__file__).parent / "fixtures" / "radius-proxy.xml"
+RADIUS_PROXY_XML = RADIUS_PROXY_FIXTURE.read_bytes()
+
 # Minimal well-formed XML with the ClearPass namespace but no services.
 EMPTY_XML = (
     b'<?xml version="1.0" encoding="UTF-8"?>'
@@ -196,3 +199,21 @@ def test_ise_flow_response_has_service_type():
     res = _post("/api/flow", "ISEPolicyConfig.xml", ISE_XML)
     body = res.json()
     assert body["service_type"] in ("RADIUS", "TACACS")
+
+
+# ---------------------------------------------------------------------------
+# Radius Proxy
+# ---------------------------------------------------------------------------
+
+def test_radius_proxy_services_response():
+    res = _post("/api/services", "radius-proxy.xml", RADIUS_PROXY_XML)
+    assert res.status_code == 200
+    services = res.json()["services"]
+    assert any(s["service_type"] == "RADIUS_PROXY" for s in services)
+
+
+def test_radius_proxy_flow_response():
+    res = _post("/api/flow", "radius-proxy.xml", RADIUS_PROXY_XML)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["service_type"] == "RADIUS_PROXY"

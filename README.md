@@ -1,3 +1,5 @@
+![Policy Visualizer](docs/assets/policy_visualizer_icon_package/policy_visualizer_github_banner_fixed_v2.svg)
+
 # Policy Visualizer
 
 Policy Visualizer converts a network policy XML service export into:

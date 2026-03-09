@@ -151,3 +151,33 @@ def test_first_applicable_enforcement_policy_algo(raw):
     """Existing fixture should default to first-applicable."""
     ep = raw["enforcementPolicies"][0]
     assert ep["ruleCombineAlgo"] == "first-applicable"
+
+
+# ---------------------------------------------------------------------------
+# Radius Proxy fixture tests
+# ---------------------------------------------------------------------------
+
+RADIUS_PROXY_FIXTURE = Path(__file__).parent / "fixtures" / "radius-proxy.xml"
+
+
+@pytest.fixture(scope="module")
+def radius_proxy_raw():
+    return parse(RADIUS_PROXY_FIXTURE)
+
+
+def test_radius_proxy_service_found(radius_proxy_raw):
+    assert len(radius_proxy_raw["services"]) == 1
+
+
+def test_radius_proxy_service_type_field(radius_proxy_raw):
+    assert radius_proxy_raw["services"][0]["serviceType"] == "RADIUS_PROXY"
+
+
+def test_radius_proxy_service_name(radius_proxy_raw):
+    assert radius_proxy_raw["services"][0]["name"] == "EDUROAM RADIUS PROXY"
+
+
+def test_radius_proxy_has_match_expression(radius_proxy_raw):
+    expr = radius_proxy_raw["services"][0]["matchExpression"]
+    assert expr is not None
+    assert len(expr["attributes"]) == 3

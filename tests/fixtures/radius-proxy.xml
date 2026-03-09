@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Fri Mar 06 00:00:00 UTC 2026" version="6.11"/>
+  <RadiusProxyServices>
+    <RadiusProxyService description="" name="EDUROAM RADIUS PROXY"
+      useCachedResults="false" stripRulesCsv="" stripUsername="false"
+      monitor="false" enabled="true" profilerEnabled="false"
+      auditEnabled="false" proxyAccountRequest="false" forwardType="ROUND_ROBIN">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="eduroam" value="eduroam" operator="CONTAINS" name="Aruba-Essid-Name" type="Radius:Aruba"/>
+          <RuleAttribute displayValue="@" value="@" operator="CONTAINS" name="User-Name" type="Radius:IETF"/>
+          <RuleAttribute displayValue="163.253.30.2, 163.253.31.2" value="163.253.30.2, 163.253.31.2" operator="NOT_BELONGS_TO" name="Src-IP-Address" type="Connection"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>RADIUS_PROXY</ServiceTemplate>
+      <ProxyNameList>
+        <string>EDUROAM RADIUS PROXY 2</string>
+        <string>EDUROAM RADIUS PROXY 1</string>
+      </ProxyNameList>
+      <EnfPolicyNameList>
+        <string>Allow Access Policy with Endpoint Update</string>
+      </EnfPolicyNameList>
+    </RadiusProxyService>
+  </RadiusProxyServices>
+</TipsContents>
