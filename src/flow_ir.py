@@ -122,28 +122,6 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
     flow.add_edge(svc_match.id, no_match_end.id, "NO")
 
     # -----------------------------------------------------------------------
-    # Authentication process
-    # -----------------------------------------------------------------------
-    method_names = service.authentication.method_names
-    source_names = service.authentication.source_names
-    auth_label = "Authenticate"
-    if method_names:
-        auth_label += "\nMethods: " + ", ".join(method_names)
-    if source_names:
-        auth_label += "\nSources: " + ", ".join(source_names)
-
-    auth_node = flow.add_node(FlowNode(id=f"{sid}__auth", type="process", label=auth_label))
-    flow.add_edge(svc_match.id, auth_node.id, "YES")
-
-    auth_fail = flow.add_node(FlowNode(
-        id=f"{sid}__auth_fail",
-        type="end",
-        label="Auth Failed",
-        sub_label="Access: DENY",
-    ))
-    flow.add_edge(auth_node.id, auth_fail.id, "FAIL")
-
-    # -----------------------------------------------------------------------
     # Build enforcement chain (shared by all role paths)
     # -----------------------------------------------------------------------
     ep = ir.enforcement_policies.get(service.enforcement_policy_id)
@@ -242,75 +220,100 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             flow.add_edge(prev_enf_id, implicit_deny.id, "NO")
 
     # -----------------------------------------------------------------------
-    # Role mapping decision chain → all YES branches converge to enf_entry_id
+    # Auth + role-mapping chains (skipped for RADIUS_PROXY)
     # -----------------------------------------------------------------------
-    rm = ir.role_mapping_policies.get(service.role_mapping_policy_id)
-    if rm is None:
-        rm = next(
-            (v for v in ir.role_mapping_policies.values()
-             if v.name == service.role_mapping_policy_name),
-            None,
-        )
-
-    current_tail = auth_node.id
-    current_label = "PASS"
-
-    if rm is not None:
-        evaluate_all_rm = rm.rule_combine_algo == "evaluate-all"
-        prev_rm_action_id: str | None = None
-        rm_rules = list(rm.rules)
-        for i, rule in enumerate(rm_rules):
-            is_last_rm = (i == len(rm_rules) - 1)
-            cond_label = expr_to_node_label(rule.when)
-            dec = flow.add_node(FlowNode(
-                id=f"{sid}__rm_rule_{rule.index}",
-                type="decision",
-                label=cond_label,
-                trace_rule_id=rule.id,
-                rank_group="rm_chain",
-            ))
-            flow.add_edge(current_tail, dec.id, current_label)
-            # evaluate-all: wire previous action → this decision via CONTINUE
-            if evaluate_all_rm and prev_rm_action_id is not None:
-                flow.add_edge(prev_rm_action_id, dec.id, "CONTINUE")
-            prev_rm_action_id = None
-
-            if isinstance(rule.then, SetRole):
-                role_action = flow.add_node(FlowNode(
-                    id=f"{sid}__rm_action_{rule.index}",
-                    type="action",
-                    label=f"Set Role:\n{rule.then.role_name}",
-                    trace_rule_id=rule.id,
-                ))
-                flow.add_edge(dec.id, role_action.id, "YES")
-                if not evaluate_all_rm or is_last_rm:
-                    # first-applicable, or last rule in evaluate-all: converge to enforcement
-                    flow.add_edge(role_action.id, enf_entry_id)
-                else:
-                    # evaluate-all non-last: stash for CONTINUE edge on next iteration
-                    prev_rm_action_id = role_action.id
-
-            current_tail = dec.id
-            current_label = "NO"
-
-        # Default role → enforcement
-        if rm.default is not None:
-            def_role = flow.add_node(FlowNode(
-                id=f"{sid}__rm_default",
-                type="action",
-                label=f"Default Role:\n{rm.default.role_name}",
-            ))
-            flow.add_edge(current_tail, def_role.id, current_label)
-            flow.add_edge(def_role.id, enf_entry_id)
-        else:
-            no_role_end = flow.add_node(FlowNode(
-                id=f"{sid}__no_role",
-                type="end",
-                label="Access: DENY\n(no role matched)",
-            ))
-            flow.add_edge(current_tail, no_role_end.id, current_label)
+    if service.service_type == "RADIUS_PROXY":
+        # No authentication or role-mapping — wire match YES directly to enforcement
+        flow.add_edge(svc_match.id, enf_entry_id, "YES")
     else:
-        # No role mapping — go straight to enforcement
-        flow.add_edge(current_tail, enf_entry_id, current_label)
+        # --- Authentication process ---
+        method_names = service.authentication.method_names
+        source_names = service.authentication.source_names
+        auth_label = "Authenticate"
+        if method_names:
+            auth_label += "\nMethods: " + ", ".join(method_names)
+        if source_names:
+            auth_label += "\nSources: " + ", ".join(source_names)
+
+        auth_node = flow.add_node(FlowNode(id=f"{sid}__auth", type="process", label=auth_label))
+        flow.add_edge(svc_match.id, auth_node.id, "YES")
+
+        auth_fail = flow.add_node(FlowNode(
+            id=f"{sid}__auth_fail",
+            type="end",
+            label="Auth Failed",
+            sub_label="Access: DENY",
+        ))
+        flow.add_edge(auth_node.id, auth_fail.id, "FAIL")
+
+        # --- Role mapping decision chain → all YES branches converge to enf_entry_id ---
+        rm = ir.role_mapping_policies.get(service.role_mapping_policy_id)
+        if rm is None:
+            rm = next(
+                (v for v in ir.role_mapping_policies.values()
+                 if v.name == service.role_mapping_policy_name),
+                None,
+            )
+
+        current_tail = auth_node.id
+        current_label = "PASS"
+
+        if rm is not None:
+            evaluate_all_rm = rm.rule_combine_algo == "evaluate-all"
+            prev_rm_action_id: str | None = None
+            rm_rules = list(rm.rules)
+            for i, rule in enumerate(rm_rules):
+                is_last_rm = (i == len(rm_rules) - 1)
+                cond_label = expr_to_node_label(rule.when)
+                dec = flow.add_node(FlowNode(
+                    id=f"{sid}__rm_rule_{rule.index}",
+                    type="decision",
+                    label=cond_label,
+                    trace_rule_id=rule.id,
+                    rank_group="rm_chain",
+                ))
+                flow.add_edge(current_tail, dec.id, current_label)
+                # evaluate-all: wire previous action → this decision via CONTINUE
+                if evaluate_all_rm and prev_rm_action_id is not None:
+                    flow.add_edge(prev_rm_action_id, dec.id, "CONTINUE")
+                prev_rm_action_id = None
+
+                if isinstance(rule.then, SetRole):
+                    role_action = flow.add_node(FlowNode(
+                        id=f"{sid}__rm_action_{rule.index}",
+                        type="action",
+                        label=f"Set Role:\n{rule.then.role_name}",
+                        trace_rule_id=rule.id,
+                    ))
+                    flow.add_edge(dec.id, role_action.id, "YES")
+                    if not evaluate_all_rm or is_last_rm:
+                        # first-applicable, or last rule in evaluate-all: converge to enforcement
+                        flow.add_edge(role_action.id, enf_entry_id)
+                    else:
+                        # evaluate-all non-last: stash for CONTINUE edge on next iteration
+                        prev_rm_action_id = role_action.id
+
+                current_tail = dec.id
+                current_label = "NO"
+
+            # Default role → enforcement
+            if rm.default is not None:
+                def_role = flow.add_node(FlowNode(
+                    id=f"{sid}__rm_default",
+                    type="action",
+                    label=f"Default Role:\n{rm.default.role_name}",
+                ))
+                flow.add_edge(current_tail, def_role.id, current_label)
+                flow.add_edge(def_role.id, enf_entry_id)
+            else:
+                no_role_end = flow.add_node(FlowNode(
+                    id=f"{sid}__no_role",
+                    type="end",
+                    label="Access: DENY\n(no role matched)",
+                ))
+                flow.add_edge(current_tail, no_role_end.id, current_label)
+        else:
+            # No role mapping — go straight to enforcement
+            flow.add_edge(current_tail, enf_entry_id, current_label)
 
     return flow
