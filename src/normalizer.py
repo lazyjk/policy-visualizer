@@ -234,10 +234,16 @@ def expr_to_node_label(expr: BooleanExpr | None) -> str:
         return "\n".join(lines)
 
     _NUMERIC_CSV = re.compile(r"^\d+(?:,\d+)*$")
+    _INTERNAL_REF = re.compile(r"^[A-Za-z][A-Za-z0-9_]*:\d+(?:,[A-Za-z][A-Za-z0-9_]*:\d+)*$")
 
     def _pick_rhs(raw: str, display: str) -> str:
-        """Prefer display when raw is a bare numeric ID or numeric CSV."""
-        if _NUMERIC_CSV.match(raw.strip()) and display.strip():
+        """Prefer display when raw is a bare numeric ID, numeric CSV, or
+        internal ClearPass reference token (e.g. NadGroup:3004)."""
+        raw_stripped = raw.strip()
+        if display.strip() and (
+            _NUMERIC_CSV.match(raw_stripped)
+            or _INTERNAL_REF.match(raw_stripped)
+        ):
             return display.strip()
         return raw
 

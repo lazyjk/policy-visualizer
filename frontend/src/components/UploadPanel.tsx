@@ -1,7 +1,7 @@
 /**
  * UploadPanel — XML file upload and optional service picker.
  */
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceSummary } from "../api";
 
 interface Props {
@@ -25,6 +25,21 @@ export default function UploadPanel({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [filterType, setFilterType] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "none">("none");
+
+  // Reset controls when a new file is loaded
+  useEffect(() => {
+    setFilterType("");
+    setSortOrder("none");
+  }, [services]);
+
+  const displayedServices = useMemo(() => {
+    let list = filterType ? services.filter((s) => s.service_type === filterType) : [...services];
+    if (sortOrder === "asc") list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sortOrder === "desc") list.sort((a, b) => b.name.localeCompare(a.name));
+    return list;
+  }, [services, filterType, sortOrder]);
 
   function handleFile(file: File) {
     if (!file.name.endsWith(".xml")) {
@@ -102,23 +117,55 @@ export default function UploadPanel({
           <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 500 }}>
             Select a service to visualize:
           </p>
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {services.map((svc) => {
-              const isActive = svc.id === selectedService;
-              return (
-                <li key={svc.id} style={{ marginBottom: 6 }}>
-                  <button
-                    style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
-                    onClick={() => onServiceSelect(svc.id)}
-                    title={svc.description || undefined}
-                  >
-                    <span>{svc.name}</span>
-                    <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+
+          {/* Filter + sort controls — only shown when there are multiple services */}
+          {services.length > 1 && (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                style={controlSelectStyle}
+                aria-label="Filter by service type"
+              >
+                <option value="">All types</option>
+                <option value="RADIUS">RADIUS</option>
+                <option value="TACACS">TACACS</option>
+                <option value="RADIUS_PROXY">RADIUS PROXY</option>
+              </select>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "asc" | "desc" | "none")}
+                style={controlSelectStyle}
+                aria-label="Sort services"
+              >
+                <option value="none">Default</option>
+                <option value="asc">A → Z</option>
+                <option value="desc">Z → A</option>
+              </select>
+            </div>
+          )}
+
+          {displayedServices.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 12, color: "#9ca3af" }}>No services match.</p>
+          ) : (
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {displayedServices.map((svc) => {
+                const isActive = svc.id === selectedService;
+                return (
+                  <li key={svc.id} style={{ marginBottom: 6 }}>
+                    <button
+                      style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
+                      onClick={() => onServiceSelect(svc.id)}
+                      title={svc.description || undefined}
+                    >
+                      <span>{svc.name}</span>
+                      <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
     </div>
@@ -185,6 +232,18 @@ const activeServiceButtonStyle: React.CSSProperties = {
   border: "1px solid #6366f1",
   color: "#4338ca",
   fontWeight: 600,
+};
+
+const controlSelectStyle: React.CSSProperties = {
+  flex: 1,
+  fontSize: 11,
+  padding: "4px 6px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 5,
+  background: "#f9fafb",
+  color: "#374151",
+  fontFamily: "inherit",
+  cursor: "pointer",
 };
 
 const serviceTypeBadgeStyle: React.CSSProperties = {
