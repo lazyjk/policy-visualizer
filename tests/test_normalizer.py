@@ -261,6 +261,26 @@ def test_node_label_uses_display_for_numeric_csv_rhs():
     assert label.count("1,2,8") == 0
 
 
+def test_node_label_uses_display_for_internal_ref_rhs():
+    """NadGroup:NNNN and similar internal reference tokens should use displayValue."""
+    raw = {
+        "operator": "and",
+        "displayOperator": "MATCHES_ALL",
+        "attributes": [
+            {
+                "name": "Src-IP-Address",
+                "type": "Connection",
+                "operator": "BELONGS_TO_GROUP",
+                "value": "NadGroup:3004",
+                "displayValue": "eduroam-aruba EDUROAM GROUP",
+            }
+        ],
+    }
+    label = expr_to_node_label(normalize(raw))
+    assert "eduroam-aruba EDUROAM GROUP" in label
+    assert "NadGroup:3004" not in label
+
+
 def test_node_label_uses_raw_for_string_rhs():
     """String raw values should not be replaced by displayValue."""
     raw = {
