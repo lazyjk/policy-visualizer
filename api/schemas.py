@@ -28,6 +28,35 @@ class FlowEdgeSchema(BaseModel):
     reason: str = ""      # human-readable cause for conditional edges (e.g. "usernotfound")
 
 
+class RuleDetailSchema(BaseModel):
+    rule_id: str
+    node_trace_id: str
+    index: int
+    name: str = ""
+    condition_text: str
+    action_text: str
+    on_match: str = "stop"
+    linked_names: list[str] = []
+
+
+class ServiceContextSchema(BaseModel):
+    service_name: str
+    service_type: str
+    description: str = ""
+    auth_method_names: list[str] = []
+    auth_source_names: list[str] = []
+    condition_text: str
+
+
+class PolicyDetailsSchema(BaseModel):
+    service_context: ServiceContextSchema
+    authen_rules: list[RuleDetailSchema] = []
+    role_mapping_rules: list[RuleDetailSchema] = []
+    enforcement_rules: list[RuleDetailSchema] = []
+    warnings: list[str] = []
+    rule_index: dict[str, RuleDetailSchema] = {}
+
+
 class FlowIRSchema(BaseModel):
     service_id: str
     service_name: str
@@ -35,6 +64,7 @@ class FlowIRSchema(BaseModel):
     nodes: list[FlowNodeSchema]
     edges: list[FlowEdgeSchema]
     warnings: list[str] = []
+    details: PolicyDetailsSchema | None = None
 
 
 class ServiceSummary(BaseModel):

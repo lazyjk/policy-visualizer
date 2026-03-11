@@ -18,12 +18,13 @@ import defusedxml.common
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from api.schemas import FlowEdgeSchema, FlowIRSchema, FlowNodeSchema, HealthResponse, ServiceListResponse, ServiceSummary
+from api.schemas import FlowEdgeSchema, FlowIRSchema, FlowNodeSchema, HealthResponse, PolicyDetailsSchema, ServiceListResponse, ServiceSummary
 from src.flow_ir import compile_service
 from src.ise_flow_ir import ise_compile_policy_set
 from src.ise_parser import ise_parse
 from src.ise_policy_ir import ise_build
 from src.parser import parse
+from src.policy_details import build_clearpass_details, build_ise_details
 from src.policy_ir import build
 
 router = APIRouter()
@@ -98,7 +99,7 @@ def _parse_and_build_ise(data: bytes, filename: str):
     return raw, ir
 
 
-def _flow_ir_to_schema(flow, warnings: list[str]) -> FlowIRSchema:
+def _flow_ir_to_schema(flow, warnings: list[str], details: PolicyDetailsSchema | None = None) -> FlowIRSchema:
     nodes = [
         FlowNodeSchema(
             id=n.id,
@@ -121,6 +122,7 @@ def _flow_ir_to_schema(flow, warnings: list[str]) -> FlowIRSchema:
         nodes=nodes,
         edges=edges,
         warnings=warnings,
+        details=details,
     )
 
 
@@ -158,6 +160,7 @@ async def list_services(file: UploadFile = File(...)):
 async def get_flow(
     file: UploadFile = File(...),
     service: str | None = Query(default=None, description="Service ID to render. Defaults to the first service."),
+    include_details: bool = Query(default=False, description="Include detailed rule data for inspector and appendix export."),
 ):
     """Compile an uploaded XML file into a Flow IR for rendering."""
     _check_upload(file)
@@ -179,7 +182,8 @@ async def get_flow(
         else:
             ps = ir.policy_sets[0]
         flow = ise_compile_policy_set(ps, ir)
-        return _flow_ir_to_schema(flow, ir.warnings)
+        details = PolicyDetailsSchema.model_validate(build_ise_details(ps, ir)) if include_details else None
+        return _flow_ir_to_schema(flow, ir.warnings, details)
 
     else:
         _, ir = _parse_and_build_clearpass(data, file.filename or "")
@@ -196,4 +200,5 @@ async def get_flow(
         else:
             svc = next(iter(ir.services.values()))
         flow = compile_service(svc, ir)
-        return _flow_ir_to_schema(flow, ir.warnings)
+        details = PolicyDetailsSchema.model_validate(build_clearpass_details(svc, ir)) if include_details else None
+        return _flow_ir_to_schema(flow, ir.warnings, details)

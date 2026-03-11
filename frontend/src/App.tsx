@@ -3,7 +3,8 @@ import { ReactFlowProvider } from "@xyflow/react";
 import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
 import { fetchServices, fetchFlow } from "./api";
-import type { FlowIR, ServiceSummary } from "./api";
+import type { FlowIR, FlowNode, ServiceSummary } from "./api";
+import PolicyDetailsPanel from "./components/PolicyDetailsPanel";
 import { DiagramSessionProvider, useDiagramSession } from "./context/DiagramSessionContext";
 import { version } from "../package.json";
 import "./App.css";
@@ -26,6 +27,7 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
 
   async function handleFileSelect(file: File) {
     sessionDispatch({ type: "CLEAR_SESSION" });
@@ -53,6 +55,7 @@ function AppContent() {
   async function loadFlow(file: File, serviceId: string) {
     setError(null);
     setDismissedWarnings(false);
+    setSelectedNode(null);
     setLoading(true);
     try {
       const flowData = await fetchFlow(file, serviceId);
@@ -81,48 +84,58 @@ function AppContent() {
         onFileSelect={handleFileSelect}
         onServiceSelect={handleServiceSelect}
       />
-      <div style={{ flex: 1, position: "relative", background: "#f9fafb" }}>
-        {flow && flow.warnings.length > 0 && !dismissedWarnings && (
-          <div style={{
-            position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
-            background: "#fef3c7", borderBottom: "1px solid #f59e0b",
-            padding: "8px 16px", fontFamily: "Helvetica, Arial, sans-serif",
-            fontSize: 13, color: "#92400e", display: "flex",
-            justifyContent: "space-between", alignItems: "flex-start",
-          }}>
-            <div>
-              <strong>Partial result</strong> — some references could not be resolved:
-              <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                {flow.warnings.map((w, i) => <li key={i}>{w}</li>)}
-              </ul>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        <div style={{ flex: 1, position: "relative", background: "#f9fafb" }}>
+          {flow && flow.warnings.length > 0 && !dismissedWarnings && (
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+              background: "#fef3c7", borderBottom: "1px solid #f59e0b",
+              padding: "8px 16px", fontFamily: "Helvetica, Arial, sans-serif",
+              fontSize: 13, color: "#92400e", display: "flex",
+              justifyContent: "space-between", alignItems: "flex-start",
+            }}>
+              <div>
+                <strong>Partial result</strong> — some references could not be resolved:
+                <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                  {flow.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+              <button
+                onClick={() => setDismissedWarnings(true)}
+                style={{ marginLeft: 16, background: "none", border: "none",
+                         cursor: "pointer", fontSize: 16, color: "#92400e" }}
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => setDismissedWarnings(true)}
-              style={{ marginLeft: 16, background: "none", border: "none",
-                       cursor: "pointer", fontSize: 16, color: "#92400e" }}
+          )}
+          {flow ? (
+            <ReactFlowProvider>
+              <FlowDiagram
+                flow={flow}
+                allServices={services}
+                fileRef={fileRef}
+                onNodeSelect={setSelectedNode}
+              />
+            </ReactFlowProvider>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                color: "#9ca3af",
+                fontFamily: "Helvetica, Arial, sans-serif",
+                fontSize: 15,
+              }}
             >
-              ✕
-            </button>
-          </div>
-        )}
-        {flow ? (
-          <ReactFlowProvider>
-            <FlowDiagram flow={flow} allServices={services} fileRef={fileRef} />
-          </ReactFlowProvider>
-        ) : (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "100%",
-              color: "#9ca3af",
-              fontFamily: "Helvetica, Arial, sans-serif",
-              fontSize: 15,
-            }}
-          >
-            {loading ? "Compiling diagram…" : "Upload a service or policy XML file to begin"}
-          </div>
+              {loading ? "Compiling diagram…" : "Upload a service or policy XML file to begin"}
+            </div>
+          )}
+        </div>
+        {flow && (
+          <PolicyDetailsPanel details={flow.details} selectedNode={selectedNode} />
         )}
       </div>
       <div style={{
