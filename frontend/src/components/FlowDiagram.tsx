@@ -745,7 +745,8 @@ function ExportPanel({
   const [includeGrid, setIncludeGrid] = useState(false);
   const [batchExporting, setBatchExporting] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
-  const [batchFormat, setBatchFormat] = useState<"png" | "svg" | "pdf" | "drawio">("png");
+  const [selectedFormat, setSelectedFormat] = useState<"png" | "svg" | "pdf" | "drawio">("png");
+  const [includeAppendix, setIncludeAppendix] = useState(false);
 
   /**
    * Capture the diagram by targeting .react-flow__viewport directly and
@@ -1042,15 +1043,15 @@ function ExportPanel({
         if (seenNames.has(name)) name = `${name}_${i}`;
         seenNames.add(name);
 
-        if (batchFormat === "png") {
+        if (selectedFormat === "png") {
           const { dataUrl } = await captureImage("png", false, false, EXPORT_MAX_PIXELS);
           zip.file(`${name}.png`, dataUrl.split(",")[1], { base64: true });
-        } else if (batchFormat === "svg") {
+        } else if (selectedFormat === "svg") {
           const { dataUrl } = await captureImage("svg", false, false, EXPORT_MAX_PIXELS);
           // toSvg returns a URL-encoded data URL, not base64 — decode to raw SVG text.
           const svgText = decodeURIComponent(dataUrl.split(",").slice(1).join(","));
           zip.file(`${name}.svg`, svgText);
-        } else if (batchFormat === "pdf") {
+        } else if (selectedFormat === "pdf") {
           const { dataUrl, pixelRatio } = await captureImage("jpeg", false, false, EXPORT_MAX_PIXELS);
           const img = new Image();
           img.src = dataUrl;
@@ -1086,7 +1087,7 @@ function ExportPanel({
     a.click();
     URL.revokeObjectURL(url);
   }, [
-    batchExporting, exporting, fileRef, batchFormat, allServices,
+    batchExporting, exporting, fileRef, selectedFormat, allServices,
     captureImage, layoutReadyRef, layoutAppliedRef, onBatchFlowChange,
     getNodes, getEdges,
   ]);
@@ -1122,100 +1123,101 @@ function ExportPanel({
     )}
     <Panel position="top-right">
       <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-        <button onClick={() => setMenuOpen((o) => !o)} disabled={exporting}>
-          {exporting ? "Exporting…" : `Export ${menuOpen ? "▲" : "▼"}`}
+        <button onClick={() => setMenuOpen((o) => !o)}>
+          {`Export ${menuOpen ? "▲" : "▼"}`}
         </button>
         {menuOpen && (
-          <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "stretch" }}>
-              <button onClick={handleExportPng} disabled={exporting}>PNG</button>
-              <button onClick={handleExportSvg} disabled={exporting}>SVG</button>
-              <button onClick={handleExportPdf} disabled={exporting}>PDF</button>
-              {details && (
-                <button onClick={handleExportPdfWithAppendix} disabled={exporting}>PDF + Appendix</button>
-              )}
-              <button
-                onClick={handleExportDrawio}
-                disabled={exporting}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
-              >
-                <span>Draw.io</span>
-                <span style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: "0.03em",
-                  background: "#f59e0b",
-                  color: "#fff",
-                  borderRadius: 3,
-                  padding: "1px 4px",
-                  lineHeight: 1.4,
-                }}>BETA</span>
-              </button>
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6,
+            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.10)", padding: "8px", minWidth: 164,
+          }}>
+            {/* Shared format grid */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {([["png", "svg"], ["pdf", "drawio"]] as const).map((row, ri) => (
+                <div key={ri} style={{ display: "flex", gap: 4 }}>
+                  {row.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setSelectedFormat(f)}
+                      style={{
+                        flex: 1,
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4,
+                        fontWeight: selectedFormat === f ? 700 : 400,
+                        background: selectedFormat === f ? "#dbeafe" : undefined,
+                      }}
+                    >
+                      <span>{f === "drawio" ? "Draw.io" : f.toUpperCase()}</span>
+                      {f === "drawio" && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, letterSpacing: "0.03em",
+                          background: "#f59e0b", color: "#fff", borderRadius: 3,
+                          padding: "1px 4px", lineHeight: 1.4,
+                        }}>BETA</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
             </div>
-            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
-              <input
-                type="checkbox"
-                checked={transparentBg}
-                onChange={(e) => setTransparentBg(e.target.checked)}
-                style={{ marginRight: 4 }}
-              />
-              Transparent background
-            </label>
-            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
-              <input
-                type="checkbox"
-                checked={includeGrid}
-                onChange={(e) => setIncludeGrid(e.target.checked)}
-                style={{ marginRight: 4 }}
-              />
-              Include grid dots
-            </label>
+            {/* Options */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                <input
+                  type="checkbox"
+                  checked={transparentBg}
+                  onChange={(e) => setTransparentBg(e.target.checked)}
+                  style={{ marginRight: 5 }}
+                />
+                Transparent background
+              </label>
+              <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                <input
+                  type="checkbox"
+                  checked={includeGrid}
+                  onChange={(e) => setIncludeGrid(e.target.checked)}
+                  style={{ marginRight: 5 }}
+                />
+                Include grid dots
+              </label>
+              {selectedFormat === "pdf" && details && (
+                <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                  <input
+                    type="checkbox"
+                    checked={includeAppendix}
+                    onChange={(e) => setIncludeAppendix(e.target.checked)}
+                    style={{ marginRight: 5 }}
+                  />
+                  Include appendix
+                </label>
+              )}
+            </div>
+            {/* Export CTA */}
+            <button
+              onClick={() => {
+                if (selectedFormat === "png") handleExportPng();
+                else if (selectedFormat === "svg") handleExportSvg();
+                else if (selectedFormat === "pdf") {
+                  if (includeAppendix && details) handleExportPdfWithAppendix();
+                  else handleExportPdf();
+                } else handleExportDrawio();
+              }}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            {/* Batch export (multi-service only) */}
             {allServices.length > 1 && (
               <>
-                <div style={{ borderTop: "1px solid #e5e7eb", margin: "4px 0" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {(["png", "svg"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setBatchFormat(f)}
-                        style={{
-                          flex: 1,
-                          fontWeight: batchFormat === f ? 700 : 400,
-                          background: batchFormat === f ? "#dbeafe" : undefined,
-                        }}
-                      >
-                        {f.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {(["pdf", "drawio"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setBatchFormat(f)}
-                        style={{
-                          flex: 1,
-                          fontWeight: batchFormat === f ? 700 : 400,
-                          background: batchFormat === f ? "#dbeafe" : undefined,
-                        }}
-                      >
-                        {f === "drawio" ? "Draw.io" : f.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={handleExportAll}
-                  disabled={exporting || batchExporting}
-                >
+                <div style={{ borderTop: "1px solid #e5e7eb", margin: "2px 0" }} />
+                <button onClick={handleExportAll} disabled={exporting || batchExporting}>
                   {batchExporting
                     ? `Exporting ${batchProgress?.current ?? 0}/${batchProgress?.total ?? allServices.length}…`
                     : "Export All (ZIP)"}
                 </button>
               </>
             )}
-          </>
+          </div>
         )}
       </div>
     </Panel>
