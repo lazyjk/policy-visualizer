@@ -1,3 +1,7 @@
+> **Historical document.** This roadmap tracked the 2.0.0 release train.
+> The project is now at v3.3.0. Content is preserved for reference only.
+> See `docs/releases/` for current release notes.
+
 # Policy Visualizer — Release Map to 2.0.0
 
 ## Scope Summary
