@@ -45,6 +45,7 @@ def ise_compile_policy_set(ps: ISEPolicySet, ir: ISEPolicyIR) -> FlowIR:
             id=f"{psid}__match",
             type="decision",
             label=f"Policy Set Match?\n{match_label}",
+            trace_rule_id=f"{psid}__match",
         ))
         flow.add_edge(start.id, match_dec.id)
         no_match_end = flow.add_node(FlowNode(

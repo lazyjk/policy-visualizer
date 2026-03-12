@@ -33,7 +33,7 @@ import { jsPDF } from "jspdf";
 import "@xyflow/react/dist/style.css";
 
 import { fetchFlow } from "../api";
-import type { FlowIR, ServiceSummary } from "../api";
+import type { FlowIR, FlowNode, PolicyDetails, ServiceSummary } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
 import {
   useDiagramSession,
@@ -509,12 +509,183 @@ interface ExportPanelProps {
   layoutReadyRef: React.RefObject<(() => void) | null>;
   layoutAppliedRef: React.RefObject<boolean>;
   onBatchFlowChange: (f: FlowIR | null) => void;
+  details?: PolicyDetails;
 }
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
 const EXPORT_MAX_PIXELS = 64_000_000; // ~64 MP — allows pixelRatio ≥ 2 even for large diagrams
 const EXPORT_PADDING    = 80;         // px padding around diagram in exports (extra room for edge curves)
+
+// ---------------------------------------------------------------------------
+// PDF appendix — free function (no hooks, no DOM access)
+// ---------------------------------------------------------------------------
+
+const APPX_PAGE_W  = 595;  // A4 portrait width in pt
+const APPX_PAGE_H  = 842;  // A4 portrait height in pt
+const APPX_MARGIN  = 40;   // pt
+const APPX_CONTENT_W = APPX_PAGE_W - 2 * APPX_MARGIN;
+const APPX_LINE_H  = 14;
+
+function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: string): void {
+  let pageNum = 1;
+  let y = 0;
+
+  function newPage() {
+    pdf.addPage([APPX_PAGE_W, APPX_PAGE_H], "portrait");
+    pageNum++;
+    y = APPX_MARGIN + 20;
+    // Page header
+    pdf.setFontSize(8);
+    pdf.setTextColor(150);
+    pdf.text(`${serviceName} — Policy Appendix`, APPX_MARGIN, APPX_MARGIN - 6);
+    pdf.text(`Page ${pageNum}`, APPX_PAGE_W - APPX_MARGIN, APPX_MARGIN - 6, { align: "right" });
+    pdf.setTextColor(0);
+  }
+
+  function checkPageBreak(needed = APPX_LINE_H * 4) {
+    if (y + needed > APPX_PAGE_H - APPX_MARGIN) newPage();
+  }
+
+  function printLabel(label: string, value: string, indent = 0) {
+    checkPageBreak();
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(label, APPX_MARGIN + indent, y);
+    pdf.setFont("helvetica", "normal");
+    const lines = pdf.splitTextToSize(value, APPX_CONTENT_W - indent - 40);
+    const labelW = pdf.getTextWidth(label) + 4;
+    pdf.text(lines[0], APPX_MARGIN + indent + labelW, y);
+    y += APPX_LINE_H;
+    for (let i = 1; i < lines.length; i++) {
+      checkPageBreak();
+      pdf.text(lines[i], APPX_MARGIN + indent + labelW, y);
+      y += APPX_LINE_H;
+    }
+  }
+
+  function printMultiline(text: string, indent = 0) {
+    const lines = pdf.splitTextToSize(text, APPX_CONTENT_W - indent);
+    pdf.setFontSize(8);
+    pdf.setFont("courier", "normal");
+    for (const line of lines) {
+      checkPageBreak();
+      pdf.text(line, APPX_MARGIN + indent, y);
+      y += APPX_LINE_H - 1;
+    }
+    pdf.setFont("helvetica", "normal");
+  }
+
+  function printSectionHeader(title: string) {
+    checkPageBreak(APPX_LINE_H * 3);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(title, APPX_MARGIN, y);
+    y += APPX_LINE_H + 2;
+    pdf.setDrawColor(180);
+    pdf.line(APPX_MARGIN, y, APPX_PAGE_W - APPX_MARGIN, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setDrawColor(0);
+  }
+
+  function printRule(rule: PolicyDetails["rule_index"][string]) {
+    checkPageBreak(APPX_LINE_H * 5);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    const header = rule.name
+      ? `[${rule.index}] ${rule.name}`
+      : `[${rule.index}] Rule`;
+    pdf.text(header, APPX_MARGIN + 4, y);
+    y += APPX_LINE_H;
+    pdf.setFont("helvetica", "normal");
+
+    if (rule.condition_text && rule.condition_text !== "(no condition)") {
+      checkPageBreak(APPX_LINE_H * 2);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Condition:", APPX_MARGIN + 4, y);
+      y += APPX_LINE_H - 2;
+      pdf.setFont("helvetica", "normal");
+      printMultiline(rule.condition_text, 8);
+    }
+
+    printLabel("Action:", rule.action_text || "(none)", 4);
+    printLabel("On match:", rule.on_match, 4);
+
+    if (rule.linked_names.length > 0) {
+      printLabel("Linked:", rule.linked_names.join(", "), 4);
+    }
+
+    // Rule separator
+    y += 4;
+    pdf.setDrawColor(230);
+    pdf.line(APPX_MARGIN + 4, y, APPX_PAGE_W - APPX_MARGIN - 4, y);
+    y += 6;
+    pdf.setDrawColor(0);
+  }
+
+  // --- Start first appendix page ---
+  newPage();
+  y = APPX_MARGIN + 16;
+
+  // Re-draw header on first appendix page (newPage() above increments to page 2)
+  pdf.setFontSize(8);
+  pdf.setTextColor(150);
+  pdf.text(`${serviceName} — Policy Appendix`, APPX_MARGIN, APPX_MARGIN - 6);
+  pdf.text(`Page ${pageNum}`, APPX_PAGE_W - APPX_MARGIN, APPX_MARGIN - 6, { align: "right" });
+  pdf.setTextColor(0);
+
+  // Section: Service Match Context
+  printSectionHeader("Service Match Context");
+  const ctx = details.service_context;
+  printLabel("Service:", `${ctx.service_name} (${ctx.service_type})`);
+  if (ctx.description) printLabel("Description:", ctx.description);
+  if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
+  if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
+  if (ctx.condition_text && ctx.condition_text !== "(no condition)") {
+    checkPageBreak(APPX_LINE_H * 2);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Match condition:", APPX_MARGIN, y);
+    y += APPX_LINE_H - 2;
+    pdf.setFont("helvetica", "normal");
+    printMultiline(ctx.condition_text, 4);
+  }
+  y += 8;
+
+  // Section: Authentication Rules (ISE only)
+  if (details.authen_rules.length > 0) {
+    printSectionHeader("Authentication Rules");
+    for (const rule of details.authen_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Role Mapping Rules (ClearPass only)
+  if (details.role_mapping_rules.length > 0) {
+    printSectionHeader("Role Mapping Rules");
+    for (const rule of details.role_mapping_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Enforcement / Authorization Rules
+  if (details.enforcement_rules.length > 0) {
+    printSectionHeader("Enforcement Rules");
+    for (const rule of details.enforcement_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Warnings (only when present)
+  if (details.warnings.length > 0) {
+    printSectionHeader("Warnings");
+    for (const w of details.warnings) {
+      checkPageBreak();
+      pdf.setFontSize(9);
+      pdf.text(`• ${w}`, APPX_MARGIN + 4, y);
+      y += APPX_LINE_H;
+    }
+  }
+}
 
 /**
  * Composite a captured (potentially transparent) dataUrl onto a solid white
@@ -565,6 +736,7 @@ function ExportPanel({
   layoutReadyRef,
   layoutAppliedRef,
   onBatchFlowChange,
+  details,
 }: ExportPanelProps) {
   const { getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
@@ -573,7 +745,8 @@ function ExportPanel({
   const [includeGrid, setIncludeGrid] = useState(false);
   const [batchExporting, setBatchExporting] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
-  const [batchFormat, setBatchFormat] = useState<"png" | "svg" | "pdf" | "drawio">("png");
+  const [selectedFormat, setSelectedFormat] = useState<"png" | "svg" | "pdf" | "drawio">("png");
+  const [includeAppendix, setIncludeAppendix] = useState(false);
 
   /**
    * Capture the diagram by targeting .react-flow__viewport directly and
@@ -720,6 +893,32 @@ function ExportPanel({
     }
   }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
 
+  const handleExportPdfWithAppendix = useCallback(async () => {
+    if (exporting || !wrapperRef.current || !details) return;
+    setExporting(true);
+    try {
+      const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to decode exported image"));
+      });
+      const pdfW = img.width / pixelRatio;
+      const pdfH = img.height / pixelRatio;
+      const pdf = new jsPDF({
+        orientation: pdfW > pdfH ? "landscape" : "portrait",
+        unit: "px",
+        format: [pdfW, pdfH],
+      });
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
+      addAppendixPages(pdf, details, serviceName);
+      pdf.save(`${serviceName}-appendix.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, captureImage, serviceName, includeGrid, wrapperRef, details]);
+
   const handleExportDrawio = useCallback(() => {
     const nodes = getNodes();
     const edges = getEdges();
@@ -844,15 +1043,15 @@ function ExportPanel({
         if (seenNames.has(name)) name = `${name}_${i}`;
         seenNames.add(name);
 
-        if (batchFormat === "png") {
+        if (selectedFormat === "png") {
           const { dataUrl } = await captureImage("png", false, false, EXPORT_MAX_PIXELS);
           zip.file(`${name}.png`, dataUrl.split(",")[1], { base64: true });
-        } else if (batchFormat === "svg") {
+        } else if (selectedFormat === "svg") {
           const { dataUrl } = await captureImage("svg", false, false, EXPORT_MAX_PIXELS);
           // toSvg returns a URL-encoded data URL, not base64 — decode to raw SVG text.
           const svgText = decodeURIComponent(dataUrl.split(",").slice(1).join(","));
           zip.file(`${name}.svg`, svgText);
-        } else if (batchFormat === "pdf") {
+        } else if (selectedFormat === "pdf") {
           const { dataUrl, pixelRatio } = await captureImage("jpeg", false, false, EXPORT_MAX_PIXELS);
           const img = new Image();
           img.src = dataUrl;
@@ -888,7 +1087,7 @@ function ExportPanel({
     a.click();
     URL.revokeObjectURL(url);
   }, [
-    batchExporting, exporting, fileRef, batchFormat, allServices,
+    batchExporting, exporting, fileRef, selectedFormat, allServices,
     captureImage, layoutReadyRef, layoutAppliedRef, onBatchFlowChange,
     getNodes, getEdges,
   ]);
@@ -924,97 +1123,101 @@ function ExportPanel({
     )}
     <Panel position="top-right">
       <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-        <button onClick={() => setMenuOpen((o) => !o)} disabled={exporting}>
-          {exporting ? "Exporting…" : `Export ${menuOpen ? "▲" : "▼"}`}
+        <button onClick={() => setMenuOpen((o) => !o)}>
+          {`Export ${menuOpen ? "▲" : "▼"}`}
         </button>
         {menuOpen && (
-          <>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "stretch" }}>
-              <button onClick={handleExportPng} disabled={exporting}>PNG</button>
-              <button onClick={handleExportSvg} disabled={exporting}>SVG</button>
-              <button onClick={handleExportPdf} disabled={exporting}>PDF</button>
-              <button
-                onClick={handleExportDrawio}
-                disabled={exporting}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
-              >
-                <span>Draw.io</span>
-                <span style={{
-                  fontSize: 9,
-                  fontWeight: 700,
-                  letterSpacing: "0.03em",
-                  background: "#f59e0b",
-                  color: "#fff",
-                  borderRadius: 3,
-                  padding: "1px 4px",
-                  lineHeight: 1.4,
-                }}>BETA</span>
-              </button>
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6,
+            background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.10)", padding: "8px", minWidth: 164,
+          }}>
+            {/* Shared format grid */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {([["png", "svg"], ["pdf", "drawio"]] as const).map((row, ri) => (
+                <div key={ri} style={{ display: "flex", gap: 4 }}>
+                  {row.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setSelectedFormat(f)}
+                      style={{
+                        flex: 1,
+                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4,
+                        fontWeight: selectedFormat === f ? 700 : 400,
+                        background: selectedFormat === f ? "#dbeafe" : undefined,
+                      }}
+                    >
+                      <span>{f === "drawio" ? "Draw.io" : f.toUpperCase()}</span>
+                      {f === "drawio" && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, letterSpacing: "0.03em",
+                          background: "#f59e0b", color: "#fff", borderRadius: 3,
+                          padding: "1px 4px", lineHeight: 1.4,
+                        }}>BETA</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
             </div>
-            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
-              <input
-                type="checkbox"
-                checked={transparentBg}
-                onChange={(e) => setTransparentBg(e.target.checked)}
-                style={{ marginRight: 4 }}
-              />
-              Transparent background
-            </label>
-            <label style={{ fontSize: 11, color: "#555", cursor: "pointer", userSelect: "none" }}>
-              <input
-                type="checkbox"
-                checked={includeGrid}
-                onChange={(e) => setIncludeGrid(e.target.checked)}
-                style={{ marginRight: 4 }}
-              />
-              Include grid dots
-            </label>
+            {/* Options */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                <input
+                  type="checkbox"
+                  checked={transparentBg}
+                  onChange={(e) => setTransparentBg(e.target.checked)}
+                  style={{ marginRight: 5 }}
+                />
+                Transparent background
+              </label>
+              <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                <input
+                  type="checkbox"
+                  checked={includeGrid}
+                  onChange={(e) => setIncludeGrid(e.target.checked)}
+                  style={{ marginRight: 5 }}
+                />
+                Include grid dots
+              </label>
+              {selectedFormat === "pdf" && details && (
+                <label style={{ fontSize: 12, color: "#555", cursor: "pointer", userSelect: "none", padding: "2px 0" }}>
+                  <input
+                    type="checkbox"
+                    checked={includeAppendix}
+                    onChange={(e) => setIncludeAppendix(e.target.checked)}
+                    style={{ marginRight: 5 }}
+                  />
+                  Include appendix
+                </label>
+              )}
+            </div>
+            {/* Export CTA */}
+            <button
+              onClick={() => {
+                if (selectedFormat === "png") handleExportPng();
+                else if (selectedFormat === "svg") handleExportSvg();
+                else if (selectedFormat === "pdf") {
+                  if (includeAppendix && details) handleExportPdfWithAppendix();
+                  else handleExportPdf();
+                } else handleExportDrawio();
+              }}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            {/* Batch export (multi-service only) */}
             {allServices.length > 1 && (
               <>
-                <div style={{ borderTop: "1px solid #e5e7eb", margin: "4px 0" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {(["png", "svg"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setBatchFormat(f)}
-                        style={{
-                          flex: 1,
-                          fontWeight: batchFormat === f ? 700 : 400,
-                          background: batchFormat === f ? "#dbeafe" : undefined,
-                        }}
-                      >
-                        {f.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {(["pdf", "drawio"] as const).map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setBatchFormat(f)}
-                        style={{
-                          flex: 1,
-                          fontWeight: batchFormat === f ? 700 : 400,
-                          background: batchFormat === f ? "#dbeafe" : undefined,
-                        }}
-                      >
-                        {f === "drawio" ? "Draw.io" : f.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={handleExportAll}
-                  disabled={exporting || batchExporting}
-                >
+                <div style={{ borderTop: "1px solid #e5e7eb", margin: "2px 0" }} />
+                <button onClick={handleExportAll} disabled={exporting || batchExporting}>
                   {batchExporting
                     ? `Exporting ${batchProgress?.current ?? 0}/${batchProgress?.total ?? allServices.length}…`
                     : "Export All (ZIP)"}
                 </button>
               </>
             )}
-          </>
+          </div>
         )}
       </div>
     </Panel>
@@ -1385,9 +1588,10 @@ interface Props {
   flow: FlowIR;
   allServices?: ServiceSummary[];
   fileRef?: React.RefObject<File | null>;
+  onNodeSelect?: (node: FlowNode | null) => void;
 }
 
-export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) {
+export default function FlowDiagram({ flow, allServices = [], fileRef, onNodeSelect }: Props) {
   const { state: sessionState, dispatch: sessionDispatch } = useDiagramSession();
   const diamondScale = sessionState.diamondScale;
   const setDiamondScale = (scale: number) =>
@@ -1496,6 +1700,19 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
     setBatchFlow(f);
   }, []);
 
+  // Node selection — notify parent so the inspector panel can update.
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const irNode = flow.nodes.find((n) => n.id === node.id) ?? null;
+      onNodeSelect?.(irNode);
+    },
+    [flow.nodes, onNodeSelect],
+  );
+
+  const handlePaneClick = useCallback(() => {
+    onNodeSelect?.(null);
+  }, [onNodeSelect]);
+
   // Propagate color changes to all existing nodes (including user-placed annotations).
   useEffect(() => {
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, colors: nodeColors } })));
@@ -1571,6 +1788,8 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         fitView={false}
         minZoom={0.1}
@@ -1607,6 +1826,7 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
           layoutReadyRef={layoutReadyRef}
           layoutAppliedRef={layoutAppliedRef}
           onBatchFlowChange={handleBatchFlowChange}
+          details={flow.details}
         />
       </ReactFlow>
     </div>
