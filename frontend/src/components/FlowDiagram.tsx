@@ -33,7 +33,7 @@ import { jsPDF } from "jspdf";
 import "@xyflow/react/dist/style.css";
 
 import { fetchFlow } from "../api";
-import type { FlowIR, ServiceSummary } from "../api";
+import type { FlowIR, FlowNode, PolicyDetails, ServiceSummary } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
 import {
   useDiagramSession,
@@ -509,12 +509,183 @@ interface ExportPanelProps {
   layoutReadyRef: React.RefObject<(() => void) | null>;
   layoutAppliedRef: React.RefObject<boolean>;
   onBatchFlowChange: (f: FlowIR | null) => void;
+  details?: PolicyDetails;
 }
 
 // Maximum total pixels for rasterised exports.  Keeps file size and memory
 // usage reasonable even for very large diagrams.
 const EXPORT_MAX_PIXELS = 64_000_000; // ~64 MP — allows pixelRatio ≥ 2 even for large diagrams
 const EXPORT_PADDING    = 80;         // px padding around diagram in exports (extra room for edge curves)
+
+// ---------------------------------------------------------------------------
+// PDF appendix — free function (no hooks, no DOM access)
+// ---------------------------------------------------------------------------
+
+const APPX_PAGE_W  = 595;  // A4 portrait width in pt
+const APPX_PAGE_H  = 842;  // A4 portrait height in pt
+const APPX_MARGIN  = 40;   // pt
+const APPX_CONTENT_W = APPX_PAGE_W - 2 * APPX_MARGIN;
+const APPX_LINE_H  = 14;
+
+function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: string): void {
+  let pageNum = 1;
+  let y = 0;
+
+  function newPage() {
+    pdf.addPage([APPX_PAGE_W, APPX_PAGE_H], "portrait");
+    pageNum++;
+    y = APPX_MARGIN + 20;
+    // Page header
+    pdf.setFontSize(8);
+    pdf.setTextColor(150);
+    pdf.text(`${serviceName} — Policy Appendix`, APPX_MARGIN, APPX_MARGIN - 6);
+    pdf.text(`Page ${pageNum}`, APPX_PAGE_W - APPX_MARGIN, APPX_MARGIN - 6, { align: "right" });
+    pdf.setTextColor(0);
+  }
+
+  function checkPageBreak(needed = APPX_LINE_H * 4) {
+    if (y + needed > APPX_PAGE_H - APPX_MARGIN) newPage();
+  }
+
+  function printLabel(label: string, value: string, indent = 0) {
+    checkPageBreak();
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(label, APPX_MARGIN + indent, y);
+    pdf.setFont("helvetica", "normal");
+    const lines = pdf.splitTextToSize(value, APPX_CONTENT_W - indent - 40);
+    const labelW = pdf.getTextWidth(label) + 4;
+    pdf.text(lines[0], APPX_MARGIN + indent + labelW, y);
+    y += APPX_LINE_H;
+    for (let i = 1; i < lines.length; i++) {
+      checkPageBreak();
+      pdf.text(lines[i], APPX_MARGIN + indent + labelW, y);
+      y += APPX_LINE_H;
+    }
+  }
+
+  function printMultiline(text: string, indent = 0) {
+    const lines = pdf.splitTextToSize(text, APPX_CONTENT_W - indent);
+    pdf.setFontSize(8);
+    pdf.setFont("courier", "normal");
+    for (const line of lines) {
+      checkPageBreak();
+      pdf.text(line, APPX_MARGIN + indent, y);
+      y += APPX_LINE_H - 1;
+    }
+    pdf.setFont("helvetica", "normal");
+  }
+
+  function printSectionHeader(title: string) {
+    checkPageBreak(APPX_LINE_H * 3);
+    pdf.setFontSize(11);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(title, APPX_MARGIN, y);
+    y += APPX_LINE_H + 2;
+    pdf.setDrawColor(180);
+    pdf.line(APPX_MARGIN, y, APPX_PAGE_W - APPX_MARGIN, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setDrawColor(0);
+  }
+
+  function printRule(rule: PolicyDetails["rule_index"][string]) {
+    checkPageBreak(APPX_LINE_H * 5);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    const header = rule.name
+      ? `[${rule.index}] ${rule.name}`
+      : `[${rule.index}] Rule`;
+    pdf.text(header, APPX_MARGIN + 4, y);
+    y += APPX_LINE_H;
+    pdf.setFont("helvetica", "normal");
+
+    if (rule.condition_text && rule.condition_text !== "(no condition)") {
+      checkPageBreak(APPX_LINE_H * 2);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Condition:", APPX_MARGIN + 4, y);
+      y += APPX_LINE_H - 2;
+      pdf.setFont("helvetica", "normal");
+      printMultiline(rule.condition_text, 8);
+    }
+
+    printLabel("Action:", rule.action_text || "(none)", 4);
+    printLabel("On match:", rule.on_match, 4);
+
+    if (rule.linked_names.length > 0) {
+      printLabel("Linked:", rule.linked_names.join(", "), 4);
+    }
+
+    // Rule separator
+    y += 4;
+    pdf.setDrawColor(230);
+    pdf.line(APPX_MARGIN + 4, y, APPX_PAGE_W - APPX_MARGIN - 4, y);
+    y += 6;
+    pdf.setDrawColor(0);
+  }
+
+  // --- Start first appendix page ---
+  newPage();
+  y = APPX_MARGIN + 16;
+
+  // Re-draw header on first appendix page (newPage() above increments to page 2)
+  pdf.setFontSize(8);
+  pdf.setTextColor(150);
+  pdf.text(`${serviceName} — Policy Appendix`, APPX_MARGIN, APPX_MARGIN - 6);
+  pdf.text(`Page ${pageNum}`, APPX_PAGE_W - APPX_MARGIN, APPX_MARGIN - 6, { align: "right" });
+  pdf.setTextColor(0);
+
+  // Section: Service Match Context
+  printSectionHeader("Service Match Context");
+  const ctx = details.service_context;
+  printLabel("Service:", `${ctx.service_name} (${ctx.service_type})`);
+  if (ctx.description) printLabel("Description:", ctx.description);
+  if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
+  if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
+  if (ctx.condition_text && ctx.condition_text !== "(no condition)") {
+    checkPageBreak(APPX_LINE_H * 2);
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Match condition:", APPX_MARGIN, y);
+    y += APPX_LINE_H - 2;
+    pdf.setFont("helvetica", "normal");
+    printMultiline(ctx.condition_text, 4);
+  }
+  y += 8;
+
+  // Section: Authentication Rules (ISE only)
+  if (details.authen_rules.length > 0) {
+    printSectionHeader("Authentication Rules");
+    for (const rule of details.authen_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Role Mapping Rules (ClearPass only)
+  if (details.role_mapping_rules.length > 0) {
+    printSectionHeader("Role Mapping Rules");
+    for (const rule of details.role_mapping_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Enforcement / Authorization Rules
+  if (details.enforcement_rules.length > 0) {
+    printSectionHeader("Enforcement Rules");
+    for (const rule of details.enforcement_rules) printRule(rule);
+    y += 4;
+  }
+
+  // Section: Warnings (only when present)
+  if (details.warnings.length > 0) {
+    printSectionHeader("Warnings");
+    for (const w of details.warnings) {
+      checkPageBreak();
+      pdf.setFontSize(9);
+      pdf.text(`• ${w}`, APPX_MARGIN + 4, y);
+      y += APPX_LINE_H;
+    }
+  }
+}
 
 /**
  * Composite a captured (potentially transparent) dataUrl onto a solid white
@@ -565,6 +736,7 @@ function ExportPanel({
   layoutReadyRef,
   layoutAppliedRef,
   onBatchFlowChange,
+  details,
 }: ExportPanelProps) {
   const { getNodes, getEdges } = useReactFlow();
   const [exporting, setExporting] = useState(false);
@@ -719,6 +891,32 @@ function ExportPanel({
       setExporting(false);
     }
   }, [exporting, captureImage, serviceName, transparentBg, includeGrid, wrapperRef, download]);
+
+  const handleExportPdfWithAppendix = useCallback(async () => {
+    if (exporting || !wrapperRef.current || !details) return;
+    setExporting(true);
+    try {
+      const { dataUrl, pixelRatio } = await captureImage("jpeg", false, includeGrid, EXPORT_MAX_PIXELS);
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to decode exported image"));
+      });
+      const pdfW = img.width / pixelRatio;
+      const pdfH = img.height / pixelRatio;
+      const pdf = new jsPDF({
+        orientation: pdfW > pdfH ? "landscape" : "portrait",
+        unit: "px",
+        format: [pdfW, pdfH],
+      });
+      pdf.addImage(dataUrl, "JPEG", 0, 0, pdfW, pdfH);
+      addAppendixPages(pdf, details, serviceName);
+      pdf.save(`${serviceName}-appendix.pdf`);
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, captureImage, serviceName, includeGrid, wrapperRef, details]);
 
   const handleExportDrawio = useCallback(() => {
     const nodes = getNodes();
@@ -933,6 +1131,9 @@ function ExportPanel({
               <button onClick={handleExportPng} disabled={exporting}>PNG</button>
               <button onClick={handleExportSvg} disabled={exporting}>SVG</button>
               <button onClick={handleExportPdf} disabled={exporting}>PDF</button>
+              {details && (
+                <button onClick={handleExportPdfWithAppendix} disabled={exporting}>PDF + Appendix</button>
+              )}
               <button
                 onClick={handleExportDrawio}
                 disabled={exporting}
@@ -1385,9 +1586,10 @@ interface Props {
   flow: FlowIR;
   allServices?: ServiceSummary[];
   fileRef?: React.RefObject<File | null>;
+  onNodeSelect?: (node: FlowNode | null) => void;
 }
 
-export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) {
+export default function FlowDiagram({ flow, allServices = [], fileRef, onNodeSelect }: Props) {
   const { state: sessionState, dispatch: sessionDispatch } = useDiagramSession();
   const diamondScale = sessionState.diamondScale;
   const setDiamondScale = (scale: number) =>
@@ -1496,6 +1698,19 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
     setBatchFlow(f);
   }, []);
 
+  // Node selection — notify parent so the inspector panel can update.
+  const handleNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      const irNode = flow.nodes.find((n) => n.id === node.id) ?? null;
+      onNodeSelect?.(irNode);
+    },
+    [flow.nodes, onNodeSelect],
+  );
+
+  const handlePaneClick = useCallback(() => {
+    onNodeSelect?.(null);
+  }, [onNodeSelect]);
+
   // Propagate color changes to all existing nodes (including user-placed annotations).
   useEffect(() => {
     setNodes((nds) => nds.map((n) => ({ ...n, data: { ...n.data, colors: nodeColors } })));
@@ -1571,6 +1786,8 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={onConnect}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
         fitView={false}
         minZoom={0.1}
@@ -1607,6 +1824,7 @@ export default function FlowDiagram({ flow, allServices = [], fileRef }: Props) 
           layoutReadyRef={layoutReadyRef}
           layoutAppliedRef={layoutAppliedRef}
           onBatchFlowChange={handleBatchFlowChange}
+          details={flow.details}
         />
       </ReactFlow>
     </div>

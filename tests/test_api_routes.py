@@ -217,3 +217,96 @@ def test_radius_proxy_flow_response():
     assert res.status_code == 200
     body = res.json()
     assert body["service_type"] == "RADIUS_PROXY"
+
+
+# ---------------------------------------------------------------------------
+# include_details flag — backward compatibility and details payload
+# ---------------------------------------------------------------------------
+
+def test_flow_default_details_is_null():
+    """Without include_details, details field is null (backward-compatible)."""
+    res = _post("/api/flow", "Service.xml", VALID_XML)
+    assert res.status_code == 200
+    assert res.json().get("details") is None
+
+
+def test_flow_include_details_false_is_null():
+    """Explicit include_details=false is the same as the default."""
+    res = client.post(
+        "/api/flow?include_details=false",
+        files={"file": ("Service.xml", io.BytesIO(VALID_XML), "application/xml")},
+    )
+    assert res.status_code == 200
+    assert res.json().get("details") is None
+
+
+def test_flow_include_details_clearpass():
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("Service.xml", io.BytesIO(VALID_XML), "application/xml")},
+    )
+    assert res.status_code == 200
+    details = res.json()["details"]
+    assert details is not None
+    assert "service_context" in details
+    assert "rule_index" in details
+    assert isinstance(details["enforcement_rules"], list)
+    assert isinstance(details["role_mapping_rules"], list)
+    assert details["authen_rules"] == []
+
+
+def test_flow_include_details_ise():
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("ISEPolicyConfig.xml", io.BytesIO(ISE_XML), "application/xml")},
+    )
+    assert res.status_code == 200
+    details = res.json()["details"]
+    assert details is not None
+    assert isinstance(details["authen_rules"], list)
+    assert len(details["authen_rules"]) > 0
+    assert details["role_mapping_rules"] == []
+
+
+def test_flow_details_rule_index_subset_of_trace_ids():
+    """All rule_index keys must appear as trace_rule_id on at least one node."""
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("Service.xml", io.BytesIO(VALID_XML), "application/xml")},
+    )
+    body = res.json()
+    trace_ids = {n["trace_rule_id"] for n in body["nodes"] if n["trace_rule_id"]}
+    rule_index_keys = set(body["details"]["rule_index"].keys())
+    assert rule_index_keys.issubset(trace_ids)
+
+
+def test_flow_details_enforcement_rules_ordered():
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("Service.xml", io.BytesIO(VALID_XML), "application/xml")},
+    )
+    rules = res.json()["details"]["enforcement_rules"]
+    if rules:
+        indices = [r["index"] for r in rules]
+        assert indices == sorted(indices)
+
+
+def test_flow_details_ise_authen_rules_ordered():
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("ISEPolicyConfig.xml", io.BytesIO(ISE_XML), "application/xml")},
+    )
+    rules = res.json()["details"]["authen_rules"]
+    if rules:
+        indices = [r["index"] for r in rules]
+        assert indices == sorted(indices)
+
+
+def test_flow_details_radius_proxy():
+    """RADIUS_PROXY may have no role mapping rules, but payload must still be present."""
+    res = client.post(
+        "/api/flow?include_details=true",
+        files={"file": ("radius-proxy.xml", io.BytesIO(RADIUS_PROXY_XML), "application/xml")},
+    )
+    assert res.status_code == 200
+    assert res.json()["details"] is not None
