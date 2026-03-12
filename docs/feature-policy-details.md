@@ -1,9 +1,9 @@
 # Feature Spec: Policy Details Inspector + Documentation Appendix
 
 - Owner: Policy Visualizer team
-- Status: Draft
-- Target release: TBD
-- Last updated: 2026-03-10
+- Status: Shipped — 3.3.0
+- Target release: 3.3.0
+- Last updated: 2026-03-11
 
 ## 1. Problem Statement
 
@@ -21,6 +21,21 @@ The feature must improve policy detail readability without interfering with diag
 2. Preserve existing flow diagram behavior and visual integrity (no layout disruption).
 3. Support both ClearPass and Cisco ISE pipelines with parity at the UX and data-contract level.
 4. Enable documentation export that includes policy element details in addition to the diagram.
+
+## 2b. Shipped in 3.3.0
+
+**Inspector + API**
+- `frontend/src/components/PolicyDetailsPanel.tsx` — right-side inspector panel
+- `src/policy_details.py` — condition serialization and rule detail extraction (ClearPass + ISE)
+- `api/schemas.py` — `PolicyDetails` / `RuleDetail` schemas
+- `api/routes/flow.py` — `include_details` optional flag wired in
+- `frontend/src/components/FlowDiagram.tsx` — node click → panel open wiring
+- `frontend/src/App.tsx` / `frontend/src/api.ts` — panel state + fetch integration
+
+**PDF Appendix**
+- `frontend/src/components/FlowDiagram.tsx` — `addAppendixPages()`, "Include appendix"
+  checkbox toggle (PDF format only, when details loaded), `handleExportPdfWithAppendix()`
+  handler; A4 format with section headers, monospace conditions, automatic page breaks
 
 ## 3. Non-Goals
 
@@ -201,9 +216,9 @@ Required test coverage:
 3. Inspector mapping tests from selected node to displayed details.
 4. PDF appendix content tests for section presence, ordering, and key fields.
 
-## 13. Open Questions
+## 13. Resolved Questions
 
-1. Should inspector default be open or collapsed on first diagram load?
-2. Should appendix condition content be pretty text only or include optional full AST representation?
-3. Should warnings always be a dedicated appendix section even when empty?
-4. Should appendix include per-section counts (for example total auth rules, total enforcement rules)?
+1. Inspector default on first load: collapsed; opens on node click.
+2. Appendix condition content: pretty text only (no AST representation).
+3. Warnings appendix section: included only when warnings are present.
+4. Per-section counts: not included in appendix output.

@@ -6,8 +6,6 @@ Policy Visualizer converts a network policy XML service export into:
 - a compiled decision-flow graph,
 - and an interactive browser diagram.
 
-It also supports CLI rendering to static diagram formats for offline/scripted workflows.
-
 ![Policy Visualizer screenshot](docs/assets/policy-visualizer-screenshot.png)
 
 ## What it does
@@ -17,16 +15,18 @@ It also supports CLI rendering to static diagram formats for offline/scripted wo
 - Builds deterministic Policy IR and Flow IR
 - Serves Flow IR from a FastAPI backend
 - Renders an interactive flow diagram in a React Flow frontend with WYSIWYG annotation support
+- Surfaces full rule conditions and actions in a Policy Details side panel (click any decision or action node)
 - Exports diagrams to PNG, SVG, PDF, and Draw.io format (BETA)
-- Supports static SVG/PNG/PDF generation through a CLI path (ClearPass only)
+- Exports PDF with optional policy details appendix (rule tables, conditions, actions)
+- Supports static SVG/PNG/PDF generation via CLI (ClearPass only; offline/scripted use)
 
 ## Tech Stack
 
 - **Backend/API:** FastAPI, defusedxml
 - **Compiler pipeline:** Python — ClearPass (`src/parser.py`, `src/normalizer.py`, `src/policy_ir.py`, `src/flow_ir.py`) and Cisco ISE (`src/ise_parser.py`, `src/ise_normalizer.py`, `src/ise_policy_ir.py`, `src/ise_flow_ir.py`)
 - **Frontend:** React + Vite + React Flow + Dagre + Tiptap
-- **Static rendering:** Graphviz (ClearPass only)
 - **Packaging:** Docker + docker-compose
+- **Static rendering:** Graphviz (ClearPass only; offline CLI use)
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ It also supports CLI rendering to static diagram formats for offline/scripted wo
 
 - Python 3.11+
 - Node.js 20+
-- Graphviz installed and on PATH (for CLI static rendering)
+- Graphviz installed and on PATH (not required for web app — only needed for CLI static rendering)
 
 ## Run with Docker
 
@@ -79,9 +79,11 @@ npm run dev
 
 Default frontend dev URL: http://localhost:5173
 
-## CLI usage (static diagram generation)
+## CLI usage (offline / scripted, ClearPass only)
 
-ClearPass XML only. From repository root:
+> The interactive web app (Docker or local dev) is the recommended workflow. The CLI renders static diagrams from ClearPass XML only and does not require the web stack.
+
+From repository root:
 
 ```bash
 python -m src.cli path/to/service.xml --output diagram.svg
@@ -135,7 +137,7 @@ To regenerate the documented totals:
 - `api/` — FastAPI app and routes
 - `frontend/` — React app and diagram components
 - `tests/` — parser/normalizer/policy/flow/API tests and fixtures
-- `docs/` — release map and release notes
+- `docs/` — feature specs, release map (2.0, historical), and per-version release notes (`docs/releases/`)
 
 ## Notes
 
