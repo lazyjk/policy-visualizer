@@ -117,7 +117,17 @@ From repository root:
 .venv/bin/pytest tests/
 ```
 
-185 tests across ClearPass pipeline (71), ISE pipeline (74), and API boundary (14) + misc (26).
+Current collected count: **245 tests**.
+
+To regenerate the documented totals:
+
+```bash
+# Total collected tests (includes parametrized expansion)
+.venv/bin/python -m pytest --collect-only -q tests
+
+# Per-file collected counts
+.venv/bin/python -m pytest --collect-only -q tests | awk -F'::' '/^tests\//{count[$1]++} END{for (f in count) printf "%s %d\n", f, count[f]}' | sort
+```
 
 ## Project structure (high level)
 

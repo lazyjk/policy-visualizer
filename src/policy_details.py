@@ -214,6 +214,19 @@ def build_ise_details(ps: "ISEPolicySet", ir: "ISEPolicyIR") -> dict:
 
     rule_index = _build_rule_index(authen_rules, [], enforcement_rules)
 
+    if ps.match is not None:
+        ps_match_key = f"{ps.id}__match"
+        rule_index[ps_match_key] = _rule_detail(
+            rule_id=ps_match_key,
+            node_trace_id=ps_match_key,
+            index=0,
+            name="Policy Set Match",
+            condition_text=condition_to_text(ps.match),
+            action_text="Proceed to authentication",
+            on_match="stop",
+            linked_names=[],
+        )
+
     return {
         "service_context": service_context,
         "authen_rules": authen_rules,
