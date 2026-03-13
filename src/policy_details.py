@@ -148,6 +148,18 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
 
     rule_index = _build_rule_index([], role_mapping_rules, enforcement_rules)
 
+    svc_match_key = f"{service.id}__match"
+    rule_index[svc_match_key] = _rule_detail(
+        rule_id=svc_match_key,
+        node_trace_id=svc_match_key,
+        index=0,
+        name="Service Match",
+        condition_text=condition_to_text(service.match),
+        action_text="Proceed to authentication",
+        on_match="stop",
+        linked_names=[],
+    )
+
     return {
         "service_context": service_context,
         "authen_rules": [],
