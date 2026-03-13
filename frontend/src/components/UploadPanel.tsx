@@ -26,20 +26,35 @@ export default function UploadPanel({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [filterType, setFilterType] = useState<string>("");
+  const [nameFilter, setNameFilter] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | "none">("none");
 
   // Reset controls when a new file is loaded
   useEffect(() => {
     setFilterType("");
+    setNameFilter("");
     setSortOrder("none");
   }, [services]);
 
   const displayedServices = useMemo(() => {
-    let list = filterType ? services.filter((s) => s.service_type === filterType) : [...services];
+    let list = [...services];
+    if (filterType) list = list.filter((s) => s.service_type === filterType);
+    if (nameFilter.trim()) {
+      const raw = nameFilter.trim();
+      const negate = raw.startsWith("!");
+      const q = (negate ? raw.slice(1) : raw).toLowerCase();
+      if (q) list = list.filter((s) =>
+        negate ? !s.name.toLowerCase().includes(q) : s.name.toLowerCase().includes(q)
+      );
+    }
     if (sortOrder === "asc") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === "desc") list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
-  }, [services, filterType, sortOrder]);
+  }, [services, filterType, nameFilter, sortOrder]);
+
+  function cycleSortOrder() {
+    setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
+  }
 
   function handleFile(file: File) {
     if (!file.name.endsWith(".xml")) {
@@ -120,7 +135,46 @@ export default function UploadPanel({
 
           {/* Filter + sort controls — only shown when there are multiple services */}
           {services.length > 1 && (
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+              {/* Name filter + sort icon */}
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="text"
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  placeholder="Filter by name…"
+                  style={nameFilterStyle}
+                  aria-label="Filter services by name"
+                />
+                <button
+                  onClick={cycleSortOrder}
+                  style={{
+                    ...sortIconButtonStyle,
+                    ...(sortOrder !== "none" ? sortIconButtonActiveStyle : {}),
+                  }}
+                  title={sortOrder === "none" ? "Sort A → Z" : sortOrder === "asc" ? "Sort Z → A" : "Clear sort"}
+                  aria-label="Toggle sort order"
+                >
+                  <SortAZIcon order={sortOrder} />
+                </button>
+              </div>
+              {/* Negation hint */}
+              {nameFilter.startsWith("!") && nameFilter.length > 1 && (
+                <p style={{ margin: 0, fontSize: 11, color: "#6366f1" }}>
+                  Excluding "<strong>{nameFilter.slice(1)}</strong>"
+                </p>
+              )}
+              {nameFilter === "!" && (
+                <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>
+                  Type a term after ! to exclude it
+                </p>
+              )}
+              {!nameFilter && (
+                <p style={{ margin: 0, fontSize: 10, color: "#9ca3af" }}>
+                  Tip: prefix with <code style={{ fontFamily: "monospace" }}>!</code> to exclude, e.g. <code style={{ fontFamily: "monospace" }}>!test</code>
+                </p>
+              )}
+              {/* Type filter */}
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
@@ -131,16 +185,6 @@ export default function UploadPanel({
                 <option value="RADIUS">RADIUS</option>
                 <option value="TACACS">TACACS</option>
                 <option value="RADIUS_PROXY">RADIUS PROXY</option>
-              </select>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "asc" | "desc" | "none")}
-                style={controlSelectStyle}
-                aria-label="Sort services"
-              >
-                <option value="none">Default</option>
-                <option value="asc">A → Z</option>
-                <option value="desc">Z → A</option>
               </select>
             </div>
           )}
@@ -256,3 +300,48 @@ const serviceTypeBadgeStyle: React.CSSProperties = {
   padding: "1px 5px",
   verticalAlign: "middle",
 };
+
+const nameFilterStyle: React.CSSProperties = {
+  flex: 1,
+  fontSize: 11,
+  padding: "4px 8px",
+  border: "1px solid #e5e7eb",
+  borderRadius: 5,
+  background: "#f9fafb",
+  color: "#374151",
+  fontFamily: "inherit",
+  outline: "none",
+};
+
+const sortIconButtonStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 30,
+  minWidth: 30,
+  height: 28,
+  border: "1px solid #e5e7eb",
+  borderRadius: 5,
+  background: "#f9fafb",
+  cursor: "pointer",
+  padding: 0,
+};
+
+const sortIconButtonActiveStyle: React.CSSProperties = {
+  border: "1px solid #6366f1",
+  background: "#eef2ff",
+};
+
+function SortAZIcon({ order }: { order: "asc" | "desc" | "none" }) {
+  const arrow = order === "asc" ? "↑" : order === "desc" ? "↓" : "↕";
+  return (
+    <svg width="22" height="20" viewBox="0 0 22 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <text x="1" y="9" fontSize="8" fontWeight="700" fontFamily="Helvetica, Arial, sans-serif"
+        fill={order !== "none" ? "#4338ca" : "#6b7280"}>A</text>
+      <text x="1" y="18" fontSize="8" fontWeight="700" fontFamily="Helvetica, Arial, sans-serif"
+        fill={order !== "none" ? "#4338ca" : "#6b7280"}>Z</text>
+      <text x="13" y="14" fontSize="11" fontFamily="Helvetica, Arial, sans-serif"
+        fill={order !== "none" ? "#4338ca" : "#6b7280"}>{arrow}</text>
+    </svg>
+  );
+}

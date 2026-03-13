@@ -111,6 +111,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
         id=f"{sid}__match",
         type="decision",
         label=f"Service Match?\n{match_label}",
+        trace_rule_id=f"{sid}__match",
     ))
     flow.add_edge(start.id, svc_match.id)
 
