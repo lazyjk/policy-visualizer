@@ -60,7 +60,7 @@ class FlowIR:
         self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label, reason=reason))
 
 
-_DENY_PROFILE_TYPES = {"radius_reject", "tacacs_other"}
+_DENY_PROFILE_TYPES = {"radius_reject", "tacacs_other", "generic_reject"}
 _DENY_ACTIONS = {"deny", "reject"}
 
 

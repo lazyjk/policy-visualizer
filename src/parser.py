@@ -87,6 +87,8 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
         "radiusEnfProfiles": [],
         "postAuthEnfProfiles": [],
         "tacacsEnfProfiles": [],
+        "radiusCoaEnfProfiles": [],
+        "genericEnfProfiles": [],
     }
 
     # --- RADIUS Services ---
@@ -139,6 +141,40 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "roleMappings": [],
             "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
             "proxyNames": _string_list(svc, "ProxyNameList"),
+        })
+
+    # --- WebAuth Services ---
+    for svc in root.findall(f".//{_tag('AvendaWebAuthService')}"):
+        expr_el = svc.find(f".//{_tag('RuleExpression')}")
+        model["services"].append({
+            "name": svc.get("name", ""),
+            "description": svc.get("description", ""),
+            "enabled": svc.get("enabled", "true"),
+            "serviceType": "WEBAUTH",
+            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
+            "matchExpression": _rule_expressions(expr_el),
+            "authMethods": _string_list(svc, "AuthMethodNameList"),
+            "authSources": _string_list(svc, "AuthSourceNameList"),
+            "autzSources": _string_list(svc, "AutzSourceNameList"),
+            "roleMappings": _string_list(svc, "RoleMappingNameList"),
+            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
+        })
+
+    # --- Application Services ---
+    for svc in root.findall(f".//{_tag('AvendaAppAuthService')}"):
+        expr_el = svc.find(f".//{_tag('RuleExpression')}")
+        model["services"].append({
+            "name": svc.get("name", ""),
+            "description": svc.get("description", ""),
+            "enabled": svc.get("enabled", "true"),
+            "serviceType": "APPLICATION",
+            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
+            "matchExpression": _rule_expressions(expr_el),
+            "authMethods": _string_list(svc, "AuthMethodNameList"),
+            "authSources": _string_list(svc, "AuthSourceNameList"),
+            "autzSources": _string_list(svc, "AutzSourceNameList"),
+            "roleMappings": _string_list(svc, "RoleMappingNameList"),
+            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
         })
 
     # --- Auth Methods ---
@@ -249,6 +285,22 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "name": tp.get("name", ""),
             "description": tp.get("description", ""),
             "action": tp.get("action", ""),
+        })
+
+    # --- Radius CoA Enforcement Profiles ---
+    for cp in root.findall(f".//{_tag('RadiusCoAEnfProfile')}"):
+        model["radiusCoaEnfProfiles"].append({
+            "name": cp.get("name", ""),
+            "description": cp.get("description", ""),
+            "action": cp.get("action", ""),
+        })
+
+    # --- Generic Enforcement Profiles ---
+    for gp in root.findall(f".//{_tag('GenericEnfProfile')}"):
+        model["genericEnfProfiles"].append({
+            "name": gp.get("name", ""),
+            "description": gp.get("description", ""),
+            "action": gp.get("action", ""),
         })
 
     return model
