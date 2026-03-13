@@ -181,3 +181,79 @@ def test_radius_proxy_has_match_expression(radius_proxy_raw):
     expr = radius_proxy_raw["services"][0]["matchExpression"]
     assert expr is not None
     assert len(expr["attributes"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# WebAuth + Application fixture tests
+# ---------------------------------------------------------------------------
+
+WEBAUTH_APP_FIXTURE = Path(__file__).parent / "fixtures" / "clearpass-webauth-application-service-example.xml"
+
+
+@pytest.fixture(scope="module")
+def webauth_app_raw():
+    return parse(WEBAUTH_APP_FIXTURE)
+
+
+def test_webauth_app_service_count(webauth_app_raw):
+    assert len(webauth_app_raw["services"]) == 2
+
+
+def test_webauth_service_types(webauth_app_raw):
+    types = {s["serviceType"] for s in webauth_app_raw["services"]}
+    assert "WEBAUTH" in types
+    assert "APPLICATION" in types
+
+
+def test_webauth_service_name(webauth_app_raw):
+    names = {s["name"] for s in webauth_app_raw["services"]}
+    assert "[Device Registration Disconnect]" in names
+
+
+def test_application_service_name(webauth_app_raw):
+    names = {s["name"] for s in webauth_app_raw["services"]}
+    assert "[Insight Operator Logins]" in names
+
+
+def test_webauth_has_auth_source(webauth_app_raw):
+    webauth = next(s for s in webauth_app_raw["services"] if s["serviceType"] == "WEBAUTH")
+    assert "[Guest Device Repository]" in webauth["authSources"]
+
+
+def test_application_has_auth_source(webauth_app_raw):
+    app = next(s for s in webauth_app_raw["services"] if s["serviceType"] == "APPLICATION")
+    assert "[Local User Repository]" in app["authSources"]
+
+
+def test_webauth_app_no_auth_methods(webauth_app_raw):
+    for svc in webauth_app_raw["services"]:
+        assert svc["authMethods"] == []
+
+
+def test_webauth_app_no_role_mappings(webauth_app_raw):
+    for svc in webauth_app_raw["services"]:
+        assert svc["roleMappings"] == []
+
+
+def test_radius_coa_profiles_parsed(webauth_app_raw):
+    names = {p["name"] for p in webauth_app_raw["radiusCoaEnfProfiles"]}
+    assert "[ArubaOS Wireless - Terminate Session]" in names
+    assert "[AOS-CX - Disconnect]" in names
+
+
+def test_generic_profiles_parsed(webauth_app_raw):
+    names = {p["name"] for p in webauth_app_raw["genericEnfProfiles"]}
+    assert "[Operator Login - Local Users]" in names
+    assert "[Deny Application Access Profile]" in names
+
+
+def test_generic_profile_actions(webauth_app_raw):
+    profiles = {p["name"]: p for p in webauth_app_raw["genericEnfProfiles"]}
+    assert profiles["[Operator Login - Local Users]"]["action"] == "Accept"
+    assert profiles["[Deny Application Access Profile]"]["action"] == "Reject"
+
+
+def test_webauth_app_enforcement_policies_parsed(webauth_app_raw):
+    names = {ep["name"] for ep in webauth_app_raw["enforcementPolicies"]}
+    assert "[Device Registration Disconnect]" in names
+    assert "[Insight Operator Logins]" in names

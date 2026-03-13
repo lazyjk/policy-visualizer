@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Fri Mar 13 12:56:06 MDT 2026" version="6.11"/>
+  <AvendaWebAuthServices>
+    <AvendaWebAuthService description="Service to disconnect all headless devices after they have registered" name="[Device Registration Disconnect]" stripUsername="false" monitor="false" enabled="true" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Authentication" value="Authentication" operator="EQUALS" name="CheckType" type="Host"/>
+          <RuleAttribute displayValue="mac_create,mactrac_create" value="mac_create,mactrac_create" operator="BELONGS_TO" name="Page-Name" type="Application:ClearPass"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>AVENDA_WEB_AUTH</ServiceTemplate>
+      <AuthSourceNameList>
+        <string>[Guest Device Repository]</string>
+      </AuthSourceNameList>
+      <EnfPolicyNameList>
+        <string>[Device Registration Disconnect]</string>
+      </EnfPolicyNameList>
+    </AvendaWebAuthService>
+  </AvendaWebAuthServices>
+  <AvendaAppAuthServices>
+    <AvendaAppAuthService description="Authentication service for Insight application" name="[Insight Operator Logins]" stripUsername="false" monitor="false" enabled="true">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Insight" value="Insight" operator="EQUALS" name="Name" type="Application"/>
+          <RuleAttribute displayValue="SSO" value="SSO" operator="NOT_EQUALS" name="Type" type="Authentication"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>AVENDA_APP_AUTH</ServiceTemplate>
+      <AuthSourceNameList>
+        <string>[Local User Repository]</string>
+      </AuthSourceNameList>
+      <EnfPolicyNameList>
+        <string>[Insight Operator Logins]</string>
+      </EnfPolicyNameList>
+    </AvendaAppAuthService>
+  </AvendaAppAuthServices>
+  <AuthSources>
+    <AuthSource description="Authenticate guest devices against Policy Manager local database" name="[Guest Device Repository]" isAuthorizationSource="true" type="Local">
+      <NVPair value="300" name="cache_timeout"/>
+      <NVPair value="PostgreSQL" name="sql_driver"/>
+      <NVPair value="localhost" name="server"/>
+      <NVPair value="tipsdb" name="db_name"/>
+      <NVPair value="appuser" name="login"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="10" name="timeout"/>
+      <Filters>
+        <Filter paramValues="" filterQuery="SELECT user_credential(password) AS User_Password,
+       CASE WHEN enabled = FALSE THEN 225
+            WHEN ((expire_time is not null AND expire_time &lt;= now())) THEN 226
+            ELSE 0
+       END AS Account_Status, sponsor_name,
+       CASE WHEN expire_time &gt; now() THEN CAST(EXTRACT(epoch FROM (expire_time - NOW())) AS INTEGER)
+            ELSE 0
+       END AS remaining_expiration
+FROM tips_guest_users
+WHERE ((guest_type = 'DEVICE') AND (user_id = '%{Connection:Client-Mac-Address-Hyphen}'))" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="SponsorName" attrName="sponsor_name"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="RemainingExpiration" attrName="remaining_expiration"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="AccountStatus" attrName="account_status"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT tgu.attributes-&gt;&gt;'Role ID' AS device_role_id FROM tips_guest_users as tgu WHERE tgu.guest_type = 'DEVICE' AND tgu.user_id = '%{Connection:Client-Mac-Address-Hyphen}'" filterName="Device Role ID">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Device Role ID" attrName="device_role_id"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT user_credential(tgu.attributes-&gt;&gt;'mpsk') AS device_mpsk FROM tips_guest_users as tgu WHERE tgu.guest_type = 'DEVICE' AND tgu.user_id = '%{Connection:Client-Mac-Address-Hyphen}'" filterName="Device MPSK">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="Device MPSK" attrName="device_mpsk"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="SELECT 
+       CASE WHEN expire_time is null or expire_time &gt; now() THEN 'false' 
+       ELSE 'true'
+       END AS is_expired,
+       CASE WHEN enabled = true THEN 'true' ELSE 'false' END as is_enabled,
+       CASE WHEN (expire_time is null or expire_time &gt; now()) and (start_time &lt; now()) and (enabled = true) THEN 'true' ELSE 'false' END as is_active
+FROM tips_guest_users           
+WHERE ((guest_type = 'DEVICE') AND (user_id = '%{Connection:Client-Mac-Address-Upper-Hyphen}') AND (app_name = 'Guest'))" filterName="Authorization">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="Device Account Expired" attrName="is_expired"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="Device Account Enabled" attrName="is_enabled"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="Device Account Active" attrName="is_active"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+    <AuthSource description="Authenticate users against Policy Manager local user database" name="[Local User Repository]" isAuthorizationSource="true" type="Local">
+      <NVPair value="300" name="cache_timeout"/>
+      <NVPair value="PostgreSQL" name="sql_driver"/>
+      <NVPair value="localhost" name="server"/>
+      <NVPair value="6432" name="port"/>
+      <NVPair value="tipsdb" name="db_name"/>
+      <NVPair value="appuser" name="login"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="10" name="timeout"/>
+      <Filters>
+        <Filter paramValues="" filterQuery="SELECT user_credential(password) AS User_Password, user_credential(password_hash) AS Password_Hash,
+				user_credential(password_ntlm_hash) AS Password_Ntlm_Hash,
+				CASE WHEN enabled = FALSE THEN 225
+				WHEN ((expire_time is not null AND expire_time &lt;= now()) OR (passwordPolicy.expiry_days &gt; 0 AND
+				(PASSWORD_UPDATED_AT &lt;= (now() - interval '1 days' * passwordPolicy.expiry_days))) ) THEN 226
+				ELSE 0
+				END AS Account_Status,
+				tips_role.name as Role_Name,
+				case when enabled=true then 'true' else 'false' end as enabled,
+                                row_to_json((SELECT d FROM (SELECT
+                                CASE WHEN extract(DAY FROM (age(password_updated_at)))+1 &gt;= passwordPolicy.pwd_reminder_days THEN passwordPolicy.pwd_reminder_text                                ELSE '' END AS Show_Message,
+                                CASE WHEN tips_auth_local_users.change_pwd_next_login = TRUE THEN 'true'
+                                ELSE '' END AS Change_Password)d )) as Account_Actions
+                                FROM tips_auth_local_users JOIN tips_role ON
+				(tips_auth_local_users.user_role = tips_role.id), password_policy passwordPolicy WHERE
+				passwordPolicy.usertype='LOCAL_USERS' AND user_id = '%{Authentication:Username}'" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Role_Name" attrName="role_name"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="Boolean" aliasName="Enabled" attrName="enabled"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+  </AuthSources>
+  <Roles>
+    <Role description="Default role for authenticated users" name="[User Authenticated]"/>
+  </Roles>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="Enforcement policy to disconnect devices from network" name="[Device Registration Disconnect]" policyType="WEBAUTH" defaultProfileName="[ArubaOS Wireless - Terminate Session]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="[Guest Device Repository]" value="[Guest Device Repository]" operator="EQUALS" name="Source" type="Authentication"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[ArubaOS Wireless - Terminate Session], [Aerohive - Terminate Session], [Cisco - Terminate Session], [H3C - Terminate Session], [Juniper Terminate Session], [Motorola - Terminate Session], [Trapeze - Terminate Session], [ArubaOS Switching - Terminate Session], [AOS-CX - Disconnect]" value="106,109,101,113,107,110,108,105,121" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+    <EnforcementPolicy description="Enforcement policy controlling access to Insight application" name="[Insight Operator Logins]" policyType="Application" defaultProfileName="[Deny Application Access Profile]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ALL" operator="and">
+                <AttributeList>
+                  <RuleAttribute displayValue="[User Authenticated]" value="[User Authenticated]" operator="EQUALS" name="Role" type="Tips"/>
+                  <RuleAttribute displayValue="[Local User Repository]" value="[Local User Repository]" operator="EQUALS" name="Source" type="Authentication"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Operator Login - Local Users]" value="61" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <RadiusCoAEnfProfiles>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Cisco)" name="[Cisco - Terminate Session]" action="Disconnect" template="Terminate-Session">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="1" value="1" name="Service-Type" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect the user on ArubaOS Switching, HP ProCurve and HP UWW products." name="[ArubaOS Switching - Terminate Session]" action="Disconnect" template="Terminate-Session-HP">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-Port}" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Event-Timestamp}" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect the user on ArubaOS Mobility Controllers, Aruba Instant APs &amp; Mobility Access Switches." name="[ArubaOS Wireless - Terminate Session]" action="Disconnect" template="Terminate-Session-Aruba">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Juniper)" name="[Juniper Terminate Session]" action="Disconnect" template="Terminate-Session-Juniper">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Acct-Session-Id}" value="%{Radius:IETF:Acct-Session-Id}" name="Acct-Session-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Trapeze)" name="[Trapeze - Terminate Session]" action="Disconnect" template="Terminate-Session-Trapeze">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Aerohive)" name="[Aerohive - Terminate Session]" action="Disconnect" template="Terminate-Session-Aerohive">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Motorola)" name="[Motorola - Terminate Session]" action="Disconnect" template="Terminate-Session-Motorola">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect the user on H3C products (including HPE FlexNetwork / Comware)." name="[H3C - Terminate Session]" action="Disconnect" template="Terminate-Session-H3C">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect a device on AOS-CX switches." name="[AOS-CX - Disconnect]" action="Disconnect" template="ArubaCX-Disconnect">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-Port}" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-Identifier}" value="%{Radius:IETF:NAS-Identifier}" name="NAS-Identifier" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Event-Timestamp}" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+  </RadiusCoAEnfProfiles>
+  <GenericEnfProfiles>
+    <GenericEnfProfile description="Enforcement profile for Guest operator logins" name="[Operator Login - Local Users]" action="Accept" type="Application">
+      <ProfileParams displayValue="%{Authorization:[Local User Repository]:Role_Name}" value="%{Authorization:[Local User Repository]:Role_Name}" name="admin_privileges"/>
+    </GenericEnfProfile>
+    <GenericEnfProfile description="System-defined profile to deny access to application" name="[Deny Application Access Profile]" action="Reject" type="Application"/>
+  </GenericEnfProfiles>
+  <TagDictionaries>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="expired_notify_status" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mpsk_enable" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="smtp_email_field" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mpsk" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="smtp_auto_send_field" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="remote_addr" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="http_user_agent" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="Boolean" attributeName="AUTHED-VIA-WIRED-1X" entityName="Endpoint"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="Visitor Name" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="simultaneous_use" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="no_portal" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="airgroup_device_type" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="Create Time" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="vcname" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="apname" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="source" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="do_expire" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="source2" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="Boolean" attributeName="AUTHED-VIA-WIRELESS-1X" entityName="Endpoint"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="expire_postlogin" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="essid" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="sponsor_profile_name" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mac_auth" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="no_password" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="mac" entityName="GuestUser"/>
+    <TagDictionary allowMultiple="false" mandatory="false" dataType="String" attributeName="apgroup" entityName="GuestUser"/>
+  </TagDictionaries>
+  <RadiusCOATemplates>
+    <RadiusCOATemplate vendorId="9" templateType="Disconnect" displayName="Cisco - Terminate Session" name="Terminate-Session">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="1" name="Service-Type" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="11" templateType="Disconnect" displayName="ArubaOS Switching - Terminate Session" name="Terminate-Session-HP">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+        <Attribute inputRequired="Required" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="14823" templateType="Disconnect" displayName="ArubaOS Wireless - Terminate Session" name="Terminate-Session-Aruba">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="2636" templateType="Disconnect" displayName="Juniper - Terminate Session" name="Terminate-Session-Juniper">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Acct-Session-Id}" name="Acct-Session-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="14525" templateType="Disconnect" displayName="Trapeze - Terminate Session" name="Terminate-Session-Trapeze">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="26928" templateType="Disconnect" displayName="Aerohive - Terminate Session" name="Terminate-Session-Aerohive">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="161" templateType="Disconnect" displayName="Motorola - Terminate Session" name="Terminate-Session-Motorola">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="25506" templateType="Disconnect" displayName="H3C - Terminate Session" name="Terminate-Session-H3C">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+    <RadiusCOATemplate vendorId="14823" templateType="Disconnect" displayName="AOS-CX - Disconnect" name="ArubaCX-Disconnect">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-Identifier}" name="NAS-Identifier" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+  </RadiusCOATemplates>
+</TipsContents>

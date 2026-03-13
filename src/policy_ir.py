@@ -218,6 +218,23 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             action=action,
             description=tp.get("description", ""),
         )
+    for cp in raw.get("radiusCoaEnfProfiles", []):
+        pid = _stable_id(cp["name"])
+        ir.enforcement_profiles[pid] = EnforcementProfile(
+            id=pid, name=cp["name"],
+            profile_type="radius_coa",
+            action=cp.get("action", "").lower(),
+            description=cp.get("description", ""),
+        )
+    for gp in raw.get("genericEnfProfiles", []):
+        pid = _stable_id(gp["name"])
+        action = gp.get("action", "").lower()
+        ir.enforcement_profiles[pid] = EnforcementProfile(
+            id=pid, name=gp["name"],
+            profile_type="generic_accept" if action == "accept" else "generic_reject",
+            action=action,
+            description=gp.get("description", ""),
+        )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
     def _resolve_profiles(display_value: str, context: str = "") -> tuple[list[str], list[str]]:

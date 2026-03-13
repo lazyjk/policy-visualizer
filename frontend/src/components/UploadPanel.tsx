@@ -185,6 +185,8 @@ export default function UploadPanel({
                 <option value="RADIUS">RADIUS</option>
                 <option value="TACACS">TACACS</option>
                 <option value="RADIUS_PROXY">RADIUS PROXY</option>
+                <option value="WEBAUTH">WEBAUTH</option>
+                <option value="APPLICATION">APPLICATION</option>
               </select>
             </div>
           )}
