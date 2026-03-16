@@ -247,3 +247,38 @@ def test_ise_on_match_continue(ise_details):
 def test_ise_warnings_list(ise_details):
     details, _, _ = ise_details
     assert isinstance(details["warnings"], list)
+
+
+# ---------------------------------------------------------------------------
+# evaluate-all on_match propagation
+# ---------------------------------------------------------------------------
+
+EVAL_ALL_FIXTURE = Path(__file__).parent / "fixtures" / "EvaluateAll.xml"
+
+
+def test_eval_all_enf_rules_on_match_continue():
+    raw = parse(EVAL_ALL_FIXTURE)
+    ir = build(raw, source_file=str(EVAL_ALL_FIXTURE))
+    ep = next(iter(ir.enforcement_policies.values()))
+    assert ep.rule_combine_algo == "evaluate-all"
+    for rule in ep.rules:
+        assert rule.flow.on_match == "continue"
+
+
+def test_eval_all_rm_rules_on_match_continue():
+    raw = parse(EVAL_ALL_FIXTURE)
+    ir = build(raw, source_file=str(EVAL_ALL_FIXTURE))
+    rm = next(iter(ir.role_mapping_policies.values()))
+    assert rm.rule_combine_algo == "evaluate-all"
+    for rule in rm.rules:
+        assert rule.flow.on_match == "continue"
+
+
+def test_first_applicable_enf_rules_on_match_stop():
+    raw = parse(CP_FIXTURE)
+    ir = build(raw, source_file=str(CP_FIXTURE))
+    first_applicable_eps = [ep for ep in ir.enforcement_policies.values() if ep.rule_combine_algo == "first-applicable"]
+    assert first_applicable_eps, "Expected at least one first-applicable enforcement policy in fixture"
+    for ep in first_applicable_eps:
+        for rule in ep.rules:
+            assert rule.flow.on_match == "stop"

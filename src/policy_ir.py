@@ -263,6 +263,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for rm in raw.get("roleMappings", []):
         rmid = _stable_id(rm["name"])
         rules = []
+        rm_on_match = "continue" if rm.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
         for raw_rule in rm.get("rules", []):
             expr = normalize(raw_rule.get("expression"))
             results = raw_rule.get("results", [])
@@ -286,7 +287,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             else:
                 then = SetRole(role_id="unknown", role_name="Unknown")
             rule_id = f"{rmid}_rule_{raw_rule['index']}"
-            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then))
+            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then, flow=RuleFlow(on_match=rm_on_match)))
 
         default_role_name = rm.get("defaultRole", "")
         default_role = role_by_name.get(default_role_name)
@@ -316,6 +317,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for ep in raw.get("enforcementPolicies", []):
         epid = _stable_id(ep["name"])
         rules = []
+        ep_on_match = "continue" if ep.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
         for raw_rule in ep.get("rules", []):
             expr = normalize(raw_rule.get("expression"))
             results = raw_rule.get("results", [])
@@ -327,7 +329,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
                 profile_ids, profile_names = _resolve_profiles(enf_result.get("displayValue", ""), ctx)
             then = ApplyProfiles(profile_ids=profile_ids, profile_names=profile_names)
             rule_id = f"{epid}_rule_{raw_rule['index']}"
-            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then))
+            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then, flow=RuleFlow(on_match=ep_on_match)))
 
         default_profile_name = ep.get("defaultProfile", "")
         default_profile = profile_by_name.get(default_profile_name)
