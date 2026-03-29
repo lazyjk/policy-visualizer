@@ -8,11 +8,12 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.routes.builder import router as builder_router
 from api.routes.flow import router
 
 app = FastAPI(
     title="Policy Visualizer API",
-    version="3.3.3",
+    version="4.0.0-beta.1",
     description="Converts a network policy XML service export into a Flow IR diagram.",
 )
 
@@ -24,3 +25,4 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
+app.include_router(builder_router, prefix="/api")
