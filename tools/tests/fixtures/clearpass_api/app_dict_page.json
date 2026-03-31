@@ -1,0 +1,50 @@
+{
+  "_endpoint": "GET /api/application-dictionary",
+  "_description": "Application attribute dictionary",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 3,
+  "page_size_fetched": 3,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "attributes": {
+      "_type": "array",
+      "_item_fields": {
+        "allowed_values": "string",
+        "attr_name": "string",
+        "attr_type": "string"
+      }
+    },
+    "description": "string",
+    "id": "number",
+    "name": "string"
+  }
+}

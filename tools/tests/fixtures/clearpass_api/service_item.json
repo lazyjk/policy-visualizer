@@ -1,0 +1,43 @@
+{
+  "_endpoint": "GET /api/config/service/{id}",
+  "_description": "Single ClearPass service (full detail)",
+  "response_type": "object",
+  "fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "auth_sources": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "description": "string",
+    "enabled": "boolean",
+    "enf_policy": "string",
+    "hit_count": "number",
+    "id": "number",
+    "monitor_mode": "boolean",
+    "name": "string",
+    "order_no": "number",
+    "rules_conditions": {
+      "_type": "array",
+      "_item_fields": {
+        "name": "string",
+        "operator": "string",
+        "type": "string",
+        "value": "string"
+      }
+    },
+    "rules_match_type": "string",
+    "strip_username": "boolean",
+    "template": "string",
+    "type": "string"
+  }
+}

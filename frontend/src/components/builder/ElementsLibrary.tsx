@@ -6,10 +6,20 @@ interface Props {
   platform: BuilderPlatform;
 }
 
+/** Minimal shape shared by all CP/ISE list item types. */
+interface ElementItem {
+  id?: string;
+  name?: string;
+  service_type?: string;
+  profile_type?: string;
+  set_type?: string;
+  access_type?: string;
+}
+
 interface Section {
   key: string;
   label: string;
-  items: Record<string, unknown>[];
+  items: ElementItem[];
   badgeColor?: string;
 }
 
@@ -35,20 +45,16 @@ function buildSections(elements: BuilderElements, platform: BuilderPlatform): Se
   ];
 }
 
-function getItemName(item: Record<string, unknown>): string {
-  return (
-    (item.name as string | undefined) ??
-    (item.id as string | undefined) ??
-    "(unnamed)"
-  );
+function getItemName(item: ElementItem): string {
+  return item.name ?? item.id ?? "(unnamed)";
 }
 
-function getItemType(item: Record<string, unknown>): string | null {
+function getItemType(item: ElementItem): string | null {
   return (
-    (item.service_type as string | undefined) ??
-    (item.profile_type as string | undefined) ??
-    (item.set_type as string | undefined) ??
-    (item.access_type as string | undefined) ??
+    item.service_type ??
+    item.profile_type ??
+    item.set_type ??
+    item.access_type ??
     null
   );
 }
@@ -76,7 +82,7 @@ export default function ElementsLibrary({ elements, platform, canDrag = false }:
     });
   }
 
-  function filterItems(items: Record<string, unknown>[]) {
+  function filterItems(items: ElementItem[]) {
     if (!filterText) return items;
     const lower = filterText.toLowerCase();
     return items.filter((item) =>

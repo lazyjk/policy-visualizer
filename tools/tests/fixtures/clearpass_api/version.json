@@ -1,0 +1,17 @@
+{
+  "_endpoint": "GET /api/server/version",
+  "_description": "ClearPass server version string",
+  "response_type": "object",
+  "fields": {
+    "cppm_version": "string",
+    "guest_version": "string",
+    "installed_patches": {
+      "_type": "array",
+      "_item_fields": {
+        "description": "string",
+        "installed": "string",
+        "name": "string"
+      }
+    }
+  }
+}

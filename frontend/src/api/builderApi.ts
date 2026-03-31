@@ -37,14 +37,113 @@ export interface ConnectResponse {
   error: string | null;
 }
 
+// Typed shapes emitted by the Pydantic normalization layer (clearpass_api_schemas.py).
+// These match the canonical model_dump() output of each CP* model.
+
+export interface CPCondition {
+  namespace: string;    // normalized from: type | namespace
+  attribute: string;    // normalized from: name | attribute | attr_name
+  operator: string;     // normalized from: oper | operator | attr_oper  (uppercase)
+  value: string;        // normalized from: value | attr_value
+}
+
+export interface CPLinkedPolicy {
+  id: string;
+  name: string;
+}
+
+export interface CPServiceListItem {
+  id: string;
+  name: string;
+  service_type: string;  // normalized from: type | template_type | service_type
+}
+
+export interface CPRoleItem {
+  id: string;
+  name: string;
+}
+
+export interface CPEnforcementProfileItem {
+  id: string;
+  name: string;
+  profile_type: string;
+}
+
+export interface CPEnforcementPolicyListItem {
+  id: string;
+  name: string;
+}
+
+export interface CPRoleMappingListItem {
+  id: string;
+  name: string;
+}
+
+export interface CPAuthMethodItem {
+  id: string;
+  name: string;
+}
+
+export interface CPAuthSourceItem {
+  id: string;
+  name: string;
+}
+
+export interface CPRoleMappingRule {
+  id: string;
+  name: string;
+  conditions: CPCondition[];  // normalized from: condition | conditions
+  match_type: string;
+  roles: { id: string; name: string }[];
+  stop_if_match: boolean;     // normalized from: stop_if_match | flow.on_match
+}
+
+export interface CPRoleMappingPolicy {
+  id: string;
+  name: string;
+  rules: CPRoleMappingRule[];
+  default_role: { id: string; name: string };
+}
+
+export interface CPEnforcementPolicyRule {
+  id: string;
+  name: string;
+  conditions: CPCondition[];
+  match_type: string;
+  enforcement_profile_names: string[];  // normalized from: enforcement_profile_names | then.profile_names
+  enforcement_profile_ids: string[];    // normalized from: enforcement_profile_ids | then.profile_ids
+  stop_if_match: boolean;
+}
+
+export interface CPEnforcementPolicy {
+  id: string;
+  name: string;
+  rules: CPEnforcementPolicyRule[];
+  default_enforcement_profile_names: string[];  // normalized from all default field variants
+  default_enforcement_profile_ids: string[];
+}
+
+export interface CPService {
+  id: string;
+  name: string;
+  service_type: string;                   // normalized from: type | template_type | service_type
+  description: string;
+  rules_conditions: CPCondition[];        // normalized from: rules_conditions | conditions | condition | match_conditions
+  rules_match_type: string;               // normalized from: rules_match_type | match_type
+  authentication_methods: { id: string; name: string }[];
+  authentication_sources: { id: string; name: string }[];
+  role_mapping_policy: CPLinkedPolicy;
+  enf_policy: CPLinkedPolicy;
+}
+
 export interface ClearPassElements {
-  services: Record<string, unknown>[];
-  roles: Record<string, unknown>[];
-  enforcement_profiles: Record<string, unknown>[];
-  enforcement_policies: Record<string, unknown>[];
-  role_mapping_policies: Record<string, unknown>[];
-  auth_methods: Record<string, unknown>[];
-  auth_sources: Record<string, unknown>[];
+  services: CPServiceListItem[];
+  roles: CPRoleItem[];
+  enforcement_profiles: CPEnforcementProfileItem[];
+  enforcement_policies: CPEnforcementPolicyListItem[];
+  role_mapping_policies: CPRoleMappingListItem[];
+  auth_methods: CPAuthMethodItem[];
+  auth_sources: CPAuthSourceItem[];
   warnings: string[];
 }
 
@@ -228,12 +327,12 @@ export interface AttributeDict {
 }
 
 export interface PolicyDetailResponse {
-  policy: Record<string, unknown>;
+  policy: CPRoleMappingPolicy | CPEnforcementPolicy;
   warnings: string[];
 }
 
 export interface ServiceDetailResponse {
-  service: Record<string, unknown>;
+  service: CPService;
   warnings: string[];
 }
 

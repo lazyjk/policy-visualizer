@@ -1,0 +1,61 @@
+{
+  "_endpoint": "GET /api/role-mapping",
+  "_description": "Role mapping policies list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 20,
+  "page_size_fetched": 20,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "default_role_name": "string",
+    "description": "string",
+    "id": "number",
+    "name": "string",
+    "rule_combine_algo": "string",
+    "rules": {
+      "_type": "array",
+      "_item_fields": {
+        "condition": {
+          "_type": "array",
+          "_item_fields": {
+            "name": "string",
+            "oper": "string",
+            "type": "string",
+            "value": "string",
+            "value_disp_name": "string"
+          }
+        },
+        "match_type": "string",
+        "role_name": "string"
+      }
+    }
+  }
+}

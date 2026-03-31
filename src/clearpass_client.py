@@ -3,10 +3,29 @@
 Fetches policy elements from a live ClearPass instance via OAuth2
 client-credentials. Stateless: a fresh token is fetched per top-level
 operation; nothing is cached server-side.
+
+All API responses are normalized through the Pydantic models in
+src/clearpass_api_schemas.py before being returned.  Callers always
+receive a single canonical field shape regardless of ClearPass firmware
+version.
 """
 from __future__ import annotations
 
 import httpx
+
+from src.clearpass_api_schemas import (
+    CPAuthItem,
+    CPAuthMethodItem,
+    CPAuthSourceItem,
+    CPEnforcementPolicyListItem,
+    CPEnforcementProfileItem,
+    CPRoleMappingListItem,
+    CPRoleItem,
+    CPService,
+    CPServiceListItem,
+    CPEnforcementPolicy,
+    CPRoleMappingPolicy,
+)
 
 _PAGE_SIZE = 100
 
@@ -126,13 +145,16 @@ class ClearPassClient:
             return dict(resp.json())
 
     def get_service(self, service_id: str) -> dict:
-        return self._get_item(f"/api/config/service/{service_id}")
+        raw = self._get_item(f"/api/config/service/{service_id}")
+        return CPService.model_validate(raw).model_dump()
 
     def get_role_mapping_policy(self, policy_id: str) -> dict:
-        return self._get_item(f"/api/role-mapping/{policy_id}")
+        raw = self._get_item(f"/api/role-mapping/{policy_id}")
+        return CPRoleMappingPolicy.model_validate(raw).model_dump()
 
     def get_enforcement_policy(self, policy_id: str) -> dict:
-        return self._get_item(f"/api/enforcement-policy/{policy_id}")
+        raw = self._get_item(f"/api/enforcement-policy/{policy_id}")
+        return CPEnforcementPolicy.model_validate(raw).model_dump()
 
     # ------------------------------------------------------------------
     # Dictionary fetchers (for condition builder attribute lists)
@@ -239,20 +261,22 @@ class ClearPassClient:
 
         token = self._get_token()
 
-        fetchers: dict[str, str] = {
-            "services": "/api/config/service",
-            "roles": "/api/role",
-            "enforcement_profiles": "/api/enforcement-profile",
-            "enforcement_policies": "/api/enforcement-policy",
-            "role_mapping_policies": "/api/role-mapping",
-            "auth_methods": "/api/auth-method",
-            "auth_sources": "/api/auth-source",
-        }
+        # Maps result key → (endpoint path, Pydantic model class)
+        fetchers = [
+            ("services",             "/api/config/service",         CPServiceListItem),
+            ("roles",                "/api/role",                   CPRoleItem),
+            ("enforcement_profiles", "/api/enforcement-profile",    CPEnforcementProfileItem),
+            ("enforcement_policies", "/api/enforcement-policy",     CPEnforcementPolicyListItem),
+            ("role_mapping_policies","/api/role-mapping",           CPRoleMappingListItem),
+            ("auth_methods",         "/api/auth-method",            CPAuthMethodItem),
+            ("auth_sources",         "/api/auth-source",            CPAuthSourceItem),
+        ]
 
         with httpx.Client(verify=self._verify) as http:
-            for key, path in fetchers.items():
+            for key, path, model_cls in fetchers:
                 try:
-                    result[key] = self._get_pages(http, token, path)
+                    raw_items = self._get_pages(http, token, path)
+                    result[key] = [model_cls.model_validate(item).model_dump() for item in raw_items]
                 except Exception as exc:  # noqa: BLE001
                     result["warnings"].append(f"Failed to fetch {key}: {exc}")
 

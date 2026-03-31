@@ -1,0 +1,86 @@
+{
+  "_endpoint": "GET /api/config/service",
+  "_description": "ClearPass services list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 33,
+  "page_size_fetched": 33,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "acct_proxy_enabled": "boolean",
+    "audit_enabled": "boolean",
+    "auth_methods": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "auth_sources": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "authz_sources": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "description": "string",
+    "enabled": "boolean",
+    "enf_policy": "string",
+    "hit_count": "number",
+    "id": "number",
+    "monitor_mode": "boolean",
+    "name": "string",
+    "order_no": "number",
+    "posture_enabled": "boolean",
+    "profiler_enabled": "boolean",
+    "radius_proxy_attrs_to_delete": "array",
+    "radius_proxy_enable_for_acct": "boolean",
+    "radius_proxy_scheme": "string",
+    "radius_proxy_targets": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "role_mapping_policy": "string",
+    "rules_conditions": {
+      "_type": "array",
+      "_item_fields": {
+        "name": "string",
+        "operator": "string",
+        "type": "string",
+        "value": "string"
+      }
+    },
+    "rules_match_type": "string",
+    "strip_username": "boolean",
+    "strip_username_csv": "string",
+    "template": "string",
+    "type": "string",
+    "use_cached_policy_results": "boolean"
+  }
+}

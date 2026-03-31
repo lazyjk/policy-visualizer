@@ -88,23 +88,19 @@ export default function NewServiceWizard({ elements, creds, onComplete, onCancel
   const authMethods = elements.auth_methods;
   const authSources = elements.auth_sources;
 
-  function toggleMethod(item: Record<string, unknown>) {
-    const id = String(item.id ?? item.name ?? "");
-    const name = String(item.name ?? "(unnamed)");
+  function toggleMethod(item: { id: string; name: string }) {
     setSelectedMethods((prev) =>
-      prev.some((m) => m.id === id)
-        ? prev.filter((m) => m.id !== id)
-        : [...prev, { id, name }]
+      prev.some((m) => m.id === item.id)
+        ? prev.filter((m) => m.id !== item.id)
+        : [...prev, { id: item.id, name: item.name }]
     );
   }
 
-  function toggleSource(item: Record<string, unknown>) {
-    const id = String(item.id ?? item.name ?? "");
-    const name = String(item.name ?? "(unnamed)");
+  function toggleSource(item: { id: string; name: string }) {
     setSelectedSources((prev) =>
-      prev.some((s) => s.id === id)
-        ? prev.filter((s) => s.id !== id)
-        : [...prev, { id, name }]
+      prev.some((s) => s.id === item.id)
+        ? prev.filter((s) => s.id !== item.id)
+        : [...prev, { id: item.id, name: item.name }]
     );
   }
 
@@ -352,12 +348,12 @@ function Step3({
   onToggleMethod,
   onToggleSource,
 }: {
-  authMethods: Record<string, unknown>[];
-  authSources: Record<string, unknown>[];
+  authMethods: { id: string; name: string }[];
+  authSources: { id: string; name: string }[];
   selectedMethods: BuilderAuthItem[];
   selectedSources: BuilderAuthItem[];
-  onToggleMethod: (item: Record<string, unknown>) => void;
-  onToggleSource: (item: Record<string, unknown>) => void;
+  onToggleMethod: (item: { id: string; name: string }) => void;
+  onToggleSource: (item: { id: string; name: string }) => void;
 }) {
   return (
     <div>
@@ -390,9 +386,9 @@ function SelectableList({
   onToggle,
   emptyLabel,
 }: {
-  items: Record<string, unknown>[];
+  items: { id: string; name: string }[];
   selectedIds: string[];
-  onToggle: (item: Record<string, unknown>) => void;
+  onToggle: (item: { id: string; name: string }) => void;
   emptyLabel: string;
 }) {
   if (items.length === 0) {
@@ -406,8 +402,8 @@ function SelectableList({
       borderRadius: 5,
     }}>
       {items.map((item, i) => {
-        const id = String(item.id ?? item.name ?? i);
-        const name = String(item.name ?? "(unnamed)");
+        const id = item.id;
+        const name = item.name;
         const selected = selectedIds.includes(id);
         return (
           <div

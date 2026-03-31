@@ -1,0 +1,111 @@
+{
+  "_endpoint": "GET /api/auth-source",
+  "_description": "Authentication sources list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 13,
+  "page_size_fetched": 13,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "auth_source_filters": {
+      "_type": "array",
+      "_item_fields": {
+        "attributes": {
+          "_type": "array",
+          "_item_fields": {
+            "alias_name": "string",
+            "attribute_name": "string",
+            "attribute_type": "string",
+            "enable_as_role": "boolean",
+            "enable_as_user_attribute": "boolean"
+          }
+        },
+        "details": "array",
+        "name": "string",
+        "query": "string",
+        "source_Id": "number"
+      }
+    },
+    "auth_source_radius_attributes": "array",
+    "authorization_source_names": "array",
+    "cache_timeout": "number",
+    "cppm_auth_source_connection_backups": "array",
+    "cppm_primary_auth_source_connection_details": {
+      "_type": "object",
+      "_fields": {
+        "always_use_netBIOS_name": "null",
+        "authorization_token": "null",
+        "base_DN": "null",
+        "base_URL": "null",
+        "bind_DN": "null",
+        "bind_password": "null",
+        "bind_user": "null",
+        "clientID": "null",
+        "clientSecret": "null",
+        "client_certificate": "null",
+        "connection_port": "null",
+        "connection_security": "null",
+        "database_name": "null",
+        "host_name": "null",
+        "ldap_referrals": "null",
+        "login_password": "null",
+        "login_user_name": "null",
+        "net_BIOS_domain_name": "null",
+        "odbc_type": "null",
+        "password_attribute": "null",
+        "password_header": "null",
+        "password_type": "null",
+        "port": "null",
+        "protocol": "null",
+        "realm": "null",
+        "replace_special_char": "null",
+        "search_scope": "null",
+        "secret": "null",
+        "server_name": "null",
+        "server_principal": "null",
+        "server_principal_password": "null",
+        "static_host_lists": "null",
+        "status_server_messages": "null",
+        "tenantID": "null",
+        "timeout": "null",
+        "trusted_certificate_id": "null",
+        "user_certificate": "null",
+        "verify_server_certificate": "null"
+      }
+    },
+    "description": "string",
+    "id": "number",
+    "name": "string",
+    "server_timeout": "number",
+    "type": "string",
+    "use_for_authorization": "boolean"
+  }
+}

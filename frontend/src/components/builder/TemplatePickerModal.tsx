@@ -6,7 +6,7 @@
  * calls onTemplate with the raw policy data.
  */
 import { useState } from "react";
-import type { ClearPassCredentials, ClearPassElements } from "../../api/builderApi";
+import type { ClearPassCredentials, ClearPassElements, CPRoleMappingPolicy, CPEnforcementPolicy } from "../../api/builderApi";
 import { fetchClearPassPolicyDetail, fetchClearPassServiceDetail } from "../../api/builderApi";
 
 export type TemplatePolicyType = "role_mapping" | "enforcement" | "service";
@@ -18,7 +18,7 @@ interface Props {
   creds: ClearPassCredentials;
   /** ClearPass elements — used to resolve policy names to IDs when the API returns name strings */
   elements?: ClearPassElements;
-  onTemplate: (rawPolicy: Record<string, unknown>) => void;
+  onTemplate: (rawPolicy: unknown) => void;
   onBlank: () => void;
   onCancel: () => void;
 }
@@ -44,42 +44,18 @@ export default function TemplatePickerModal({
         const result = await fetchClearPassServiceDetail(creds, policyId);
         const raw = result.service;
 
-        // Resolve a policy field to its ID.
-        // If the value is a number or object with an id, use that directly.
-        // If it's a string (a name), look it up in the provided elements list.
-        function resolveToId(val: unknown, list?: Record<string, unknown>[]): string | null {
-          if (val == null) return null;
-          if (typeof val === "number") return String(val);
-          if (typeof val === "string") {
-            if (list) {
-              const found = list.find((e) => e.name === val);
-              if (found) {
-                const id = found.id ?? found.policy_id;
-                return id != null ? String(id) : null;
-              }
-            }
-            return null;
-          }
-          if (typeof val === "object") {
-            const obj = val as Record<string, unknown>;
-            const id = obj.id ?? obj.policy_id;
-            return id != null ? String(id) : null;
-          }
-          return null;
+        // Resolve a policy name to its ID by looking it up in the elements list.
+        function resolveByName(name: string, list?: { id: string; name: string }[]): string | null {
+          if (!name || !list) return null;
+          return list.find((e) => e.name === name)?.id ?? null;
         }
 
         const rmPolicies = elements?.role_mapping_policies;
         const enfPolicies = elements?.enforcement_policies;
 
-        const rmId =
-          resolveToId(raw.role_mapping_policy_id, rmPolicies) ??
-          resolveToId(raw.role_mapping_policy, rmPolicies);
-        const enfId =
-          resolveToId(raw.enforcement_policy_id, enfPolicies) ??
-          resolveToId(raw.enforcement_policy, enfPolicies) ??
-          resolveToId(raw.authorization_policy_id, enfPolicies) ??
-          resolveToId(raw.authorization_policy, enfPolicies) ??
-          resolveToId(raw.enf_policy, enfPolicies);
+        // raw.role_mapping_policy and raw.enf_policy are canonical CPLinkedPolicy {id, name}
+        const rmId = raw.role_mapping_policy.id || resolveByName(raw.role_mapping_policy.name, rmPolicies) || null;
+        const enfId = raw.enf_policy.id || resolveByName(raw.enf_policy.name, enfPolicies) || null;
 
         // Fetch linked policies in parallel; soft-fail on error
         const [rmResult, enfResult] = await Promise.allSettled([
@@ -87,12 +63,12 @@ export default function TemplatePickerModal({
           enfId ? fetchClearPassPolicyDetail(creds, "enforcement", enfId) : Promise.resolve(null),
         ]);
 
-        const enriched: Record<string, unknown> = { ...raw };
+        const enriched: { _rm_policy?: CPRoleMappingPolicy; _enf_policy?: CPEnforcementPolicy } & typeof raw = { ...raw };
         if (rmResult.status === "fulfilled" && rmResult.value) {
-          enriched._rm_policy = rmResult.value.policy;
+          enriched._rm_policy = rmResult.value.policy as CPRoleMappingPolicy;
         }
         if (enfResult.status === "fulfilled" && enfResult.value) {
-          enriched._enf_policy = enfResult.value.policy;
+          enriched._enf_policy = enfResult.value.policy as CPEnforcementPolicy;
         }
 
         onTemplate(enriched);
