@@ -268,6 +268,16 @@ class CPRoleMappingRule(_CPBase):
             on_match = (flow if isinstance(flow, dict) else {}).get("on_match", "stop")
             d["stop_if_match"] = on_match != "continue"
 
+        # Normalize roles from flat role_name/role_id fields
+        # ClearPass REST API returns per-rule role as a flat string, not an array
+        if not d.get("roles"):
+            role_id_val = d.pop("role_id", None)
+            role_name_val = d.pop("role_name", None)
+            role_id_str = _first(role_id_val)
+            role_name_str = _first(role_name_val, role_id_val)
+            if role_id_str or role_name_str:
+                d["roles"] = [{"id": role_id_str, "name": role_name_str}]
+
         return d
 
 

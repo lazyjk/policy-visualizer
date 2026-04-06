@@ -94,6 +94,29 @@ def _profiles_label(profile_names: list[str]) -> str:
     return ", ".join(profile_names) if profile_names else "Apply profiles"
 
 
+def _role_label(role_id: str, role_name: str, roles: dict) -> str:
+    """Return the best display name for a role.
+
+    Lookup order:
+    1. roles dict (keyed by ID) — canonical; ClearPass REST API often returns
+       roles with only an id and no name, so the Pydantic layer falls back to
+       using the id as the name.  The roles dict (populated from the elements
+       list) always has the real friendly name.
+    2. role_name — used when no dict entry exists (e.g. XML-only path with no
+       roles dict, or a role that was removed from the appliance).
+    3. role_id — last resort raw ID string.
+    """
+    if role_id:
+        role = roles.get(role_id)
+        if role and role.name:
+            return role.name
+    if role_name and role_name != role_id:
+        return role_name
+    if role_name:
+        return role_name
+    return role_id
+
+
 def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
     flow = FlowIR(service_id=service.id, service_name=service.name, service_type=service.service_type)
     sid = service.id
@@ -283,7 +306,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                     role_action = flow.add_node(FlowNode(
                         id=f"{sid}__rm_action_{rule.index}",
                         type="action",
-                        label=f"Set Role:\n{rule.then.role_name}",
+                        label=f"Set Role:\n{_role_label(rule.then.role_id, rule.then.role_name, ir.roles)}",
                         trace_rule_id=rule.id,
                     ))
                     flow.add_edge(dec.id, role_action.id, "YES")
@@ -302,7 +325,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 def_role = flow.add_node(FlowNode(
                     id=f"{sid}__rm_default",
                     type="action",
-                    label=f"Default Role:\n{rm.default.role_name}",
+                    label=f"Default Role:\n{_role_label(rm.default.role_id, rm.default.role_name, ir.roles)}",
                 ))
                 flow.add_edge(current_tail, def_role.id, current_label)
                 flow.add_edge(def_role.id, enf_entry_id)
