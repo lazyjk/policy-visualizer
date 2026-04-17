@@ -1,9 +1,7 @@
 import { useState } from "react";
 import {
   connectClearPass,
-  connectISE,
   fetchClearPassElements,
-  fetchISEElements,
 } from "../../api/builderApi";
 import type {
   BuilderPlatform,
@@ -73,12 +71,9 @@ const BTN_GHOST: React.CSSProperties = {
 };
 
 export default function ConnectionPanel({ onConnect, onDisconnect }: Props) {
-  const [platform, setPlatform] = useState<BuilderPlatform>("clearpass");
   const [serverUrl, setServerUrl] = useState("");
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [verifySsl, setVerifySsl] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,41 +85,22 @@ export default function ConnectionPanel({ onConnect, onDisconnect }: Props) {
     setError(null);
     setLoading(true);
     try {
-      if (platform === "clearpass") {
-        const creds: ClearPassCredentials = {
-          serverUrl,
-          clientId,
-          clientSecret,
-          verifySsl,
-        };
-        const [connectResult, elements] = await Promise.all([
-          connectClearPass(creds),
-          fetchClearPassElements(creds),
-        ]);
-        const label = connectResult.version
-          ? `ClearPass ${connectResult.version}`
-          : "ClearPass";
-        setConnectedInfo(label);
-        setConnected(true);
-        onConnect("clearpass", elements, creds);
-      } else {
-        const creds: ISECredentials = {
-          serverUrl,
-          username,
-          password,
-          verifySsl,
-        };
-        const [connectResult, elements] = await Promise.all([
-          connectISE(creds),
-          fetchISEElements(creds),
-        ]);
-        const label = connectResult.version
-          ? `ISE ${connectResult.version}`
-          : "ISE";
-        setConnectedInfo(label);
-        setConnected(true);
-        onConnect("ise", elements, creds);
-      }
+      const creds: ClearPassCredentials = {
+        serverUrl,
+        clientId,
+        clientSecret,
+        verifySsl,
+      };
+      const [connectResult, elements] = await Promise.all([
+        connectClearPass(creds),
+        fetchClearPassElements(creds),
+      ]);
+      const label = connectResult.version
+        ? `ClearPass ${connectResult.version}`
+        : "ClearPass";
+      setConnectedInfo(label);
+      setConnected(true);
+      onConnect("clearpass", elements, creds);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -170,33 +146,7 @@ export default function ConnectionPanel({ onConnect, onDisconnect }: Props) {
 
       {!collapsed && <div style={{ padding: "0 16px 16px" }}>
 
-      {/* Platform picker */}
-      <label style={LABEL}>Platform</label>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        {(["clearpass", "ise"] as BuilderPlatform[]).map((p) => (
-          <button
-            key={p}
-            disabled={connected}
-            onClick={() => { setPlatform(p); setError(null); }}
-            style={{
-              flex: 1,
-              padding: "6px 0",
-              border: `1px solid ${platform === p ? "#2563eb" : "#d1d5db"}`,
-              borderRadius: 4,
-              background: platform === p ? "#eff6ff" : "#fff",
-              color: platform === p ? "#1d4ed8" : "#374151",
-              fontFamily: "inherit",
-              fontSize: 12,
-              fontWeight: platform === p ? 600 : 400,
-              cursor: connected ? "default" : "pointer",
-            }}
-          >
-            {p === "clearpass" ? "ClearPass" : "Cisco ISE"}
-          </button>
-        ))}
-      </div>
-
-      {/* Server URL (common) */}
+      {/* Server URL */}
       <label style={LABEL}>Server URL</label>
       <input
         style={INPUT}
@@ -206,51 +156,24 @@ export default function ConnectionPanel({ onConnect, onDisconnect }: Props) {
         onChange={(e) => setServerUrl(e.target.value)}
       />
 
-      {/* ClearPass-specific fields */}
-      {platform === "clearpass" && (
-        <>
-          <label style={LABEL}>Client ID</label>
-          <input
-            style={INPUT}
-            placeholder="API client ID"
-            value={clientId}
-            disabled={connected}
-            onChange={(e) => setClientId(e.target.value)}
-          />
-          <label style={LABEL}>Client Secret</label>
-          <input
-            style={INPUT}
-            type="password"
-            placeholder="Client secret"
-            value={clientSecret}
-            disabled={connected}
-            onChange={(e) => setClientSecret(e.target.value)}
-          />
-        </>
-      )}
-
-      {/* ISE-specific fields */}
-      {platform === "ise" && (
-        <>
-          <label style={LABEL}>Username</label>
-          <input
-            style={INPUT}
-            placeholder="admin"
-            value={username}
-            disabled={connected}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <label style={LABEL}>Password</label>
-          <input
-            style={INPUT}
-            type="password"
-            placeholder="Password"
-            value={password}
-            disabled={connected}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </>
-      )}
+      {/* ClearPass credentials */}
+      <label style={LABEL}>Client ID</label>
+      <input
+        style={INPUT}
+        placeholder="API client ID"
+        value={clientId}
+        disabled={connected}
+        onChange={(e) => setClientId(e.target.value)}
+      />
+      <label style={LABEL}>Client Secret</label>
+      <input
+        style={INPUT}
+        type="password"
+        placeholder="Client secret"
+        value={clientSecret}
+        disabled={connected}
+        onChange={(e) => setClientSecret(e.target.value)}
+      />
 
       {/* SSL toggle */}
       <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 14, color: "#6b7280", cursor: connected ? "default" : "pointer" }}>
@@ -291,12 +214,6 @@ export default function ConnectionPanel({ onConnect, onDisconnect }: Props) {
         <button style={BTN_GHOST} onClick={handleDisconnect}>
           Disconnect
         </button>
-      )}
-
-      {platform === "ise" && !connected && (
-        <p style={{ marginTop: 12, color: "#9ca3af", fontSize: 11, lineHeight: 1.5 }}>
-          Requires ISE 3.1+ with OpenAPI (port 443) enabled.
-        </p>
       )}
       </div>}
     </div>
