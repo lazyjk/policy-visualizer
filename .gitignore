@@ -44,3 +44,6 @@ frontend/dist/
 
 # JetBrains IDEs
 .idea/
+
+# VSCode
+.vscode/

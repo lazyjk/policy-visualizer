@@ -115,9 +115,10 @@ class EnforcementPolicy:
 class EnforcementProfile:
     id: str
     name: str
-    profile_type: str  # "radius_accept" | "radius_reject" | "post_auth"
+    profile_type: str  # "radius_accept" | "radius_reject" | "post_auth" | "tacacs_accept" | "tacacs_deny"
     action: str = ""
     description: str = ""
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -212,11 +213,20 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
         action = tp.get("action", "").lower()
+        autz = tp.get("autzStatus", "").upper()
+        priv = tp.get("maxPrivLevel", "")
+        # Deny: explicit FAIL status, effective Priv 0 (no shell access), or non-accept action
+        is_deny = autz == "FAIL" or priv == "0" or (action and action not in ("accept",))
+        meta = {k: v for k, v in {
+            "tacacs_priv_level":  priv,
+            "tacacs_autz_status": autz,
+        }.items() if v}
         ir.enforcement_profiles[pid] = EnforcementProfile(
             id=pid, name=tp["name"],
-            profile_type="tacacs_accept" if action == "accept" else "tacacs_other",
+            profile_type="tacacs_deny" if is_deny else "tacacs_accept",
             action=action,
             description=tp.get("description", ""),
+            metadata=meta,
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
@@ -263,6 +273,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for rm in raw.get("roleMappings", []):
         rmid = _stable_id(rm["name"])
         rules = []
+        rm_on_match = "continue" if rm.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
         for raw_rule in rm.get("rules", []):
             expr = normalize(raw_rule.get("expression"))
             results = raw_rule.get("results", [])
@@ -286,7 +297,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             else:
                 then = SetRole(role_id="unknown", role_name="Unknown")
             rule_id = f"{rmid}_rule_{raw_rule['index']}"
-            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then))
+            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then, flow=RuleFlow(on_match=rm_on_match)))
 
         default_role_name = rm.get("defaultRole", "")
         default_role = role_by_name.get(default_role_name)
@@ -316,6 +327,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for ep in raw.get("enforcementPolicies", []):
         epid = _stable_id(ep["name"])
         rules = []
+        ep_on_match = "continue" if ep.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
         for raw_rule in ep.get("rules", []):
             expr = normalize(raw_rule.get("expression"))
             results = raw_rule.get("results", [])
@@ -327,7 +339,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
                 profile_ids, profile_names = _resolve_profiles(enf_result.get("displayValue", ""), ctx)
             then = ApplyProfiles(profile_ids=profile_ids, profile_names=profile_names)
             rule_id = f"{epid}_rule_{raw_rule['index']}"
-            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then))
+            rules.append(PolicyRule(id=rule_id, index=raw_rule["index"], when=expr, then=then, flow=RuleFlow(on_match=ep_on_match)))
 
         default_profile_name = ep.get("defaultProfile", "")
         default_profile = profile_by_name.get(default_profile_name)

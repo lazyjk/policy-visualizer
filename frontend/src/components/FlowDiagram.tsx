@@ -527,6 +527,10 @@ const APPX_MARGIN  = 40;   // pt
 const APPX_CONTENT_W = APPX_PAGE_W - 2 * APPX_MARGIN;
 const APPX_LINE_H  = 14;
 
+function formatExportDate(): string {
+  return "Exported: " + new Date().toISOString().slice(0, 10);
+}
+
 function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: string): void {
   let pageNum = 1;
   let y = 0;
@@ -717,6 +721,68 @@ async function applyBackground(
   return canvas.toDataURL(mimeType, quality);
 }
 
+async function addDateStampToRaster(
+  dataUrl: string,
+  physicalW: number,
+  physicalH: number,
+  pixelRatio: number,
+  mimeType: "image/png" | "image/jpeg",
+  quality = 0.92,
+): Promise<string> {
+  const label = formatExportDate();
+  const canvas = document.createElement("canvas");
+  canvas.width = physicalW;
+  canvas.height = physicalH;
+  const ctx = canvas.getContext("2d")!;
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Failed to load image for date stamp"));
+  });
+  ctx.drawImage(img, 0, 0);
+
+  const fontSize = Math.round(13 * pixelRatio);
+  const pad = Math.round(8 * pixelRatio);
+  ctx.font = `${fontSize}px ui-monospace, monospace`;
+  const textW = ctx.measureText(label).width;
+
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  const pillX = physicalW - textW - pad * 2;
+  const pillY = pad;
+  ctx.beginPath();
+  ctx.roundRect(pillX, pillY, textW + pad * 2, fontSize + Math.round(pad * 1.5), Math.round(4 * pixelRatio));
+  ctx.fill();
+
+  ctx.fillStyle = "#444444";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "top";
+  ctx.fillText(label, physicalW - pad, Math.round(pad * 1.25));
+
+  return canvas.toDataURL(mimeType, quality);
+}
+
+function addDateStampToSvg(dataUrl: string, logicalW: number): string {
+  const prefix = "data:image/svg+xml;charset=utf-8,";
+  const svgText = decodeURIComponent(dataUrl.slice(prefix.length));
+  const label = formatExportDate();
+  const pad = 10;
+  const fontSize = 13;
+  const textW = label.length * 7.5;
+
+  const stamp =
+    `<g font-family="ui-monospace,monospace" font-size="${fontSize}">` +
+    `<rect x="${logicalW - textW - pad * 2}" y="${pad}" ` +
+    `width="${textW + pad * 2}" height="${fontSize + pad * 1.5}" ` +
+    `rx="4" fill="rgba(255,255,255,0.75)"/>` +
+    `<text x="${logicalW - pad}" y="${pad + fontSize * 0.9}" ` +
+    `text-anchor="end" fill="#444444">${label}</text>` +
+    `</g>`;
+
+  const stamped = svgText.replace("</svg>", `${stamp}</svg>`);
+  return prefix + encodeURIComponent(stamped);
+}
+
 /** Compute the highest integer pixelRatio that stays within a pixel budget. */
 function clampPixelRatio(
   logicalW: number,
@@ -815,7 +881,7 @@ function ExportPanel({
           ...options,
           ...(transparent ? {} : { backgroundColor: "#ffffff" }),
         });
-        return { dataUrl, pixelRatio };
+        return { dataUrl: addDateStampToSvg(dataUrl, imgW), pixelRatio };
       }
 
       // Always capture as transparent PNG. Using toJpeg here would encode
@@ -828,11 +894,13 @@ function ExportPanel({
       const needsWhite = !transparent || format === "jpeg";
       if (needsWhite) {
         const mime = format === "jpeg" ? "image/jpeg" : "image/png";
-        const dataUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+        const bgUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+        const dataUrl = await addDateStampToRaster(bgUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, mime, 0.92);
         return { dataUrl, pixelRatio };
       }
 
-      return { dataUrl: rawDataUrl, pixelRatio };
+      const dataUrl = await addDateStampToRaster(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, "image/png");
+      return { dataUrl, pixelRatio };
     },
     [getNodes, wrapperRef]
   );
@@ -966,6 +1034,22 @@ function ExportPanel({
       );
     }
 
+    {
+      let bbMinY = Infinity, bbMaxX = -Infinity;
+      for (const n of nodes) {
+        bbMinY = Math.min(bbMinY, n.position.y);
+        bbMaxX = Math.max(bbMaxX, n.position.x + (n.measured?.width ?? 180));
+      }
+      const stampW = 200;
+      cells.push(
+        `<mxCell id="__datestamp__" value="${xmlAttr(formatExportDate())}" vertex="1" parent="1" ` +
+        `style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=top;` +
+        `whiteSpace=wrap;overflow=hidden;fontSize=11;fontColor=#666666;">` +
+        `<mxGeometry x="${bbMaxX - stampW}" y="${bbMinY}" width="${stampW}" height="28" as="geometry"/>` +
+        `</mxCell>`
+      );
+    }
+
     const xml =
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<mxGraphModel><root>${cells.join("")}</root></mxGraphModel>`;
@@ -1021,6 +1105,21 @@ function ExportPanel({
         cells.push(
           `<mxCell id="${e.id}" value="${label}" edge="1" source="${e.source}" target="${e.target}" parent="1">` +
           `<mxGeometry relative="1" as="geometry"/></mxCell>`
+        );
+      }
+      {
+        let bbMinY = Infinity, bbMaxX = -Infinity;
+        for (const n of nodes) {
+          bbMinY = Math.min(bbMinY, n.position.y);
+          bbMaxX = Math.max(bbMaxX, n.position.x + (n.measured?.width ?? 180));
+        }
+        const stampW = 200;
+        cells.push(
+          `<mxCell id="__datestamp__" value="${xmlAttr(formatExportDate())}" vertex="1" parent="1" ` +
+          `style="text;html=1;strokeColor=none;fillColor=none;align=right;verticalAlign=top;` +
+          `whiteSpace=wrap;overflow=hidden;fontSize=11;fontColor=#666666;">` +
+          `<mxGeometry x="${bbMaxX - stampW}" y="${bbMinY}" width="${stampW}" height="28" as="geometry"/>` +
+          `</mxCell>`
         );
       }
       return `<?xml version="1.0" encoding="UTF-8"?>\n<mxGraphModel><root>${cells.join("")}</root></mxGraphModel>`;

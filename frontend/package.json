@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "3.3.2",
+  "version": "4.0.0-beta.2",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -22,16 +22,18 @@
     "@types/dagre": "^0.7.53",
     "@xyflow/react": "^12.10.1",
     "html-to-image": "^1.11.13",
-    "jszip": "^3.10.1",
     "jspdf": "^4.2.0",
+    "jszip": "^3.10.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",

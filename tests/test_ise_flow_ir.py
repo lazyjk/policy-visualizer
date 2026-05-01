@@ -232,8 +232,13 @@ def test_authz_decision_rank_group():
 def test_no_authen_rules_produces_deny_end():
     ps = _ps(author_rules=[_author_rule()])
     flow = ise_compile_policy_set(ps, _ir(ps))
-    end_labels = {n.label for n in flow.nodes if n.type == "end"}
-    assert any("DENY" in l for l in end_labels)
+    # "DENY" is in sub_label for the authen "no rules" node (label = "No authentication rules")
+    deny_end = next(
+        (n for n in flow.nodes if n.type == "end"
+         and ("DENY" in n.label or "DENY" in (n.sub_label or ""))),
+        None,
+    )
+    assert deny_end is not None, "Expected a deny-bearing end node"
 
 
 def test_no_author_rules_produces_deny_end():

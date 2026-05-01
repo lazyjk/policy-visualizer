@@ -1,0 +1,69 @@
+{
+  "_endpoint": "GET /api/enforcement-profile",
+  "_description": "Enforcement profiles list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 86,
+  "page_size_fetched": 86,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "action": "string",
+    "attributes": {
+      "_type": "array",
+      "_item_fields": {
+        "name": "string",
+        "type": "string",
+        "value": "string"
+      }
+    },
+    "description": "string",
+    "device_group_list": {
+      "_type": "array",
+      "_item_type": "string"
+    },
+    "id": "number",
+    "name": "string",
+    "post_auth_template": "string",
+    "radius_dyn_authz_template": "string",
+    "tacacs_service_params": {
+      "_type": "object",
+      "_fields": {
+        "authorize_attribute_status": "string",
+        "privilege_level": "number",
+        "services": {
+          "_type": "array",
+          "_item_type": "string"
+        }
+      }
+    },
+    "type": "string"
+  }
+}

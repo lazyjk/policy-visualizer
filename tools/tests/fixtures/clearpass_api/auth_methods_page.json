@@ -1,0 +1,50 @@
+{
+  "_endpoint": "GET /api/auth-method",
+  "_description": "Authentication methods list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 20,
+  "page_size_fetched": 20,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "description": "string",
+    "details": {
+      "_type": "object",
+      "_fields": {
+        "encryption_scheme": "string"
+      }
+    },
+    "id": "number",
+    "inner_methods": "array",
+    "method_type": "string",
+    "name": "string"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "_endpoint": "GET /api/tacacs-service-dictionary",
+  "_description": "TACACS+ service dictionary",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 17,
+  "page_size_fetched": 17,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "attributes": {
+      "_type": "array",
+      "_item_fields": {
+        "allowed_values": "string",
+        "attr_display_name": "string",
+        "attr_name": "string",
+        "attr_type": "string"
+      }
+    },
+    "display_name": "string",
+    "id": "number",
+    "name": "string"
+  }
+}

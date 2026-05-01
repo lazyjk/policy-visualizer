@@ -1,0 +1,55 @@
+{
+  "_endpoint": "GET /api/radius-dictionary",
+  "_description": "RADIUS VSA dictionary",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "next": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 100,
+  "page_size_fetched": 100,
+  "item_fields": {
+    "attributes": {
+      "_type": "array",
+      "_item_fields": {
+        "attr_id": "number",
+        "attr_name": "string",
+        "attr_profile": "string",
+        "attr_type": "string",
+        "extra_data": "string",
+        "valid_values": {
+          "_type": "array",
+          "_item_fields": {
+            "value": "string",
+            "value_enum": "number"
+          }
+        }
+      }
+    },
+    "enabled": "boolean",
+    "prefix": "string",
+    "vendor_id": "number",
+    "vendor_name": "string"
+  }
+}

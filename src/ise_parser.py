@@ -90,11 +90,16 @@ def _parse_profiles(root) -> dict[str, dict]:
             if not name:
                 continue
             if name not in profiles:
+                options = {
+                    opt.get("name", ""): opt.get("value", "")
+                    for opt in p.findall("option")
+                }
                 profiles[name] = {
                     "name": name,
                     "description": p.get("description", ""),
                     "profile_type": "tacacs",
                     "access_type": None,
+                    "session_attributes": options.get("session Attributes", ""),
                 }
 
     commandsets = azn.find("TacacsCommandset")
@@ -104,11 +109,17 @@ def _parse_profiles(root) -> dict[str, dict]:
             if not name:
                 continue
             if name not in profiles:
+                options = {
+                    opt.get("name", ""): opt.get("value", "")
+                    for opt in cs.findall("option")
+                }
+                permit_str = options.get("Permit Unmatched", "true").lower()
                 profiles[name] = {
                     "name": name,
                     "description": cs.get("description", ""),
                     "profile_type": "commandset",
                     "access_type": None,
+                    "permit_unmatched": permit_str != "false",
                 }
 
     return profiles

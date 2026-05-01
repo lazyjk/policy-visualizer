@@ -1,0 +1,63 @@
+{
+  "_endpoint": "GET /api/enforcement-policy",
+  "_description": "Enforcement policies list",
+  "response_type": "hal_collection",
+  "hal_envelope_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "first": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        },
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    }
+  },
+  "total_items": 31,
+  "page_size_fetched": 31,
+  "item_fields": {
+    "_links": {
+      "_type": "object",
+      "_fields": {
+        "self": {
+          "_type": "object",
+          "_fields": {
+            "href": "string"
+          }
+        }
+      }
+    },
+    "default_enforcement_profile": "string",
+    "description": "string",
+    "enforcement_type": "string",
+    "id": "number",
+    "name": "string",
+    "rule_eval_algo": "string",
+    "rules": {
+      "_type": "array",
+      "_item_fields": {
+        "condition": {
+          "_type": "array",
+          "_item_fields": {
+            "name": "string",
+            "oper": "string",
+            "type": "string",
+            "value": "string"
+          }
+        },
+        "enforcement_profile_names": {
+          "_type": "array",
+          "_item_type": "string"
+        }
+      }
+    }
+  }
+}
