@@ -115,9 +115,10 @@ class EnforcementPolicy:
 class EnforcementProfile:
     id: str
     name: str
-    profile_type: str  # "radius_accept" | "radius_reject" | "post_auth"
+    profile_type: str  # "radius_accept" | "radius_reject" | "post_auth" | "tacacs_accept" | "tacacs_deny"
     action: str = ""
     description: str = ""
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -212,11 +213,20 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
         action = tp.get("action", "").lower()
+        autz = tp.get("autzStatus", "").upper()
+        priv = tp.get("maxPrivLevel", "")
+        # Deny: explicit FAIL status, effective Priv 0 (no shell access), or non-accept action
+        is_deny = autz == "FAIL" or priv == "0" or (action and action not in ("accept",))
+        meta = {k: v for k, v in {
+            "tacacs_priv_level":  priv,
+            "tacacs_autz_status": autz,
+        }.items() if v}
         ir.enforcement_profiles[pid] = EnforcementProfile(
             id=pid, name=tp["name"],
-            profile_type="tacacs_accept" if action == "accept" else "tacacs_other",
+            profile_type="tacacs_deny" if is_deny else "tacacs_accept",
             action=action,
             description=tp.get("description", ""),
+            metadata=meta,
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])

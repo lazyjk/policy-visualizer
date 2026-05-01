@@ -211,3 +211,51 @@ def test_eval_all_rm_has_three_rules(eval_all_ir):
 def test_eval_all_enf_has_two_rules(eval_all_ir):
     ep = next(iter(eval_all_ir.enforcement_policies.values()))
     assert len(ep.rules) == 2
+
+
+# ---------------------------------------------------------------------------
+# TACACS enforcement profile classification
+# ---------------------------------------------------------------------------
+
+TACACS_FIXTURE = Path(__file__).parent / "fixtures" / "TacacsService.xml"
+
+
+@pytest.fixture(scope="module")
+def tacacs_ir():
+    from src.parser import parse as _parse
+    raw = _parse(TACACS_FIXTURE)
+    return build(raw)
+
+
+def test_tacacs_priv15_is_accept(tacacs_ir):
+    profiles = {p.name: p for p in tacacs_ir.enforcement_profiles.values()}
+    p = profiles["TACACS Cisco Priv 15"]
+    assert p.profile_type == "tacacs_accept"
+    assert p.metadata.get("tacacs_priv_level") == "15"
+
+
+def test_tacacs_priv0_is_deny(tacacs_ir):
+    profiles = {p.name: p for p in tacacs_ir.enforcement_profiles.values()}
+    p = profiles["[TACACS+ Deny Profile]"]
+    assert p.profile_type == "tacacs_deny"
+    assert p.metadata.get("tacacs_priv_level") == "0"
+
+
+@pytest.mark.parametrize("action,autz,priv,expected_type", [
+    ("Accept", "PASS_ADD", "15", "tacacs_accept"),
+    ("Accept", "PASS_ADD", "0",  "tacacs_deny"),   # effective deny via Priv 0
+    ("",       "FAIL",     "",   "tacacs_deny"),   # explicit FAIL status
+    ("Reject", "PASS_ADD", "",   "tacacs_deny"),   # non-accept action
+    ("Accept", "PASS_ADD", "",   "tacacs_accept"),  # plain accept, no priv level
+])
+def test_tacacs_profile_type_classification(action, autz, priv, expected_type):
+    raw = _minimal_raw(tacacsEnfProfiles=[{
+        "name": "TestTACACS",
+        "description": "",
+        "action": action,
+        "autzStatus": autz,
+        "maxPrivLevel": priv,
+    }])
+    ir = build(raw)
+    profiles = {p.name: p for p in ir.enforcement_profiles.values()}
+    assert profiles["TestTACACS"].profile_type == expected_type

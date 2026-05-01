@@ -60,7 +60,7 @@ class FlowIR:
         self.edges.append(FlowEdge(from_id=from_id, to_id=to_id, label=label, reason=reason))
 
 
-_DENY_PROFILE_TYPES = {"radius_reject", "tacacs_other", "generic_reject"}
+_DENY_PROFILE_TYPES = {"radius_reject", "tacacs_deny", "tacacs_other", "generic_reject"}
 _DENY_ACTIONS = {"deny", "reject"}
 
 
@@ -88,6 +88,48 @@ def _is_deny(
             if "deny" in name.lower():
                 return True
     return False
+
+
+def _tacacs_end_label(
+    profile_ids: list[str],
+    profiles: dict[str, EnforcementProfile],
+    suffix: str = "",
+) -> str:
+    """Build a ClearPass TACACS end node label from parsed profile attributes.
+
+    Priority: autzStatus=FAIL → "Shell: FAIL"
+              maxPrivLevel present → "Shell: Priv {N}"
+              profile_type heuristic → "Shell: DENY" / "Shell: PERMIT"
+    """
+    for pid in profile_ids:
+        p = profiles.get(pid)
+        if p is None:
+            continue
+        if p.metadata.get("tacacs_autz_status") == "FAIL":
+            base = "Shell: FAIL"
+        elif (priv := p.metadata.get("tacacs_priv_level")) is not None:
+            base = f"Shell: Priv {priv}"
+        elif p.profile_type == "tacacs_deny":
+            base = "Shell: DENY"
+        else:
+            base = "Shell: PERMIT"
+        return f"{base}\n({suffix})" if suffix else base
+    base = "Shell"
+    return f"{base}\n({suffix})" if suffix else base
+
+
+def _end_label(
+    deny: bool,
+    service_type: str,
+    profile_ids: list[str] | None = None,
+    profiles: dict[str, EnforcementProfile] | None = None,
+    suffix: str = "",
+) -> str:
+    """Return the correct end node label for the given service type and outcome."""
+    if service_type == "TACACS" and profile_ids is not None and profiles is not None:
+        return _tacacs_end_label(profile_ids, profiles, suffix)
+    base = "Access: DENY" if deny else "Access: ALLOW"
+    return f"{base}\n({suffix})" if suffix else base
 
 
 def _profiles_label(profile_names: list[str]) -> str:
@@ -163,7 +205,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
         deny_end = flow.add_node(FlowNode(
             id=f"{sid}__enf_no_policy",
             type="end",
-            label="Access: DENY\n(no enforcement policy)",
+            label=_end_label(True, service.service_type, suffix="no enforcement policy"),
         ))
         enf_entry_id = deny_end.id
     else:
@@ -205,11 +247,11 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 flow.add_edge(dec.id, action.id, "YES")
                 if not evaluate_all_enf or is_last_enf:
                     # first-applicable, or last rule in evaluate-all: terminate
-                    access = "DENY" if deny else "ALLOW"
                     end_node = flow.add_node(FlowNode(
                         id=f"{sid}__enf_end_{rule.index}",
                         type="end",
-                        label=f"Access: {access}",
+                        label=_end_label(deny, service.service_type,
+                                         rule.then.profile_ids, ir.enforcement_profiles),
                     ))
                     flow.add_edge(action.id, end_node.id)
                 else:
@@ -228,18 +270,18 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 label=f"Default:\n{_profiles_label(def_names)}",
             ))
             flow.add_edge(prev_enf_id, def_action.id, "NO")  # type: ignore[arg-type]
-            access = "DENY" if deny else "ALLOW"
             def_end = flow.add_node(FlowNode(
                 id=f"{sid}__enf_default_end",
                 type="end",
-                label=f"Access: {access}\n(default)",
+                label=_end_label(deny, service.service_type,
+                                 ep.default.profile_ids, ir.enforcement_profiles, "default"),
             ))
             flow.add_edge(def_action.id, def_end.id)
         elif prev_enf_id:
             implicit_deny = flow.add_node(FlowNode(
                 id=f"{sid}__enf_implicit_deny",
                 type="end",
-                label="Access: DENY\n(implicit)",
+                label=_end_label(True, service.service_type, suffix="implicit"),
             ))
             flow.add_edge(prev_enf_id, implicit_deny.id, "NO")
 
@@ -266,7 +308,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
             id=f"{sid}__auth_fail",
             type="end",
             label="Auth Failed",
-            sub_label="Access: DENY",
+            sub_label=_end_label(True, service.service_type),
         ))
         flow.add_edge(auth_node.id, auth_fail.id, "FAIL")
 
@@ -333,7 +375,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 no_role_end = flow.add_node(FlowNode(
                     id=f"{sid}__no_role",
                     type="end",
-                    label="Access: DENY\n(no role matched)",
+                    label=_end_label(True, service.service_type, suffix="no role matched"),
                 ))
                 flow.add_edge(current_tail, no_role_end.id, current_label)
         else:

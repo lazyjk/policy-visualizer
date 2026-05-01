@@ -282,9 +282,11 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
     # --- TACACS Enforcement Profiles ---
     for tp in root.findall(f".//{_tag('TacacsEnfProfile')}"):
         model["tacacsEnfProfiles"].append({
-            "name": tp.get("name", ""),
-            "description": tp.get("description", ""),
-            "action": tp.get("action", ""),
+            "name":         tp.get("name", ""),
+            "description":  tp.get("description", ""),
+            "action":       tp.get("action", ""),
+            "autzStatus":   tp.get("autzStatus", ""),   # PASS_ADD | PASS_REPL | FAIL
+            "maxPrivLevel": tp.get("maxPrivLevel", ""),  # "0"–"15" or ""
         })
 
     # --- Radius CoA Enforcement Profiles ---

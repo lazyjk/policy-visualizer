@@ -85,12 +85,13 @@ def _build_authz_chain(
 ) -> str:
     """Build the authorization rule chain. Returns the ID of its first node."""
     rules = ps.author_rules
+    set_type = ps.set_type
 
     if not rules:
         deny = flow.add_node(FlowNode(
             id=f"{psid}__authz_no_rules",
             type="end",
-            label="Access: DENY\n(no authorization rules)",
+            label=_ise_end_label(True, set_type, suffix="no authorization rules"),
         ))
         return deny.id
 
@@ -113,13 +114,13 @@ def _build_authz_chain(
                 flow.add_edge(prev_dec_id, dec.id, "NO")
 
             # YES → action → end
-            action_id, _ = _add_authz_action(rule, ir, flow, psid, i)
+            action_id, _ = _add_authz_action(rule, ir, flow, psid, i, set_type)
             flow.add_edge(dec.id, action_id, "YES")
             prev_dec_id = dec.id
 
         else:
             # Match-all rule: no decision, straight to action
-            action_id, _ = _add_authz_action(rule, ir, flow, psid, i)
+            action_id, _ = _add_authz_action(rule, ir, flow, psid, i, set_type)
             if first_entry_id is None:
                 first_entry_id = action_id
             if prev_dec_id is not None:
@@ -131,7 +132,7 @@ def _build_authz_chain(
         implicit_deny = flow.add_node(FlowNode(
             id=f"{psid}__authz_implicit_deny",
             type="end",
-            label="Access: DENY\n(implicit)",
+            label=_ise_end_label(True, set_type, suffix="implicit"),
         ))
         flow.add_edge(prev_dec_id, implicit_deny.id, "NO")
 
@@ -144,6 +145,7 @@ def _add_authz_action(
     flow: FlowIR,
     psid: str,
     idx: int,
+    set_type: str = "RADIUS",
 ) -> tuple[str, str]:
     """Add an action node + end node for an authz rule. Returns (action_id, end_id)."""
     profiles = rule.profile_names
@@ -153,7 +155,7 @@ def _add_authz_action(
     if rule.security_groups:
         sg_lines = "\n".join(f"Security Group: {sg}" for sg in rule.security_groups)
         action_label = f"{action_label}\n{sg_lines}"
-    deny = _is_deny_ise(profiles, ir)
+    deny = _is_deny_ise(profiles, commandsets, ir)
 
     action = flow.add_node(FlowNode(
         id=f"{psid}__authz_action_{idx}",
@@ -161,26 +163,79 @@ def _add_authz_action(
         label=action_label,
         trace_rule_id=rule.id,
     ))
-    access = "DENY" if deny else "ALLOW"
     end = flow.add_node(FlowNode(
         id=f"{psid}__authz_end_{idx}",
         type="end",
-        label=f"Access: {access}",
+        label=_ise_end_label(deny, set_type, profiles, commandsets, ir),
     ))
     flow.add_edge(action.id, end.id)
     return action.id, end.id
 
 
-def _is_deny_ise(profile_names: list[str], ir: ISEPolicyIR) -> bool:
-    """Return True if any profile in the list is ACCESS_REJECT."""
+def _is_deny_ise(
+    profile_names: list[str],
+    commandset_names: list[str],
+    ir: ISEPolicyIR,
+) -> bool:
+    """Return True if profiles or commandsets indicate a deny outcome."""
     for name in profile_names:
         profile = ir.profiles.get(name)
         if profile is not None and profile.access_type == "ACCESS_REJECT":
             return True
-        # Fallback name heuristic
         if "deny" in name.lower() or "reject" in name.lower():
             return True
+    for name in commandset_names:
+        cs = ir.profiles.get(name)
+        # Commandset with Permit Unmatched=false is an effective shell deny
+        if cs is not None and cs.metadata.get("permit_unmatched") is False:
+            return True
+        if "deny" in name.lower():
+            return True
     return False
+
+
+def _ise_tacacs_authz_label(
+    profile_names: list[str],
+    commandset_names: list[str],
+    ir: ISEPolicyIR,
+    suffix: str = "",
+) -> str:
+    """ISE TACACS end node label. Skeleton — refine as more examples are available.
+
+    Priority:
+    1. Any deny signal → "Shell: DENY"
+    2. TacacsProfile with session attributes → "Shell: {attrs}"
+    3. Default → "Shell: PERMIT"
+    """
+    if _is_deny_ise(profile_names, commandset_names, ir):
+        base = "Shell: DENY"
+    else:
+        attrs = ""
+        for name in profile_names:
+            p = ir.profiles.get(name)
+            if p:
+                attrs = p.metadata.get("session_attributes", "")
+                if attrs:
+                    break
+        base = f"Shell: {attrs}" if attrs else "Shell: PERMIT"
+    return f"{base}\n({suffix})" if suffix else base
+
+
+def _ise_end_label(
+    deny: bool,
+    set_type: str,
+    profile_names: list[str] | None = None,
+    commandset_names: list[str] | None = None,
+    ir: ISEPolicyIR | None = None,
+    suffix: str = "",
+) -> str:
+    """Return the correct ISE end node label for the given policy set type."""
+    if set_type == "TACACS" and profile_names is not None and ir is not None:
+        return _ise_tacacs_authz_label(
+            profile_names, commandset_names or [], ir, suffix
+        )
+    base = "Access: DENY" if deny else "Access: ALLOW"
+    return f"{base}\n({suffix})" if suffix else base
 
 
 # ---------------------------------------------------------------------------
@@ -197,12 +252,14 @@ def _build_authen_chain(
 ) -> None:
     """Build the authentication rule chain, wiring PASS edges to authz_entry_id."""
     rules = ps.authen_rules
+    set_type = ps.set_type
 
     if not rules:
         no_auth = flow.add_node(FlowNode(
             id=f"{psid}__authen_no_rules",
             type="end",
-            label="No authentication rules\nAccess: DENY",
+            label="No authentication rules",
+            sub_label=_ise_end_label(True, set_type),
         ))
         flow.add_edge(entry_from, no_auth.id, entry_label)
         return
@@ -232,7 +289,7 @@ def _build_authen_chain(
             id=f"{psid}__authen_fail_{i}",
             type="end",
             label=f"Auth Failed ({rule.authen_fail_action})",
-            sub_label="Access: DENY",
+            sub_label=_ise_end_label(True, set_type),
             trace_rule_id=rule.id,
         ))
 
@@ -262,7 +319,7 @@ def _build_authen_chain(
                     id=f"{psid}__authen_no_match",
                     type="end",
                     label="No auth rule matched",
-                    sub_label="Access: DENY",
+                    sub_label=_ise_end_label(True, set_type),
                 ))
                 flow.add_edge(rm["dec_id"], no_match.id, "NO")
 
@@ -279,6 +336,6 @@ def _build_authen_chain(
                     id=f"{psid}__authen_continue_end_{i}",
                     type="end",
                     label="No auth rule matched\n(after CONTINUE)",
-                    sub_label="Access: DENY",
+                    sub_label=_ise_end_label(True, set_type),
                 ))
                 flow.add_edge(rm["proc_id"], continue_end.id, "CONTINUE", reason="usernotfound")

@@ -52,7 +52,7 @@
     </RoleMapping>
   </RoleMappings>
   <EnforcementPolicies>
-    <EnforcementPolicy description="" name="Switch Login Policy" policyType="TACACS" defaultProfileName="[TACACS Network Admin]">
+    <EnforcementPolicy description="" name="Switch Login Policy" policyType="TACACS" defaultProfileName="[TACACS+ Deny Profile]">
       <Policy ruleCombiningAlgorithm="first-applicable">
         <RuleList>
           <Rule>
@@ -74,5 +74,6 @@
   <TacacsEnfProfiles>
     <TacacsEnfProfile description="" name="TACACS Cisco Priv 15" action="Accept" autzStatus="PASS_ADD" maxPrivLevel="15"/>
     <TacacsEnfProfile description="" name="[TACACS Network Admin]" action="Accept" autzStatus="PASS_ADD" maxPrivLevel="1"/>
+    <TacacsEnfProfile description="System-defined profile to deny network access" name="[TACACS+ Deny Profile]" autzStatus="PASS_ADD" maxPrivLevel="0"/>
   </TacacsEnfProfiles>
 </TipsContents>

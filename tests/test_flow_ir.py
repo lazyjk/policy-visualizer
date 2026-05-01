@@ -146,6 +146,52 @@ def test_eval_all_rm_action_nodes_not_all_terminating(eval_all_flow):
         )
 
 
+# ---------------------------------------------------------------------------
+# TACACS end node label tests
+# ---------------------------------------------------------------------------
+
+TACACS_FIXTURE = Path(__file__).parent / "fixtures" / "TacacsService.xml"
+
+
+@pytest.fixture(scope="module")
+def tacacs_flow() -> FlowIR:
+    from src.parser import parse as _parse
+    from src.policy_ir import build as _build
+    raw = _parse(TACACS_FIXTURE)
+    ir = _build(raw)
+    svc = next(iter(ir.services.values()))
+    return compile_service(svc, ir)
+
+
+def test_tacacs_end_nodes_use_shell_prefix(tacacs_flow):
+    end_labels = [n.label for n in tacacs_flow.nodes if n.type == "end"]
+    shell_labels = [l for l in end_labels if l.startswith("Shell:")]
+    assert shell_labels, f"Expected at least one 'Shell:' end node, got: {end_labels}"
+
+
+def test_tacacs_permit_end_shows_priv_level(tacacs_flow):
+    end_labels = [n.label for n in tacacs_flow.nodes if n.type == "end"]
+    assert any("Shell: Priv 15" in l for l in end_labels), (
+        f"Expected 'Shell: Priv 15' end node, got: {end_labels}"
+    )
+
+
+def test_tacacs_deny_default_shows_priv_zero(tacacs_flow):
+    end_labels = [n.label for n in tacacs_flow.nodes if n.type == "end"]
+    assert any("Shell: Priv 0" in l for l in end_labels), (
+        f"Expected 'Shell: Priv 0' end node for default deny, got: {end_labels}"
+    )
+
+
+def test_radius_end_nodes_unaffected(flow):
+    """RADIUS service end nodes must still use 'Access:' prefix."""
+    end_labels = [n.label for n in flow.nodes if n.type == "end"]
+    access_labels = [l for l in end_labels if "Access:" in l]
+    assert access_labels, f"Expected at least one 'Access:' end node, got: {end_labels}"
+    shell_labels = [l for l in end_labels if "Shell:" in l]
+    assert not shell_labels, f"RADIUS diagram should have no 'Shell:' nodes, got: {shell_labels}"
+
+
 def test_eval_all_last_rm_action_reaches_enf_chain(eval_all_flow):
     """The last RM action node should connect to the enforcement entry (no CONTINUE)."""
     node_by_id = {n.id: n for n in eval_all_flow.nodes}

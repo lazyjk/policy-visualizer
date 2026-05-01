@@ -43,6 +43,7 @@ class ISEProfile:
     name: str
     profile_type: str             # "standard" | "tacacs" | "commandset"
     access_type: str | None       # "ACCESS_ACCEPT" | "ACCESS_REJECT" | None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -78,10 +79,16 @@ def ise_build(raw: dict, source_file: str = "") -> ISEPolicyIR:
 
     # Build profile dict
     for name, p in raw.get("profiles", {}).items():
+        meta: dict = {}
+        if "session_attributes" in p and p["session_attributes"]:
+            meta["session_attributes"] = p["session_attributes"]
+        if "permit_unmatched" in p and p["permit_unmatched"] is not None:
+            meta["permit_unmatched"] = p["permit_unmatched"]
         ir.profiles[name] = ISEProfile(
             name=p["name"],
             profile_type=p.get("profile_type", "standard"),
             access_type=p.get("access_type"),
+            metadata=meta,
         )
 
     # Build policy sets
