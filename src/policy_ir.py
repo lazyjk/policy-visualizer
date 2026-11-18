@@ -35,6 +35,7 @@ class AuthMethod:
     method_type: str
     params: dict[str, str] = field(default_factory=dict)
     inner_methods: list[str] = field(default_factory=list)
+    description: str = ""
 
 
 @dataclass
@@ -112,6 +113,19 @@ class EnforcementPolicy:
 
 
 @dataclass
+class ProfileAttribute:
+    """One attribute returned/applied by an enforcement profile.
+
+    Same shape whether sourced from an XML <AttributeList> or (future) from a
+    ClearPass DB backup's tips_enf_profile_*_params rows.
+    """
+    name: str
+    type: str = ""
+    value: str = ""
+    display_value: str = ""
+
+
+@dataclass
 class EnforcementProfile:
     id: str
     name: str
@@ -119,6 +133,8 @@ class EnforcementProfile:
     action: str = ""
     description: str = ""
     metadata: dict = field(default_factory=dict)
+    attributes: list[ProfileAttribute] = field(default_factory=list)
+    template: str = ""
 
 
 @dataclass
@@ -133,6 +149,37 @@ class Service:
     role_mapping_policy_name: str
     enforcement_policy_id: str
     enforcement_policy_name: str
+    # Service settings. Names mirror ClearPass tips_service columns so a future
+    # DB-backup parser can populate them 1:1.
+    enabled: bool = True
+    template: str = ""
+    monitor_mode: bool = False
+    use_cached_results: bool = False
+    strip_username: bool = False
+    posture_enabled: bool = False
+    profiler_enabled: bool = False
+    audit_enabled: bool = False
+    # Position of the service element in the XML file. NOT ClearPass
+    # evaluation precedence (the export does not carry it).
+    export_order: int | None = None
+    is_category: bool = False
+
+
+def is_category_name(name: str) -> bool:
+    """True for ClearPass 'divider' services named like '------Wireless------'."""
+    return name.strip().startswith("---")
+
+
+def _attrs(raw_profile: dict[str, Any]) -> list[ProfileAttribute]:
+    return [
+        ProfileAttribute(
+            name=a.get("name", ""),
+            type=a.get("type", ""),
+            value=a.get("value", ""),
+            display_value=a.get("displayValue", ""),
+        )
+        for a in raw_profile.get("attributes", []) or []
+    ]
 
 
 @dataclass
@@ -177,6 +224,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             method_type=am.get("methodType", ""),
             params=am.get("params", {}),
             inner_methods=am.get("innerMethods", []),
+            description=am.get("description", ""),
         )
     method_by_name = {v.name: v for v in ir.auth_methods.values()}
 
@@ -202,6 +250,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type=profile_type,
             action=action,
             description=rp.get("description", ""),
+            attributes=_attrs(rp),
         )
     for pp in raw.get("postAuthEnfProfiles", []):
         pid = _stable_id(pp["name"])
@@ -209,6 +258,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             id=pid, name=pp["name"],
             profile_type="post_auth",
             description=pp.get("description", ""),
+            attributes=_attrs(pp),
         )
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
@@ -227,6 +277,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             action=action,
             description=tp.get("description", ""),
             metadata=meta,
+            attributes=_attrs(tp),
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
@@ -235,6 +286,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type="radius_coa",
             action=cp.get("action", "").lower(),
             description=cp.get("description", ""),
+            attributes=_attrs(cp),
+            template=cp.get("template", ""),
         )
     for gp in raw.get("genericEnfProfiles", []):
         pid = _stable_id(gp["name"])
@@ -244,6 +297,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type="generic_accept" if action == "accept" else "generic_reject",
             action=action,
             description=gp.get("description", ""),
+            attributes=_attrs(gp),
         )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
@@ -437,6 +491,16 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             role_mapping_policy_name=rm_name,
             enforcement_policy_id=ep_id,
             enforcement_policy_name=ep_name,
+            enabled=str(svc.get("enabled", "true")).strip().lower() == "true",
+            template=svc.get("serviceTemplate", ""),
+            monitor_mode=bool(svc.get("monitorMode", False)),
+            use_cached_results=bool(svc.get("useCachedResults", False)),
+            strip_username=bool(svc.get("stripUsername", False)),
+            posture_enabled=bool(svc.get("postureEnabled", False)),
+            profiler_enabled=bool(svc.get("profilerEnabled", False)),
+            audit_enabled=bool(svc.get("auditEnabled", False)),
+            export_order=svc.get("exportOrder"),
+            is_category=is_category_name(svc["name"]),
         )
 
     return ir

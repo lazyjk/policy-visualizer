@@ -72,6 +72,82 @@ def _string_list(parent: ET.Element, container_tag: str) -> list[str]:
     return [s.text or "" for s in container.findall(_tag("string"))]
 
 
+# Service element name -> canonical serviceType. Iteration order defines the
+# grouping order of model["services"] (unchanged from earlier releases).
+_SERVICE_ELEMENTS: list[tuple[str, str]] = [
+    ("RadiusEnforcementService", "RADIUS"),
+    ("TacacsEnforcementService", "TACACS"),
+    ("RadiusProxyService", "RADIUS_PROXY"),
+    ("AvendaWebAuthService", "WEBAUTH"),
+    ("AvendaAppAuthService", "APPLICATION"),
+]
+
+# XML service attribute -> raw-model key. Missing attributes default to False
+# (TACACS/App/WebAuth services only carry a subset of these).
+_SERVICE_FLAG_ATTRS: dict[str, str] = {
+    "monitor": "monitorMode",
+    "useCachedResults": "useCachedResults",
+    "stripUsername": "stripUsername",
+    "profilerEnabled": "profilerEnabled",
+    "postureEnabled": "postureEnabled",
+    "auditEnabled": "auditEnabled",
+}
+
+
+def _bool_attr(el: ET.Element, attr: str, default: bool = False) -> bool:
+    raw = el.get(attr)
+    if raw is None:
+        return default
+    return raw.strip().lower() == "true"
+
+
+def _service_flags(svc: ET.Element) -> dict[str, bool]:
+    return {key: _bool_attr(svc, attr) for attr, key in _SERVICE_FLAG_ATTRS.items()}
+
+
+def _attribute_list(el: ET.Element) -> list[dict[str, str]]:
+    """Profile attributes from the element's *direct* <AttributeList> child.
+
+    Deliberately not a descendant search: <RadiusCOATemplates> carry their own
+    <Attribute> elements that must not leak into profile attributes.
+    """
+    container = el.find(_tag("AttributeList"))
+    if container is None:
+        return []
+    return [
+        {
+            "name": a.get("name", ""),
+            "type": a.get("type", ""),
+            "value": a.get("value", ""),
+            "displayValue": a.get("displayValue", ""),
+        }
+        for a in container.findall(_tag("Attribute"))
+    ]
+
+
+def _parse_service(svc: ET.Element, service_type: str, export_order: int | None) -> dict[str, Any]:
+    expr_el = svc.find(f".//{_tag('RuleExpression')}")
+    is_proxy = service_type == "RADIUS_PROXY"
+    entry: dict[str, Any] = {
+        "name": svc.get("name", ""),
+        "description": svc.get("description", ""),
+        "enabled": svc.get("enabled", "true"),
+        "serviceType": service_type,
+        "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
+        "matchExpression": _rule_expressions(expr_el),
+        "authMethods": [] if is_proxy else _string_list(svc, "AuthMethodNameList"),
+        "authSources": [] if is_proxy else _string_list(svc, "AuthSourceNameList"),
+        "autzSources": [] if is_proxy else _string_list(svc, "AutzSourceNameList"),
+        "roleMappings": [] if is_proxy else _string_list(svc, "RoleMappingNameList"),
+        "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
+        "exportOrder": export_order,
+        **_service_flags(svc),
+    }
+    if is_proxy:
+        entry["proxyNames"] = _string_list(svc, "ProxyNameList")
+    return entry
+
+
 def parse(xml_path: str | Path) -> dict[str, Any]:
     """Parse a ClearPass XML export and return the raw object model."""
     tree = ET.parse(str(xml_path))
@@ -91,91 +167,13 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
         "genericEnfProfiles": [],
     }
 
-    # --- RADIUS Services ---
-    for svc in root.findall(f".//{_tag('RadiusEnforcementService')}"):
-        expr_el = svc.find(f".//{_tag('RuleExpression')}")
-        model["services"].append({
-            "name": svc.get("name", ""),
-            "description": svc.get("description", ""),
-            "enabled": svc.get("enabled", "true"),
-            "serviceType": "RADIUS",
-            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
-            "matchExpression": _rule_expressions(expr_el),
-            "authMethods": _string_list(svc, "AuthMethodNameList"),
-            "authSources": _string_list(svc, "AuthSourceNameList"),
-            "autzSources": _string_list(svc, "AutzSourceNameList"),
-            "roleMappings": _string_list(svc, "RoleMappingNameList"),
-            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
-        })
-
-    # --- TACACS Services ---
-    for svc in root.findall(f".//{_tag('TacacsEnforcementService')}"):
-        expr_el = svc.find(f".//{_tag('RuleExpression')}")
-        model["services"].append({
-            "name": svc.get("name", ""),
-            "description": svc.get("description", ""),
-            "enabled": svc.get("enabled", "true"),
-            "serviceType": "TACACS",
-            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
-            "matchExpression": _rule_expressions(expr_el),
-            "authMethods": _string_list(svc, "AuthMethodNameList"),
-            "authSources": _string_list(svc, "AuthSourceNameList"),
-            "autzSources": _string_list(svc, "AutzSourceNameList"),
-            "roleMappings": _string_list(svc, "RoleMappingNameList"),
-            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
-        })
-
-    # --- Radius Proxy Services ---
-    for svc in root.findall(f".//{_tag('RadiusProxyService')}"):
-        expr_el = svc.find(f".//{_tag('RuleExpression')}")
-        model["services"].append({
-            "name": svc.get("name", ""),
-            "description": svc.get("description", ""),
-            "enabled": svc.get("enabled", "true"),
-            "serviceType": "RADIUS_PROXY",
-            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
-            "matchExpression": _rule_expressions(expr_el),
-            "authMethods": [],
-            "authSources": [],
-            "autzSources": [],
-            "roleMappings": [],
-            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
-            "proxyNames": _string_list(svc, "ProxyNameList"),
-        })
-
-    # --- WebAuth Services ---
-    for svc in root.findall(f".//{_tag('AvendaWebAuthService')}"):
-        expr_el = svc.find(f".//{_tag('RuleExpression')}")
-        model["services"].append({
-            "name": svc.get("name", ""),
-            "description": svc.get("description", ""),
-            "enabled": svc.get("enabled", "true"),
-            "serviceType": "WEBAUTH",
-            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
-            "matchExpression": _rule_expressions(expr_el),
-            "authMethods": _string_list(svc, "AuthMethodNameList"),
-            "authSources": _string_list(svc, "AuthSourceNameList"),
-            "autzSources": _string_list(svc, "AutzSourceNameList"),
-            "roleMappings": _string_list(svc, "RoleMappingNameList"),
-            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
-        })
-
-    # --- Application Services ---
-    for svc in root.findall(f".//{_tag('AvendaAppAuthService')}"):
-        expr_el = svc.find(f".//{_tag('RuleExpression')}")
-        model["services"].append({
-            "name": svc.get("name", ""),
-            "description": svc.get("description", ""),
-            "enabled": svc.get("enabled", "true"),
-            "serviceType": "APPLICATION",
-            "serviceTemplate": (svc.findtext(_tag("ServiceTemplate")) or "").strip(),
-            "matchExpression": _rule_expressions(expr_el),
-            "authMethods": _string_list(svc, "AuthMethodNameList"),
-            "authSources": _string_list(svc, "AuthSourceNameList"),
-            "autzSources": _string_list(svc, "AutzSourceNameList"),
-            "roleMappings": _string_list(svc, "RoleMappingNameList"),
-            "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
-        })
+    # --- Services (all five element types) ---
+    # Document order across *all* service elements (used for export_order).
+    service_tags = {_tag(t) for t, _ in _SERVICE_ELEMENTS}
+    doc_order = {id(el): i for i, el in enumerate(e for e in root.iter() if e.tag in service_tags)}
+    for element_name, service_type in _SERVICE_ELEMENTS:
+        for svc in root.findall(f".//{_tag(element_name)}"):
+            model["services"].append(_parse_service(svc, service_type, doc_order.get(id(svc))))
 
     # --- Auth Methods ---
     for am in root.findall(f".//{_tag('AuthMethod')}"):
@@ -260,23 +258,16 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "name": rp.get("name", ""),
             "description": rp.get("description", ""),
             "action": rp.get("action", ""),
+            "attributes": _attribute_list(rp),
         })
 
     # --- Post-Auth Enforcement Profiles ---
     for pp in root.findall(f".//{_tag('PostAuthEnfProfile')}"):
-        attrs = []
-        for a in pp.findall(f".//{_tag('Attribute')}"):
-            attrs.append({
-                "name": a.get("name", ""),
-                "type": a.get("type", ""),
-                "value": a.get("value", ""),
-                "displayValue": a.get("displayValue", ""),
-            })
         model["postAuthEnfProfiles"].append({
             "name": pp.get("name", ""),
             "description": pp.get("description", ""),
             "postAuthType": pp.get("postAuthType", ""),
-            "attributes": attrs,
+            "attributes": _attribute_list(pp),
         })
 
     # --- TACACS Enforcement Profiles ---
@@ -287,6 +278,7 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "action":       tp.get("action", ""),
             "autzStatus":   tp.get("autzStatus", ""),   # PASS_ADD | PASS_REPL | FAIL
             "maxPrivLevel": tp.get("maxPrivLevel", ""),  # "0"–"15" or ""
+            "attributes":   _attribute_list(tp),
         })
 
     # --- Radius CoA Enforcement Profiles ---
@@ -295,6 +287,8 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "name": cp.get("name", ""),
             "description": cp.get("description", ""),
             "action": cp.get("action", ""),
+            "template": cp.get("template", ""),
+            "attributes": _attribute_list(cp),
         })
 
     # --- Generic Enforcement Profiles ---
@@ -303,6 +297,17 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "name": gp.get("name", ""),
             "description": gp.get("description", ""),
             "action": gp.get("action", ""),
+            "type": gp.get("type", ""),
+            # Generic profiles carry <ProfileParams> instead of an AttributeList.
+            "attributes": [
+                {
+                    "name": pp_el.get("name", ""),
+                    "type": "",
+                    "value": pp_el.get("value", ""),
+                    "displayValue": pp_el.get("displayValue", ""),
+                }
+                for pp_el in gp.findall(_tag("ProfileParams"))
+            ],
         })
 
     return model

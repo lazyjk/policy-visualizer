@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Hand-written fixture (ClearPass TipsContents schema) for Tier 1 coverage:
+    - a "category" divider service (name starts with "-")
+    - an enabled service with cached results, and a disabled service in monitor mode
+    - RADIUS profiles carrying Aruba-User-Role / Tunnel-Private-Group-Id / Filter-Id
+    - a CoA profile with a template, plus a RadiusCOATemplates block whose
+      <Attribute> elements must NOT leak into profile attributes
+-->
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Wed Nov 18 10:00:00 MST 2026" version="6.11"/>
+  <RadiusEnforcementServices>
+    <RadiusEnforcementService description="Visual divider" name="--------Wireless Services--------" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="false" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="divider" value="divider" operator="EQUALS" name="NAS-Identifier" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRELESS</ServiceTemplate>
+    </RadiusEnforcementService>
+    <RadiusEnforcementService description="Corporate 802.1X wireless" name="corp-wireless" useCachedResults="true" stripRulesCsv="" stripUsername="true" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="true" auditEnabled="false" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Wireless-802.11 (19)" value="19" operator="EQUALS" name="NAS-Port-Type" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRELESS</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[PAP]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>corp-ad</string>
+      </AuthSourceNameList>
+      <RoleMappingNameList>
+        <string>corp-rm</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>corp-enf</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+    <RadiusEnforcementService description="Lab wired, monitor only" name="lab-wired-monitor" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="true" enabled="false" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="true">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Ethernet (15)" value="15" operator="EQUALS" name="NAS-Port-Type" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[PAP]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>corp-ad</string>
+      </AuthSourceNameList>
+      <RoleMappingNameList>
+        <string>corp-rm</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>corp-enf</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+  </RadiusEnforcementServices>
+  <AuthMethods>
+    <AuthMethod description="Default settings for PAP" name="[PAP]" methodType="PAP">
+      <NVPair value="auto" name="encryption_scheme"/>
+    </AuthMethod>
+  </AuthMethods>
+  <AuthSources>
+    <AuthSource description="" name="corp-ad" isAuthorizationSource="true" type="AD">
+      <NVPair value="10" name="timeout"/>
+    </AuthSource>
+  </AuthSources>
+  <Roles>
+    <Role description="Default role for a contractor" name="[Contractor]"/>
+    <Role description="Default role for another user or device" name="[Other]"/>
+    <Role description="" name="staff"/>
+  </Roles>
+  <RoleMappings>
+    <RoleMapping description="" name="corp-rm" ruleCombineAlgo="first-applicable" dftRoleName="[Other]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="corp-staff" value="corp-staff" operator="EQUALS" name="memberOf" type="Authorization:corp-ad"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="staff" value="3001" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="vendors" value="vendors" operator="EQUALS" name="company" type="Authorization:corp-ad"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Contractor]" value="20" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </RoleMapping>
+  </RoleMappings>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="" name="corp-enf" policyType="RADIUS" defaultProfileName="corp-guest-default">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="staff" value="staff" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="corp-staff-access" value="101" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="[Contractor]" value="[Contractor]" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="contractor-vlan, contractor-role" value="102,103" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <RadiusEnfProfiles>
+    <RadiusEnfProfile description="Staff role + VLAN" name="corp-staff-access" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="staff-role" value="staff-role" name="Aruba-User-Role" type="Radius:Aruba"/>
+        <Attribute displayValue="20" value="20" name="Tunnel-Private-Group-Id" type="Radius:IETF"/>
+        <Attribute displayValue="staff-acl" value="staff-acl" name="Filter-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="Contractor VLAN" name="contractor-vlan" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="30" value="30" name="Tunnel-Private-Group-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="Contractor role" name="contractor-role" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="contractor" value="contractor" name="Aruba-User-Role" type="Radius:Aruba"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="Guest default" name="corp-guest-default" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="guest-logon" value="guest-logon" name="Aruba-User-Role" type="Radius:Aruba"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+  </RadiusEnfProfiles>
+  <RadiusCoAEnfProfiles>
+    <RadiusCoAEnfProfile description="Bounce the port" name="corp-bounce" action="Disconnect" template="Aruba-Terminate-Session">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+  </RadiusCoAEnfProfiles>
+  <RadiusCOATemplates>
+    <RadiusCOATemplate vendorId="14823" templateType="Disconnect" displayName="Aruba - Terminate Session" name="Aruba-Terminate-Session">
+      <AttributeList>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute inputRequired="Not_Required" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCOATemplate>
+  </RadiusCOATemplates>
+</TipsContents>
