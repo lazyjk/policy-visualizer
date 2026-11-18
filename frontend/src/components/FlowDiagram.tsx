@@ -35,6 +35,7 @@ import "@xyflow/react/dist/style.css";
 import { fetchFlow } from "../api";
 import type { FlowIR, FlowNode, PolicyDetails, ServiceSummary } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
+import SearchPanel from "./SearchPanel";
 import {
   useDiagramSession,
   type DiagramEditState,
@@ -835,72 +836,81 @@ function ExportPanel({
       const nodes = getNodes();
       if (nodes.length === 0) throw new Error("No nodes to export");
 
-      // Compute tight bounding box using per-type fallback sizes.
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const n of nodes) {
-        const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
-        const w = n.measured?.width ?? fb.width;
-        const h = n.measured?.height ?? fb.height;
-        minX = Math.min(minX, n.position.x);
-        minY = Math.min(minY, n.position.y);
-        maxX = Math.max(maxX, n.position.x + w);
-        maxY = Math.max(maxY, n.position.y + h);
-      }
+      // Search highlight/dim styles are switched off under .pv-exporting
+      // (index.css) for the duration of the capture.
+      const wrapperEl = wrapperRef.current!;
+      wrapperEl.classList.add("pv-exporting");
+      try {
 
-      const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
-      const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
-      const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
+        // Compute tight bounding box using per-type fallback sizes.
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of nodes) {
+          const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+          const w = n.measured?.width ?? fb.width;
+          const h = n.measured?.height ?? fb.height;
+          minX = Math.min(minX, n.position.x);
+          minY = Math.min(minY, n.position.y);
+          maxX = Math.max(maxX, n.position.x + w);
+          maxY = Math.max(maxY, n.position.y + h);
+        }
 
-      const options = {
-        filter: (el: HTMLElement) => {
-          const cl = el.classList;
-          if (!cl) return true;
-          return (
-            !cl.contains("react-flow__panel") &&
-            !cl.contains("react-flow__controls") &&
-            (withGrid || !cl.contains("react-flow__background"))
-          );
-        },
-        // No backgroundColor here — applying it to the translated viewport element
-        // offsets the fill rect, leaving transparent strips that JPEG renders as black.
-        // White background is composited at canvas level below (applyBackground).
-        // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
-        // by the transform offset issue, so we pass it directly for SVG only.
-        width: imgW,
-        height: imgH,
-        style: {
-          width: `${imgW}px`,
-          height: `${imgH}px`,
-          transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
-        },
-        pixelRatio,
-      };
+        const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
+        const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
+        const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
 
-      if (format === "svg") {
-        const dataUrl = await toSvg(viewportEl, {
-          ...options,
-          ...(transparent ? {} : { backgroundColor: "#ffffff" }),
-        });
-        return { dataUrl: addDateStampToSvg(dataUrl, imgW), pixelRatio };
-      }
+        const options = {
+          filter: (el: HTMLElement) => {
+            const cl = el.classList;
+            if (!cl) return true;
+            return (
+              !cl.contains("react-flow__panel") &&
+              !cl.contains("react-flow__controls") &&
+              (withGrid || !cl.contains("react-flow__background"))
+            );
+          },
+          // No backgroundColor here — applying it to the translated viewport element
+          // offsets the fill rect, leaving transparent strips that JPEG renders as black.
+          // White background is composited at canvas level below (applyBackground).
+          // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
+          // by the transform offset issue, so we pass it directly for SVG only.
+          width: imgW,
+          height: imgH,
+          style: {
+            width: `${imgW}px`,
+            height: `${imgH}px`,
+            transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
+          },
+          pixelRatio,
+        };
 
-      // Always capture as transparent PNG. Using toJpeg here would encode
-      // transparent pixels as black *before* applyBackground can add the white
-      // fill, causing a black background on the output.
-      const rawDataUrl = await toPng(viewportEl, options);
+        if (format === "svg") {
+          const dataUrl = await toSvg(viewportEl, {
+            ...options,
+            ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+          });
+          return { dataUrl: addDateStampToSvg(dataUrl, imgW), pixelRatio };
+        }
 
-      // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
-      // Composite onto a white canvas to guarantee a clean, full-coverage background.
-      const needsWhite = !transparent || format === "jpeg";
-      if (needsWhite) {
-        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
-        const bgUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
-        const dataUrl = await addDateStampToRaster(bgUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, mime, 0.92);
+        // Always capture as transparent PNG. Using toJpeg here would encode
+        // transparent pixels as black *before* applyBackground can add the white
+        // fill, causing a black background on the output.
+        const rawDataUrl = await toPng(viewportEl, options);
+
+        // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
+        // Composite onto a white canvas to guarantee a clean, full-coverage background.
+        const needsWhite = !transparent || format === "jpeg";
+        if (needsWhite) {
+          const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+          const bgUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+          const dataUrl = await addDateStampToRaster(bgUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, mime, 0.92);
+          return { dataUrl, pixelRatio };
+        }
+
+        const dataUrl = await addDateStampToRaster(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, "image/png");
         return { dataUrl, pixelRatio };
+      } finally {
+        wrapperEl.classList.remove("pv-exporting");
       }
-
-      const dataUrl = await addDateStampToRaster(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, "image/png");
-      return { dataUrl, pixelRatio };
     },
     [getNodes, wrapperRef]
   );
@@ -1578,6 +1588,10 @@ function KeyboardHandler({
       // handle text copy/paste normally.
       const ae = document.activeElement;
       if (ae && ae.closest(".ProseMirror")) return;
+      // Form-field guard: search box, service filter, selects etc. keep native
+      // text copy/paste instead of annotation copy/paste.
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT"
+        || ae.closest(".nokey"))) return;
 
       if (e.key === "c") {
         const nodes = getNodes();
@@ -1900,6 +1914,14 @@ export default function FlowDiagram({ flow, allServices = [], fileRef, onNodeSel
           nodeColors={nodeColors}
         />
         <SelectionHintPanel />
+        {!batchFlow && (
+          <SearchPanel
+            key={flow.service_id}
+            flow={flow}
+            details={flow.details}
+            onNodeSelect={onNodeSelect}
+          />
+        )}
         <StylePanel
           nodeColors={nodeColors}
           setNodeColors={setNodeColors}
