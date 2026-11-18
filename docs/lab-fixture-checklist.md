@@ -67,7 +67,7 @@ Each profile type is a separate XML element and needs its own parser support.
 |---|---|---|
 | ☐ | Role mapping and enforcement policies in **evaluate-all** and **first-applicable** | both algorithms |
 | ☐ | Conditions using many **namespaces**: Tips:Role, Tips:Posture, Endpoint, Authorization:<AD/LDAP/SQL>, Connection, Date (day/time ranges), Device (NAD group / location), Host, Certificate, Guest | normalizer coverage |
-| ☐ | Many **operators**: BELONGS_TO_GROUP, NOT_BELONGS_TO_GROUP, MATCHES_ALL/ANY, regex, IN_RANGE / date ranges, EXISTS/NOT_EXISTS, CONTAINS/NOT_CONTAINS, BEGINS_WITH | an unknown operator anywhere currently **fails the whole upload (HTTP 422)** |
+| ☐ | Many **operators**: BELONGS_TO_GROUP, NOT_BELONGS_TO_GROUP, MATCHES_ALL/ANY, regex, IN_RANGE / date ranges, EXISTS/NOT_EXISTS, CONTAINS/NOT_CONTAINS, BEGINS_WITH | unknown operators are shown as-is with a warning; each one found tells us what to map next |
 | ☐ | A rule with **multiple profiles**, and a rule whose profiles mix RADIUS + post-auth | action / end-node logic |
 | ☐ | Role mapping that uses **Role:** conditions from a previous match (nested roles) | |
 

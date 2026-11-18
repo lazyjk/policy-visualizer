@@ -63,10 +63,8 @@ _ISE_OP_MAP: dict[str, Op] = {
 
 
 def _ise_op(raw: str) -> Op:
-    try:
-        return _ISE_OP_MAP[raw]
-    except KeyError:
-        raise ValueError(f"Unknown ISE operator: {raw!r}")
+    """Map an ISE operator; unrecognised ones become Op.unknown (shown as-is)."""
+    return _ISE_OP_MAP.get(raw, Op.unknown)
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +101,12 @@ def _normalize_node(
 
     if node_type == "SINGLE":
         result = _normalize_single(node)
+        if isinstance(result, Predicate) and result.op is Op.unknown:
+            where = ":".join(p for p in (result.namespace, result.attribute) if p) or "a condition"
+            warnings.append(
+                f"Unrecognised condition operator '{result.raw_operator}' on {where} — "
+                "shown as-is; the diagram may not reflect how ISE evaluates it."
+            )
 
     elif node_type == "REFERENCE":
         result = _normalize_reference(node, library, warnings)

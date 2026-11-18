@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .normalizer import BooleanExpr, normalize
+from .normalizer import BooleanExpr, normalize, unknown_operator_warning, unknown_operators
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +229,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     # See CLAUDE.md § 12 "Versioning & Release Policy" for full rules.
     ir = PolicyIR(version="1.0", source_file=source_file)
 
+    def _warn_unknown_ops(expr: BooleanExpr | None, context: str) -> None:
+        ops = unknown_operators(expr)
+        if ops:
+            msg = unknown_operator_warning(ops, context)
+            logger.warning("%s", msg)
+            ir.warnings.append(msg)
+
     # Roles
     for r in raw.get("roles", []):
         rid = _stable_id(r["name"])
@@ -370,8 +377,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         rmid = _stable_id(rm["name"])
         rules = []
         rm_on_match = "continue" if rm.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
-        for raw_rule in rm.get("rules", []):
+        for rule_pos, raw_rule in enumerate(rm.get("rules", []), start=1):
             expr = normalize(raw_rule.get("expression"))
+            _warn_unknown_ops(expr, f"Role Mapping Policy '{rm['name']}' rule {rule_pos}")
             results = raw_rule.get("results", [])
             then: RuleThen
             role_result = next((r for r in results if r.get("name") == "Role"), None)
@@ -424,8 +432,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         epid = _stable_id(ep["name"])
         rules = []
         ep_on_match = "continue" if ep.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
-        for raw_rule in ep.get("rules", []):
+        for rule_pos, raw_rule in enumerate(ep.get("rules", []), start=1):
             expr = normalize(raw_rule.get("expression"))
+            _warn_unknown_ops(expr, f"Enforcement Policy '{ep['name']}' rule {rule_pos}")
             results = raw_rule.get("results", [])
             enf_result = next((r for r in results if r.get("name") == "Enforcement-Profile"), None)
             profile_ids: list[str] = []
@@ -470,6 +479,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for svc in raw.get("services", []):
         svid = _stable_id(svc["name"])
         match_expr = normalize(svc.get("matchExpression"))
+        _warn_unknown_ops(match_expr, f"Service '{svc['name']}' match rule")
 
         method_ids = []
         method_names = svc.get("authMethods", [])

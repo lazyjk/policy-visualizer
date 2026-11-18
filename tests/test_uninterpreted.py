@@ -156,3 +156,55 @@ def test_extras_exactly_at_cap_not_marked_truncated(tmp_path):
     extras = parse(f)["services"][0]["extras"]
     assert len(extras) == 200
     assert extras[-1]["path"] != "…"
+
+
+# --- unknown condition operators -------------------------------------------
+
+from src.normalizer import Op, expr_to_label, expr_to_node_label  # noqa: E402
+
+PA_FIXTURE = FIXTURES / "ProfileAttributes.xml"
+
+
+def _xml_with_unknown_ops(tmp_path):
+    xml = PA_FIXTURE.read_text()
+    # service match rule + one enforcement rule get operators ClearPass might add later
+    xml = xml.replace('operator="EQUALS" name="NAS-Port-Type"', 'operator="FUTURE_OP" name="NAS-Port-Type"', 1)
+    xml = xml.replace('displayValue="staff" value="staff" operator="EQUALS" name="Role"',
+                      'displayValue="staff" value="staff" operator="SOUNDS_LIKE" name="Role"', 1)
+    f = tmp_path / "unknown_ops.xml"
+    f.write_text(xml)
+    return f
+
+
+def test_unknown_operator_does_not_fail_build(tmp_path):
+    f = _xml_with_unknown_ops(tmp_path)
+    ir = build(parse(f))
+    svc = next(s for s in ir.services.values() if s.name == "corp-wireless")
+    assert svc.match.op is Op.unknown
+    assert svc.match.raw_operator == "FUTURE_OP"
+    joined = "\n".join(ir.warnings)
+    assert "'FUTURE_OP'" in joined and "match rule" in joined
+    assert "'SOUNDS_LIKE'" in joined and "Enforcement Policy 'corp-enf' rule 1" in joined
+
+
+def test_unknown_operator_displayed_as_is(tmp_path):
+    ir = build(parse(_xml_with_unknown_ops(tmp_path)))
+    svc = next(s for s in ir.services.values() if s.name == "corp-wireless")
+    assert "FUTURE_OP" in expr_to_node_label(svc.match)
+    assert "FUTURE_OP" in expr_to_label(svc.match)
+
+
+def test_api_unknown_operator_returns_200_with_warning(tmp_path):
+    f = _xml_with_unknown_ops(tmp_path)
+    client = TestClient(app)
+    files = {"file": ("unknown_ops.xml", io.BytesIO(f.read_bytes()), "application/xml")}
+    res = client.post("/api/services", files=files)
+    assert res.status_code == 200
+    corp = next(s["id"] for s in res.json()["services"] if s["name"] == "corp-wireless")
+    res = client.post(f"/api/flow?service={corp}",
+                      files={"file": ("unknown_ops.xml", io.BytesIO(f.read_bytes()), "application/xml")})
+    assert res.status_code == 200
+    body = res.json()
+    assert any("SOUNDS_LIKE" in w for w in body["warnings"])
+    decision = next(n for n in body["nodes"] if n["id"].endswith("__enf_rule_0"))
+    assert "SOUNDS_LIKE" in decision["label"]
