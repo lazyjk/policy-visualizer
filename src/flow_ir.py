@@ -132,6 +132,43 @@ def _end_label(
     return f"{base}\n({suffix})" if suffix else base
 
 
+# Profile attribute name -> short label shown under action nodes. First value
+# found per label wins (profile order, then attribute order) — deterministic.
+_KEY_ATTR_LABELS: dict[str, str] = {
+    "Aruba-User-Role": "Role",
+    "Tunnel-Private-Group-Id": "VLAN",
+    "Aruba-Named-User-Vlan": "VLAN",
+    "Filter-Id": "Filter",
+}
+_KEY_ATTR_MAX_LINES = 2
+_KEY_ATTR_MAX_VALUE = 24
+
+
+def _key_attr_lines(profile_ids: list[str], profiles: dict[str, EnforcementProfile]) -> str:
+    """Summarise the most telling profile attributes (role / VLAN / filter).
+
+    Returns up to two newline-joined "Label: value" lines, or "" when none of
+    the applied profiles carry a recognised attribute.
+    """
+    found: dict[str, str] = {}
+    for pid in profile_ids:
+        prof = profiles.get(pid)
+        if prof is None:
+            continue
+        for attr in prof.attributes:
+            label = _KEY_ATTR_LABELS.get(attr.name)
+            if label is None or label in found:
+                continue
+            value = (attr.display_value or attr.value).strip()
+            if not value:
+                continue
+            if len(value) > _KEY_ATTR_MAX_VALUE:
+                value = value[: _KEY_ATTR_MAX_VALUE - 1] + "…"
+            found[label] = value
+    lines = [f"{label}: {value}" for label, value in found.items()]
+    return "\n".join(lines[:_KEY_ATTR_MAX_LINES])
+
+
 def default_trace_id(enforcement_policy_id: str) -> str:
     """trace_rule_id for an enforcement policy's default action node.
 
@@ -251,6 +288,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                     id=f"{sid}__enf_action_{rule.index}",
                     type="action",
                     label=_profiles_label(names),
+                    sub_label=_key_attr_lines(rule.then.profile_ids, ir.enforcement_profiles),
                     trace_rule_id=rule.id,
                 ))
                 flow.add_edge(dec.id, action.id, "YES")
@@ -277,6 +315,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 id=f"{sid}__enf_default_action",
                 type="action",
                 label=f"Default:\n{_profiles_label(def_names)}",
+                sub_label=_key_attr_lines(ep.default.profile_ids, ir.enforcement_profiles),
                 trace_rule_id=default_trace_id(ep.id),
             ))
             flow.add_edge(prev_enf_id, def_action.id, "NO")  # type: ignore[arg-type]
