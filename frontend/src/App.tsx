@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
@@ -33,6 +33,9 @@ function AppContent() {
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
 
+  // Category dividers ("------Name------") are not real services: never batch-export them.
+  const exportableServices = useMemo(() => services.filter((s) => !s.is_category), [services]);
+
   async function handleFileSelect(file: File) {
     sessionDispatch({ type: "CLEAR_SESSION" });
     fileRef.current = file;
@@ -45,9 +48,10 @@ function AppContent() {
     try {
       const result = await fetchServices(file);
       setServices(result.services);
-      if (result.services.length === 1) {
-        // Only one service — render immediately
-        await loadFlow(file, result.services[0].id);
+      const realServices = result.services.filter((s) => !s.is_category);
+      if (realServices.length === 1) {
+        // Only one real service (ignoring category dividers) — render immediately
+        await loadFlow(file, realServices[0].id);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -158,7 +162,7 @@ function AppContent() {
                 <ReactFlowProvider>
                   <FlowDiagram
                     flow={flow}
-                    allServices={services}
+                    allServices={exportableServices}
                     fileRef={fileRef}
                     onNodeSelect={setSelectedNode}
                   />

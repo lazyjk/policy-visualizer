@@ -3,6 +3,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceSummary } from "../api";
+import { categoryLabel, templateLabel } from "../serviceLabels";
 
 interface Props {
   services: ServiceSummary[];
@@ -36,8 +37,23 @@ export default function UploadPanel({
     setSortOrder("none");
   }, [services]);
 
+  // Real services exclude ClearPass "------Name------" divider entries.
+  const realServiceCount = useMemo(() => services.filter((s) => !s.is_category).length, [services]);
+
+  // Category headers are only meaningful in file order with no filtering.
+  const grouped = sortOrder === "none" && !nameFilter.trim() && !filterType;
+
   const displayedServices = useMemo(() => {
-    let list = [...services];
+    // File order first (stable for services lacking export_order).
+    let list = services
+      .map((s, i) => ({ s, i }))
+      .sort((a, b) => (a.s.export_order ?? a.i) - (b.s.export_order ?? b.i))
+      .map(({ s }) => s);
+    list = grouped ? list : list.filter((s) => !s.is_category);
+    // Drop a trailing header / headers immediately followed by another header.
+    if (grouped) {
+      list = list.filter((s, idx) => !s.is_category || (idx + 1 < list.length && !list[idx + 1].is_category));
+    }
     if (filterType) list = list.filter((s) => s.service_type === filterType);
     if (nameFilter.trim()) {
       const raw = nameFilter.trim();
@@ -50,7 +66,7 @@ export default function UploadPanel({
     if (sortOrder === "asc") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === "desc") list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
-  }, [services, filterType, nameFilter, sortOrder]);
+  }, [services, filterType, nameFilter, sortOrder, grouped]);
 
   function cycleSortOrder() {
     setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
@@ -134,7 +150,7 @@ export default function UploadPanel({
           </p>
 
           {/* Filter + sort controls — only shown when there are multiple services */}
-          {services.length > 1 && (
+          {realServiceCount > 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
               {/* Name filter + sort icon */}
               <div style={{ display: "flex", gap: 6 }}>
@@ -196,16 +212,32 @@ export default function UploadPanel({
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {displayedServices.map((svc) => {
+                if (svc.is_category) {
+                  return (
+                    <li key={svc.id} style={categoryHeaderStyle} title={svc.name}>
+                      {categoryLabel(svc.name)}
+                    </li>
+                  );
+                }
                 const isActive = svc.id === selectedService;
+                const enabled = svc.enabled !== false;
+                const tmpl = templateLabel(svc.template ?? "");
                 return (
                   <li key={svc.id} style={{ marginBottom: 6 }}>
                     <button
-                      style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
+                      style={{
+                        ...(isActive ? activeServiceButtonStyle : serviceButtonStyle),
+                        ...(enabled ? {} : { opacity: isActive ? 0.8 : 0.55 }),
+                      }}
                       onClick={() => onServiceSelect(svc.id)}
-                      title={svc.description || undefined}
+                      title={[svc.description, enabled ? "" : "Disabled in ClearPass"].filter(Boolean).join("\n") || undefined}
                     >
                       <span>{svc.name}</span>
                       <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
+                      {tmpl && tmpl !== svc.service_type && (
+                        <span style={serviceTypeBadgeStyle}>{tmpl}</span>
+                      )}
+                      {!enabled && <span style={disabledBadgeStyle}>Disabled</span>}
                     </button>
                   </li>
                 );
@@ -301,6 +333,24 @@ const serviceTypeBadgeStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "1px 5px",
   verticalAlign: "middle",
+};
+
+const disabledBadgeStyle: React.CSSProperties = {
+  ...serviceTypeBadgeStyle,
+  color: "#991b1b",
+  background: "#fee2e2",
+};
+
+const categoryHeaderStyle: React.CSSProperties = {
+  margin: "12px 0 6px",
+  padding: "0 2px 3px",
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#6b7280",
+  borderBottom: "1px solid #e5e7eb",
+  cursor: "default",
 };
 
 const nameFilterStyle: React.CSSProperties = {
