@@ -38,12 +38,15 @@ button {
   filter: drop-shadow(0 0 3px #4f46e5) drop-shadow(0 0 10px rgba(79, 70, 229, 0.9));
   z-index: 10 !important;
 }
-/* Exports never carry search styling */
+/* Exports never carry search styling. `transition: none` matters: html-to-image
+   snapshots computed styles immediately, so an in-flight opacity fade would
+   otherwise be captured mid-way (still dimmed). */
 .pv-exporting .react-flow__node.search-dim,
 .pv-exporting .react-flow__node.search-match,
 .pv-exporting .react-flow__node.search-current {
-  opacity: 1;
-  filter: none;
+  opacity: 1 !important;
+  filter: none !important;
+  transition: none !important;
 }
 
 /* Tiptap annotation node content */

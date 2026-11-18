@@ -888,6 +888,9 @@ function ExportPanel({
       // (index.css) for the duration of the capture.
       const wrapperEl = wrapperRef.current!;
       wrapperEl.classList.add("pv-exporting");
+      // Force a synchronous style recalc so the neutralised styles are in
+      // effect before html-to-image reads computed styles.
+      void wrapperEl.offsetHeight;
       try {
 
         // Compute tight bounding box using per-type fallback sizes.
