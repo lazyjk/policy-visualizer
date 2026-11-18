@@ -17,9 +17,12 @@ Policy Visualizer converts a network policy XML service export into:
 - Builds deterministic Policy IR and Flow IR
 - Serves Flow IR from a FastAPI backend
 - Renders an interactive flow diagram in a React Flow frontend with WYSIWYG annotation support
-- Surfaces full rule conditions and actions in a Policy Details side panel (click any decision or action node)
+- Surfaces full rule conditions and actions in a Policy Details side panel (click any decision or action node), including each enforcement profile's attributes (e.g. Aruba-User-Role, VLAN); with nothing selected it shows a service summary (template, enabled/monitor mode, auth, policies)
+- Shows key profile attributes (role / VLAN / filter) directly under enforcement action nodes
+- Searches the diagram (node labels, conditions, profile names and attribute values) with next/previous navigation
+- Service picker shows disabled services, template badges, and ClearPass "------Name------" divider services as section headers
 - Exports diagrams to PNG, SVG, PDF, and Draw.io format (BETA)
-- Exports PDF with optional policy details appendix (rule tables, conditions, actions)
+- Exports PDF with optional policy details appendix (service settings, rule tables, conditions, actions, profile attributes)
 - Builds new policies interactively in the **Policy Builder** tab (v4.0.0-beta.2): connect to a live ClearPass appliance, browse policy elements, compose rules on a canvas, and preview the resulting flow diagram
 - Supports static SVG/PNG/PDF generation via CLI (ClearPass only; offline/scripted use)
 
