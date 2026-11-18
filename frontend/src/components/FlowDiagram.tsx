@@ -598,14 +598,17 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     checkPageBreak(APPX_LINE_H * 5);
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "bold");
-    const header = rule.name
-      ? `[${rule.index}] ${rule.name}`
-      : `[${rule.index}] Rule`;
+    const isDefault = rule.node_trace_id.endsWith("__default");
+    const header = isDefault
+      ? "Default (no rule matched)"
+      : rule.name
+        ? `[${rule.index}] ${rule.name}`
+        : `[${rule.index}] Rule`;
     pdf.text(header, APPX_MARGIN + 4, y);
     y += APPX_LINE_H;
     pdf.setFont("helvetica", "normal");
 
-    if (rule.condition_text && rule.condition_text !== "(no condition)") {
+    if (!isDefault && rule.condition_text && rule.condition_text !== "(no condition)") {
       checkPageBreak(APPX_LINE_H * 2);
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
@@ -616,7 +619,18 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     }
 
     printLabel("Action:", rule.action_text || "(none)", 4);
-    printLabel("On match:", rule.on_match, 4);
+
+    // Enforcement profile contents (attributes) — ClearPass only
+    for (const prof of rule.profiles ?? []) {
+      const meta = [prof.profile_type.replace(/_/g, " "), prof.template && `template ${prof.template}`]
+        .filter(Boolean).join(", ");
+      printLabel("Profile:", `${prof.name} (${meta})`, 8);
+      for (const a of prof.attributes) {
+        printLabel(`${a.name}:`, a.display_value || a.value || "(empty)", 20);
+      }
+    }
+
+    if (!isDefault) printLabel("On match:", rule.on_match, 4);
 
     if (rule.linked_names.length > 0) {
       printLabel("Linked:", rule.linked_names.join(", "), 4);
@@ -646,6 +660,23 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   const ctx = details.service_context;
   printLabel("Service:", `${ctx.service_name} (${ctx.service_type})`);
   if (ctx.description) printLabel("Description:", ctx.description);
+  if (ctx.template) printLabel("Template:", ctx.template);
+  if (ctx.enabled !== undefined) {
+    const status = [ctx.enabled ? "Enabled" : "Disabled", ctx.monitor_mode ? "Monitor mode" : ""]
+      .filter(Boolean).join(", ");
+    printLabel("Status:", status);
+  }
+  {
+    const opts = [
+      ctx.use_cached_results && "Use cached results",
+      ctx.posture_enabled && "Posture",
+      ctx.profiler_enabled && "Profiler",
+      ctx.audit_enabled && "Audit",
+    ].filter(Boolean);
+    if (opts.length > 0) printLabel("Options:", opts.join(", "));
+  }
+  if (ctx.role_mapping_policy_name) printLabel("Role Mapping:", ctx.role_mapping_policy_name);
+  if (ctx.enforcement_policy_name) printLabel("Enforcement:", ctx.enforcement_policy_name);
   if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
   if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
   if (ctx.condition_text && ctx.condition_text !== "(no condition)") {
@@ -677,6 +708,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   if (details.enforcement_rules.length > 0) {
     printSectionHeader("Enforcement Rules");
     for (const rule of details.enforcement_rules) printRule(rule);
+    if (details.enforcement_default) printRule(details.enforcement_default);
     y += 4;
   }
 
