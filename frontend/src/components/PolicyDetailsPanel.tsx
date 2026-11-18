@@ -1,4 +1,5 @@
-import type { FlowNode, PolicyDetails, RuleDetail } from "../api";
+import type { FlowNode, PolicyDetails, ProfileDetail, RuleDetail, ServiceContext } from "../api";
+import { templateLabel } from "../serviceLabels";
 
 interface PolicyDetailsPanelProps {
   details: PolicyDetails | undefined;
@@ -86,6 +87,134 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function Pill({ text, tone }: { text: string; tone: "green" | "gray" | "amber" | "red" | "blue" }) {
+  const tones = {
+    green: { bg: "#dcfce7", fg: "#14532d" },
+    gray: { bg: "#f3f4f6", fg: "#4b5563" },
+    amber: { bg: "#fef3c7", fg: "#78350f" },
+    red: { bg: "#fee2e2", fg: "#7f1d1d" },
+    blue: { bg: "#dbeafe", fg: "#1e3a8a" },
+  }[tone];
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: 10,
+        fontWeight: 600,
+        padding: "1px 6px",
+        borderRadius: 9,
+        backgroundColor: tones.bg,
+        color: tones.fg,
+        marginRight: 4,
+        marginBottom: 2,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function profileTone(p: ProfileDetail): "green" | "red" | "blue" | "gray" {
+  if (/reject|deny|fail/.test(p.profile_type) || /reject|deny|drop/.test(p.action)) return "red";
+  if (p.profile_type === "radius_coa" || p.profile_type === "post_auth") return "blue";
+  if (/accept/.test(p.profile_type)) return "green";
+  return "gray";
+}
+
+function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
+  if (profiles.length === 0) return null;
+  return (
+    <Section title="Enforcement Profiles">
+      {profiles.map((p, i) => (
+        <div key={i} style={{ marginBottom: i < profiles.length - 1 ? 10 : 0 }}>
+          <div style={{ fontWeight: 600, color: "#111827", marginBottom: 3 }}>{p.name}</div>
+          <div style={{ marginBottom: 4 }}>
+            <Pill text={p.profile_type.replace(/_/g, " ")} tone={profileTone(p)} />
+            {p.action && <Pill text={p.action} tone="gray" />}
+            {p.template && <Pill text={`template: ${p.template}`} tone="gray" />}
+          </div>
+          {p.attributes.length > 0 ? (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+              <tbody>
+                {p.attributes.map((a, j) => (
+                  <tr key={j} style={{ borderTop: "1px solid #f3f4f6", verticalAlign: "top" }}>
+                    <td style={{ padding: "3px 6px 3px 0", width: "45%" }}>
+                      <div style={{ color: "#374151", wordBreak: "break-word" }}>{a.name}</div>
+                      {a.type && <div style={{ color: "#9ca3af", fontSize: 10 }}>{a.type}</div>}
+                    </td>
+                    <td style={{ padding: "3px 0", fontFamily: "monospace", color: "#111827", wordBreak: "break-word" }}>
+                      {a.display_value || a.value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ color: "#9ca3af", fontSize: 11 }}>No attributes in export</div>
+          )}
+        </div>
+      ))}
+    </Section>
+  );
+}
+
+function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
+  const flags: string[] = [];
+  if (ctx.use_cached_results) flags.push("Cached results");
+  if (ctx.posture_enabled) flags.push("Posture");
+  if (ctx.profiler_enabled) flags.push("Profiler");
+  if (ctx.audit_enabled) flags.push("Audit");
+  const tmpl = templateLabel(ctx.template);
+  return (
+    <>
+      <Section title="Service">
+        <div style={{ fontWeight: 600, color: "#111827" }}>{ctx.service_name}</div>
+        {ctx.description && <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{ctx.description}</div>}
+        <div style={{ marginTop: 6 }}>
+          <Pill text={ctx.service_type} tone="gray" />
+          {tmpl && <Pill text={tmpl} tone="gray" />}
+          <Pill text={ctx.enabled ? "Enabled" : "Disabled"} tone={ctx.enabled ? "green" : "red"} />
+          {ctx.monitor_mode && <Pill text="Monitor mode" tone="amber" />}
+        </div>
+        {flags.length > 0 && (
+          <div style={{ marginTop: 4 }}>
+            {flags.map((f) => <Pill key={f} text={f} tone="blue" />)}
+          </div>
+        )}
+      </Section>
+
+      {(ctx.auth_method_names.length > 0 || ctx.auth_source_names.length > 0) && (
+        <Section title="Authentication">
+          {ctx.auth_method_names.length > 0 && (
+            <div><span style={{ color: "#6b7280" }}>Methods: </span>{ctx.auth_method_names.join(", ")}</div>
+          )}
+          {ctx.auth_source_names.length > 0 && (
+            <div><span style={{ color: "#6b7280" }}>Sources: </span>{ctx.auth_source_names.join(", ")}</div>
+          )}
+        </Section>
+      )}
+
+      {(ctx.role_mapping_policy_name || ctx.enforcement_policy_name) && (
+        <Section title="Policies">
+          {ctx.role_mapping_policy_name && (
+            <div><span style={{ color: "#6b7280" }}>Role mapping: </span>{ctx.role_mapping_policy_name}</div>
+          )}
+          {ctx.enforcement_policy_name && (
+            <div><span style={{ color: "#6b7280" }}>Enforcement: </span>{ctx.enforcement_policy_name}</div>
+          )}
+        </Section>
+      )}
+
+      <Section title="Service Match">
+        <code style={CODE_STYLE}>{ctx.condition_text}</code>
+      </Section>
+
+      <div style={PLACEHOLDER_STYLE}>Click a node to inspect its policy details.</div>
+    </>
+  );
+}
+
 function RuleDetailView({ rule }: { rule: RuleDetail }) {
   return (
     <>
@@ -103,6 +232,8 @@ function RuleDetailView({ rule }: { rule: RuleDetail }) {
       <Section title="Action">
         <div>{rule.action_text || <span style={{ color: "#9ca3af" }}>(none)</span>}</div>
       </Section>
+
+      <ProfilesSection profiles={rule.profiles ?? []} />
 
       <Section title="Flow Behavior">
         <div>
@@ -140,7 +271,11 @@ export default function PolicyDetailsPanel({ details, selectedNode }: PolicyDeta
       <div style={HEADER_STYLE}>Policy Inspector</div>
 
       {selectedNode === null ? (
-        <div style={PLACEHOLDER_STYLE}>Click a node to inspect its policy details.</div>
+        details ? (
+          <ServiceSummaryCard ctx={details.service_context} />
+        ) : (
+          <div style={PLACEHOLDER_STYLE}>Click a node to inspect its policy details.</div>
+        )
       ) : selectedNode.trace_rule_id === "" ? (
         <div style={PLACEHOLDER_STYLE}>
           <div style={{ fontWeight: 600, color: "#374151", marginBottom: 6 }}>

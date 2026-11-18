@@ -20,6 +20,21 @@ export interface FlowEdge {
   reason: string;
 }
 
+export interface ProfileAttribute {
+  name: string;
+  type: string;
+  value: string;
+  display_value: string;
+}
+
+export interface ProfileDetail {
+  name: string;
+  profile_type: string;
+  action: string;
+  template: string;
+  attributes: ProfileAttribute[];
+}
+
 export interface RuleDetail {
   rule_id: string;
   node_trace_id: string;
@@ -29,6 +44,8 @@ export interface RuleDetail {
   action_text: string;
   on_match: string;
   linked_names: string[];
+  /** Enforcement profiles applied by this rule (empty for non-enforcement rules / ISE). */
+  profiles: ProfileDetail[];
 }
 
 export interface ServiceContext {
@@ -38,6 +55,15 @@ export interface ServiceContext {
   auth_method_names: string[];
   auth_source_names: string[];
   condition_text: string;
+  enabled: boolean;
+  template: string;
+  monitor_mode: boolean;
+  use_cached_results: boolean;
+  posture_enabled: boolean;
+  profiler_enabled: boolean;
+  audit_enabled: boolean;
+  role_mapping_policy_name: string;
+  enforcement_policy_name: string;
 }
 
 export interface PolicyDetails {
@@ -45,6 +71,8 @@ export interface PolicyDetails {
   authen_rules: RuleDetail[];
   role_mapping_rules: RuleDetail[];
   enforcement_rules: RuleDetail[];
+  /** Default enforcement outcome (also present in rule_index). */
+  enforcement_default: RuleDetail | null;
   warnings: string[];
   rule_index: Record<string, RuleDetail>;
 }
@@ -64,6 +92,12 @@ export interface ServiceSummary {
   name: string;
   description: string;
   service_type: string;
+  enabled: boolean;
+  template: string;
+  /** ClearPass "------Name------" divider service; not a real service. */
+  is_category: boolean;
+  /** Position in the uploaded file (not ClearPass evaluation precedence). */
+  export_order: number | null;
 }
 
 export interface ServiceListResponse {
