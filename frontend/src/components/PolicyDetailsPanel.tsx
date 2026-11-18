@@ -122,6 +122,11 @@ function profileTone(p: ProfileDetail): "green" | "red" | "blue" | "gray" {
   return "gray";
 }
 
+function isDur(p: ProfileDetail): boolean {
+  return (p.product ?? "").toLowerCase().startsWith("dur")
+    || p.attributes.some((a) => a.type.startsWith("DUR"));
+}
+
 function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
   if (profiles.length === 0) return null;
   return (
@@ -133,7 +138,13 @@ function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
             <Pill text={p.profile_type.replace(/_/g, " ")} tone={profileTone(p)} />
             {p.action && <Pill text={p.action} tone="gray" />}
             {p.template && <Pill text={`template: ${p.template}`} tone="gray" />}
+            {isDur(p) && <Pill text="Downloadable Role" tone="blue" />}
           </div>
+          {(p.nad_groups ?? []).length > 0 && (
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+              NAD groups: <span style={{ color: "#374151" }}>{p.nad_groups.join(", ")}</span>
+            </div>
+          )}
           {p.attributes.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <tbody>

@@ -289,3 +289,8 @@ def test_key_attr_lines_truncates_long_values():
     assert line.startswith("Role: ")
     assert line.endswith("…")
     assert len(line) == len("Role: ") + 24
+
+
+def test_dur_profile_sub_label_shows_dur_role_and_vlan():
+    flow = _attr_flow()
+    assert _node(flow, "__enf_action_2").sub_label == "DUR: workstation\nVLAN: 2091"

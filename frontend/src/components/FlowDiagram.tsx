@@ -625,6 +625,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
       const meta = [prof.profile_type.replace(/_/g, " "), prof.template && `template ${prof.template}`]
         .filter(Boolean).join(", ");
       printLabel("Profile:", `${prof.name} (${meta})`, 8);
+      if ((prof.nad_groups ?? []).length > 0) printLabel("NAD groups:", prof.nad_groups.join(", "), 20);
       for (const a of prof.attributes) {
         printLabel(`${a.name}:`, a.display_value || a.value || "(empty)", 20);
       }

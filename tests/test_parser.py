@@ -343,3 +343,20 @@ def test_service_export_order_follows_document_order(attr_raw):
 def test_export_order_spans_service_types():
     raw = parse(WEBAUTH_FIXTURE)
     assert sorted(s["exportOrder"] for s in raw["services"]) == [0, 1]
+
+
+def test_dur_profile_settings_parsed(attr_raw):
+    prof = _by_name(attr_raw["radiusEnfProfiles"], "workstation-dur-vlan2091")
+    assert prof["product"] == "durPluginA"
+    assert prof["nadGroups"] == ["All-Access-Switches"]
+    by_name = {a["name"]: a for a in prof["attributes"]}
+    assert by_name["roleName"]["value"] == "workstation"
+    assert by_name["roleName"]["type"] == "DUR:durPluginA"
+    assert by_name["vlanAccessId"]["displayValue"] == "2091"
+    assert len(prof["attributes"]) == 6
+
+
+def test_non_dur_profile_has_no_product_or_nad_groups(attr_raw):
+    prof = _by_name(attr_raw["radiusEnfProfiles"], "corp-staff-access")
+    assert prof["product"] == ""
+    assert prof["nadGroups"] == []

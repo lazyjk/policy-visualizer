@@ -40,6 +40,8 @@ class ProfileDetailSchema(BaseModel):
     profile_type: str = ""
     action: str = ""
     template: str = ""
+    product: str = ""            # e.g. "durPluginA" (Aruba Downloadable User Role)
+    nad_groups: list[str] = []   # NAD groups the profile is restricted to
     attributes: list[ProfileAttributeSchema] = []
 
 

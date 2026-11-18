@@ -135,6 +135,8 @@ class EnforcementProfile:
     metadata: dict = field(default_factory=dict)
     attributes: list[ProfileAttribute] = field(default_factory=list)
     template: str = ""
+    product: str = ""                 # e.g. "durPluginA" (Aruba Downloadable User Role)
+    nad_groups: list[str] = field(default_factory=list)  # NAD groups the profile is restricted to
 
 
 @dataclass
@@ -251,6 +253,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             action=action,
             description=rp.get("description", ""),
             attributes=_attrs(rp),
+            product=rp.get("product", ""),
+            nad_groups=list(rp.get("nadGroups", [])),
         )
     for pp in raw.get("postAuthEnfProfiles", []):
         pid = _stable_id(pp["name"])
@@ -278,6 +282,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             description=tp.get("description", ""),
             metadata=meta,
             attributes=_attrs(tp),
+            nad_groups=list(tp.get("nadGroups", [])),
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
@@ -288,6 +293,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             description=cp.get("description", ""),
             attributes=_attrs(cp),
             template=cp.get("template", ""),
+            nad_groups=list(cp.get("nadGroups", [])),
         )
     for gp in raw.get("genericEnfProfiles", []):
         pid = _stable_id(gp["name"])

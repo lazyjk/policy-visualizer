@@ -125,6 +125,29 @@ def _attribute_list(el: ET.Element) -> list[dict[str, str]]:
     ]
 
 
+def _dur_attributes(el: ET.Element) -> list[dict[str, str]]:
+    """Aruba Downloadable User Role settings from a profile's <DURRoleConfig>.
+
+    Returned in the same shape as _attribute_list() with type
+    "DUR:<pluginType>" so they flow through the same IR/UI path. All
+    descendant <Attribute name value> elements are read, so plugin variants
+    that nest settings deeper are still captured.
+    """
+    dur = el.find(_tag("DURRoleConfig"))
+    if dur is None:
+        return []
+    attr_type = f"DUR:{dur.get('pluginType', '')}".rstrip(":")
+    return [
+        {
+            "name": a.get("name", ""),
+            "type": attr_type,
+            "value": a.get("value", ""),
+            "displayValue": a.get("displayValue", a.get("value", "")),
+        }
+        for a in dur.iter(_tag("Attribute"))
+    ]
+
+
 def _parse_service(svc: ET.Element, service_type: str, export_order: int | None) -> dict[str, Any]:
     expr_el = svc.find(f".//{_tag('RuleExpression')}")
     is_proxy = service_type == "RADIUS_PROXY"
@@ -258,7 +281,9 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "name": rp.get("name", ""),
             "description": rp.get("description", ""),
             "action": rp.get("action", ""),
-            "attributes": _attribute_list(rp),
+            "attributes": _attribute_list(rp) + _dur_attributes(rp),
+            "product": rp.get("product", ""),          # e.g. "durPluginA" for DUR profiles
+            "nadGroups": _string_list(rp, "NadGroupNameList"),
         })
 
     # --- Post-Auth Enforcement Profiles ---
@@ -279,6 +304,7 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "autzStatus":   tp.get("autzStatus", ""),   # PASS_ADD | PASS_REPL | FAIL
             "maxPrivLevel": tp.get("maxPrivLevel", ""),  # "0"–"15" or ""
             "attributes":   _attribute_list(tp),
+            "nadGroups":    _string_list(tp, "NadGroupNameList"),
         })
 
     # --- Radius CoA Enforcement Profiles ---
@@ -289,6 +315,7 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "action": cp.get("action", ""),
             "template": cp.get("template", ""),
             "attributes": _attribute_list(cp),
+            "nadGroups": _string_list(cp, "NadGroupNameList"),
         })
 
     # --- Generic Enforcement Profiles ---

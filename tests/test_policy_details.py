@@ -352,3 +352,13 @@ def test_ise_details_new_fields_default():
     details = build_ise_details(ir.policy_sets[0], ir)
     assert details.get("enforcement_default") is None
     assert all(r.get("profiles", []) == [] for r in details["enforcement_rules"])
+
+
+def test_dur_profile_details(attr_ctx):
+    _, _, details, _ = attr_ctx
+    prof = details["enforcement_rules"][2]["profiles"][0]
+    assert prof["name"] == "workstation-dur-vlan2091"
+    assert prof["product"] == "durPluginA"
+    assert prof["nad_groups"] == ["All-Access-Switches"]
+    assert {"name": "vlanAccessId", "type": "DUR:durPluginA",
+            "value": "2091", "display_value": "2091"} in prof["attributes"]

@@ -4,6 +4,7 @@
     - a "category" divider service (name starts with "-")
     - an enabled service with cached results, and a disabled service in monitor mode
     - RADIUS profiles carrying Aruba-User-Role / Tunnel-Private-Group-Id / Filter-Id
+    - an Aruba Downloadable User Role (DUR) profile with a NAD group restriction
     - a CoA profile with a template, plus a RadiusCOATemplates block whose
       <Attribute> elements must NOT leak into profile attributes
 -->
@@ -134,6 +135,18 @@
               <RuleResult displayValue="contractor-vlan, contractor-role" value="102,103" name="Enforcement-Profile" type="Tips"/>
             </ResultList>
           </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="[Other]" value="[Other]" operator="EQUALS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="workstation-dur-vlan2091" value="104" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
         </RuleList>
       </Policy>
     </EnforcementPolicy>
@@ -160,6 +173,19 @@
       <AttributeList>
         <Attribute displayValue="guest-logon" value="guest-logon" name="Aruba-User-Role" type="Radius:Aruba"/>
       </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="Workstation downloadable user role" name="workstation-dur-vlan2091" productVersion="1.0" product="durPluginA" action="Accept">
+      <NadGroupNameList>
+        <string>All-Access-Switches</string>
+      </NadGroupNameList>
+      <DURRoleConfig pluginType="durPluginA">
+        <Attribute value="workstation" name="roleName"/>
+        <Attribute value="None" name="redSecRole"/>
+        <Attribute value="Id" name="vlanAccess"/>
+        <Attribute value="2091" name="vlanAccessId"/>
+        <Attribute value="Manual" name="reauthInterval"/>
+        <Attribute value="Static" name="sessionTimeout"/>
+      </DURRoleConfig>
     </RadiusEnfProfile>
   </RadiusEnfProfiles>
   <RadiusCoAEnfProfiles>

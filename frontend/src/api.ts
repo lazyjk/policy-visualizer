@@ -32,6 +32,10 @@ export interface ProfileDetail {
   profile_type: string;
   action: string;
   template: string;
+  /** e.g. "durPluginA" for an Aruba Downloadable User Role profile. */
+  product: string;
+  /** NAD groups this profile is restricted to (empty = all). */
+  nad_groups: string[];
   attributes: ProfileAttribute[];
 }
 

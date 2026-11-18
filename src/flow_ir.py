@@ -140,6 +140,11 @@ _KEY_ATTR_LABELS: dict[str, str] = {
     "Aruba-Named-User-Vlan": "VLAN",
     "Filter-Id": "Filter",
 }
+# Aruba Downloadable User Role settings (attribute type "DUR:<plugin>").
+_DUR_KEY_ATTR_LABELS: dict[str, str] = {
+    "roleName": "DUR",
+    "vlanAccessId": "VLAN",
+}
 _KEY_ATTR_MAX_LINES = 2
 _KEY_ATTR_MAX_VALUE = 24
 
@@ -156,7 +161,10 @@ def _key_attr_lines(profile_ids: list[str], profiles: dict[str, EnforcementProfi
         if prof is None:
             continue
         for attr in prof.attributes:
-            label = _KEY_ATTR_LABELS.get(attr.name)
+            if attr.type.startswith("DUR"):
+                label = _DUR_KEY_ATTR_LABELS.get(attr.name)
+            else:
+                label = _KEY_ATTR_LABELS.get(attr.name)
             if label is None or label in found:
                 continue
             value = (attr.display_value or attr.value).strip()

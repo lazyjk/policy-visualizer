@@ -69,6 +69,8 @@ def _profile_detail(profile: "EnforcementProfile") -> dict:
         "profile_type": profile.profile_type,
         "action": profile.action,
         "template": profile.template,
+        "product": profile.product,
+        "nad_groups": list(profile.nad_groups),
         "attributes": [
             {
                 "name": a.name,
