@@ -1,4 +1,4 @@
-import type { FlowNode, PolicyDetails, ProfileDetail, RuleDetail, ServiceContext } from "../api";
+import type { ExtraSetting, FlowNode, PolicyDetails, ProfileDetail, RuleDetail, ServiceContext } from "../api";
 import { templateLabel } from "../serviceLabels";
 
 interface PolicyDetailsPanelProps {
@@ -122,6 +122,38 @@ function profileTone(p: ProfileDetail): "green" | "red" | "blue" | "gray" {
   return "gray";
 }
 
+/**
+ * Raw settings the parser captured but does not interpret. Collapsed by
+ * default so they never crowd out the interpreted view.
+ */
+function OtherSettings({ extras }: { extras: ExtraSetting[] }) {
+  if (!extras || extras.length === 0) return null;
+  return (
+    <details style={{ marginTop: 6 }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, color: "#92400e" }}>
+        Other settings ({extras.length}) — not interpreted
+      </summary>
+      <div style={{ fontSize: 10, color: "#9ca3af", margin: "4px 0" }}>
+        Shown as found in the export; this version doesn't model them yet.
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10.5 }}>
+        <tbody>
+          {extras.map((e, i) => (
+            <tr key={i} style={{ borderTop: "1px solid #f3f4f6", verticalAlign: "top" }}>
+              <td style={{ padding: "2px 6px 2px 0", width: "55%", fontFamily: "monospace", color: "#6b7280", wordBreak: "break-word" }}>
+                {e.path}
+              </td>
+              <td style={{ padding: "2px 0", fontFamily: "monospace", color: "#111827", wordBreak: "break-word" }}>
+                {e.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
 function isDur(p: ProfileDetail): boolean {
   return (p.product ?? "").toLowerCase().startsWith("dur")
     || p.attributes.some((a) => a.type.startsWith("DUR"));
@@ -139,6 +171,7 @@ function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
             {p.action && <Pill text={p.action} tone="gray" />}
             {p.template && <Pill text={`template: ${p.template}`} tone="gray" />}
             {isDur(p) && <Pill text="Downloadable Role" tone="blue" />}
+            {p.element_type && <Pill text={`${p.element_type} — not modelled`} tone="amber" />}
           </div>
           {(p.nad_groups ?? []).length > 0 && (
             <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
@@ -161,9 +194,10 @@ function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
                 ))}
               </tbody>
             </table>
-          ) : (
+          ) : (p.extras ?? []).length === 0 ? (
             <div style={{ color: "#9ca3af", fontSize: 11 }}>No attributes in export</div>
-          )}
+          ) : null}
+          <OtherSettings extras={p.extras ?? []} />
         </div>
       ))}
     </Section>
@@ -193,6 +227,7 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
             {flags.map((f) => <Pill key={f} text={f} tone="blue" />)}
           </div>
         )}
+        <OtherSettings extras={ctx.extras ?? []} />
       </Section>
 
       {(ctx.auth_method_names.length > 0 || ctx.auth_source_names.length > 0) && (

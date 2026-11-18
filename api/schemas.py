@@ -35,6 +35,12 @@ class ProfileAttributeSchema(BaseModel):
     display_value: str = ""
 
 
+class ExtraSettingSchema(BaseModel):
+    """Raw setting from the export that this version does not interpret."""
+    path: str
+    value: str = ""
+
+
 class ProfileDetailSchema(BaseModel):
     name: str
     profile_type: str = ""
@@ -42,7 +48,9 @@ class ProfileDetailSchema(BaseModel):
     template: str = ""
     product: str = ""            # e.g. "durPluginA" (Aruba Downloadable User Role)
     nad_groups: list[str] = []   # NAD groups the profile is restricted to
+    element_type: str = ""       # XML element for unmodelled profile types (profile_type "other")
     attributes: list[ProfileAttributeSchema] = []
+    extras: list[ExtraSettingSchema] = []
 
 
 class RuleDetailSchema(BaseModel):
@@ -74,6 +82,7 @@ class ServiceContextSchema(BaseModel):
     audit_enabled: bool = False
     role_mapping_policy_name: str = ""
     enforcement_policy_name: str = ""
+    extras: list[ExtraSettingSchema] = []
 
 
 class PolicyDetailsSchema(BaseModel):

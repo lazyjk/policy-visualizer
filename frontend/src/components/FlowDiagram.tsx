@@ -560,7 +560,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     pdf.setFont("helvetica", "normal");
     const lines = pdf.splitTextToSize(value, APPX_CONTENT_W - indent - 40);
     const labelW = pdf.getTextWidth(label) + 4;
-    pdf.text(lines[0], APPX_MARGIN + indent + labelW, y);
+    pdf.text(lines[0] ?? "", APPX_MARGIN + indent + labelW, y);
     y += APPX_LINE_H;
     for (let i = 1; i < lines.length; i++) {
       checkPageBreak();
@@ -629,6 +629,10 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
       for (const a of prof.attributes) {
         printLabel(`${a.name}:`, a.display_value || a.value || "(empty)", 20);
       }
+      if ((prof.extras ?? []).length > 0) {
+        printLabel("Other settings (not interpreted):", "", 20);
+        for (const e of prof.extras) printLabel(`${e.path}:`, e.value, 28);
+      }
     }
 
     if (!isDefault) printLabel("On match:", rule.on_match, 4);
@@ -678,6 +682,10 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   }
   if (ctx.role_mapping_policy_name) printLabel("Role Mapping:", ctx.role_mapping_policy_name);
   if (ctx.enforcement_policy_name) printLabel("Enforcement:", ctx.enforcement_policy_name);
+  if ((ctx.extras ?? []).length > 0) {
+    printLabel("Other settings (not interpreted):", "");
+    for (const e of ctx.extras) printLabel(`${e.path}:`, e.value, 12);
+  }
   if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
   if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
   if (ctx.condition_text && ctx.condition_text !== "(no condition)") {

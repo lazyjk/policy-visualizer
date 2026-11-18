@@ -71,6 +71,8 @@ def _profile_detail(profile: "EnforcementProfile") -> dict:
         "template": profile.template,
         "product": profile.product,
         "nad_groups": list(profile.nad_groups),
+        "element_type": profile.element_type,
+        "extras": _extras_detail(profile.extras),
         "attributes": [
             {
                 "name": a.name,
@@ -81,6 +83,50 @@ def _profile_detail(profile: "EnforcementProfile") -> dict:
             for a in profile.attributes
         ],
     }
+
+
+def _extras_detail(extras) -> list[dict]:
+    return [{"path": e.path, "value": e.value} for e in extras]
+
+
+def uninterpreted_notes(service: "Service", ir: "PolicyIR") -> list[str]:
+    """Service-scoped warnings for settings shown raw ("Other settings").
+
+    Covers the service itself and every enforcement profile its enforcement
+    policy can apply (rules + default), in rule order, de-duplicated.
+    """
+    from .policy_ir import ApplyProfiles
+
+    notes: list[str] = []
+    if service.extras:
+        notes.append(
+            f"Service '{service.name}' has {len(service.extras)} setting(s) this version "
+            "does not interpret — shown under 'Other settings' in the inspector."
+        )
+    ep = ir.enforcement_policies.get(service.enforcement_policy_id)
+    if ep is None:
+        return notes
+    thens = [r.then for r in ep.rules] + ([ep.default] if ep.default is not None else [])
+    seen: set[str] = set()
+    for then in thens:
+        if not isinstance(then, ApplyProfiles):
+            continue
+        for pid in then.profile_ids:
+            prof = ir.enforcement_profiles.get(pid)
+            if prof is None or pid in seen:
+                continue
+            seen.add(pid)
+            if prof.profile_type == "other":
+                notes.append(
+                    f"Enforcement profile '{prof.name}' is a {prof.element_type or 'profile'} type this "
+                    "version does not model — its raw settings are shown in the inspector."
+                )
+            elif prof.extras:
+                notes.append(
+                    f"Enforcement profile '{prof.name}' has {len(prof.extras)} setting(s) this version "
+                    "does not interpret — shown under 'Other settings' in the inspector."
+                )
+    return notes
 
 
 def _profile_details(profile_ids: list[str], ir: "PolicyIR") -> list[dict]:
@@ -130,6 +176,7 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "audit_enabled": service.audit_enabled,
         "role_mapping_policy_name": service.role_mapping_policy_name,
         "enforcement_policy_name": service.enforcement_policy_name,
+        "extras": _extras_detail(service.extras),
     }
 
     # Role mapping rules (ordered by index)
@@ -233,7 +280,7 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "role_mapping_rules": role_mapping_rules,
         "enforcement_rules": enforcement_rules,
         "enforcement_default": enforcement_default,
-        "warnings": list(ir.warnings),
+        "warnings": list(ir.warnings) + uninterpreted_notes(service, ir),
         "rule_index": rule_index,
     }
 

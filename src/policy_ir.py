@@ -126,6 +126,21 @@ class ProfileAttribute:
 
 
 @dataclass
+class ExtraSetting:
+    """A raw setting from the export that this version does not interpret.
+
+    `path` is an XPath-like locator relative to the owning service/profile,
+    e.g. "@forwardType" or "DURRoleConfig/Acl[web-only]/@action".
+    """
+    path: str
+    value: str
+
+
+def _extras(raw: dict[str, Any]) -> list["ExtraSetting"]:
+    return [ExtraSetting(path=e.get("path", ""), value=e.get("value", "")) for e in raw.get("extras", []) or []]
+
+
+@dataclass
 class EnforcementProfile:
     id: str
     name: str
@@ -137,6 +152,8 @@ class EnforcementProfile:
     template: str = ""
     product: str = ""                 # e.g. "durPluginA" (Aruba Downloadable User Role)
     nad_groups: list[str] = field(default_factory=list)  # NAD groups the profile is restricted to
+    extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
+    element_type: str = ""            # XML element for profile types we don't model (profile_type "other")
 
 
 @dataclass
@@ -165,6 +182,7 @@ class Service:
     # evaluation precedence (the export does not carry it).
     export_order: int | None = None
     is_category: bool = False
+    extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
 
 
 def is_category_name(name: str) -> bool:
@@ -255,6 +273,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             attributes=_attrs(rp),
             product=rp.get("product", ""),
             nad_groups=list(rp.get("nadGroups", [])),
+            extras=_extras(rp),
         )
     for pp in raw.get("postAuthEnfProfiles", []):
         pid = _stable_id(pp["name"])
@@ -263,6 +282,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type="post_auth",
             description=pp.get("description", ""),
             attributes=_attrs(pp),
+            extras=_extras(pp),
         )
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
@@ -283,6 +303,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             metadata=meta,
             attributes=_attrs(tp),
             nad_groups=list(tp.get("nadGroups", [])),
+            extras=_extras(tp),
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
@@ -294,6 +315,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             attributes=_attrs(cp),
             template=cp.get("template", ""),
             nad_groups=list(cp.get("nadGroups", [])),
+            extras=_extras(cp),
         )
     for gp in raw.get("genericEnfProfiles", []):
         pid = _stable_id(gp["name"])
@@ -304,6 +326,20 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             action=action,
             description=gp.get("description", ""),
             attributes=_attrs(gp),
+            extras=_extras(gp),
+        )
+    for op in raw.get("otherEnfProfiles", []):
+        pid = _stable_id(op["name"])
+        action = op.get("action", "").lower()
+        ir.enforcement_profiles[pid] = EnforcementProfile(
+            id=pid, name=op["name"],
+            profile_type="other",
+            action=action,
+            description=op.get("description", ""),
+            attributes=_attrs(op),
+            nad_groups=list(op.get("nadGroups", [])),
+            extras=_extras(op),
+            element_type=op.get("elementType", ""),
         )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
@@ -507,6 +543,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             audit_enabled=bool(svc.get("auditEnabled", False)),
             export_order=svc.get("exportOrder"),
             is_category=is_category_name(svc["name"]),
+            extras=_extras(svc),
         )
 
     return ir

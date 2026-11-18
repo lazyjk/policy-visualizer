@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Hand-written fixture for the "never silently drop" catch-all. The element
+  and attribute names marked SYNTHETIC are invented on purpose: the parser
+  must surface them as raw "Other settings" without knowing what they mean.
+    - service with an unknown attribute and an unknown child element
+    - DUR profile whose DURRoleConfig nests a non-Attribute block (ACL)
+    - an enforcement profile element type the parser does not model
+-->
+<TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
+  <TipsHeader exportTime="Wed Nov 18 12:00:00 MST 2026" version="6.11"/>
+  <RadiusEnforcementServices>
+    <RadiusEnforcementService description="" name="future-service" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false" futureToggle="enabled" disabledFutureToggle="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Ethernet (15)" value="15" operator="EQUALS" name="NAS-Port-Type" type="Radius:IETF"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
+      <!-- SYNTHETIC -->
+      <FutureMfaSettings name="mfa-primary" provider="example-mfa" timeout="30"/>
+      <AuthMethodNameList>
+        <string>[PAP]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>[Local User Repository]</string>
+      </AuthSourceNameList>
+      <EnfPolicyNameList>
+        <string>future-enf</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+  </RadiusEnforcementServices>
+  <AuthMethods>
+    <AuthMethod description="" name="[PAP]" methodType="PAP"/>
+  </AuthMethods>
+  <AuthSources>
+    <AuthSource description="" name="[Local User Repository]" isAuthorizationSource="true" type="Local"/>
+  </AuthSources>
+  <EnforcementPolicies>
+    <EnforcementPolicy description="" name="future-enf" policyType="RADIUS" defaultProfileName="[Allow Access Profile]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="a" value="a" operator="EQUALS" name="User-Name" type="Radius:IETF"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="dur-with-acl" value="1" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="b" value="b" operator="EQUALS" name="User-Name" type="Radius:IETF"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="snmp-bounce" value="2" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+  </EnforcementPolicies>
+  <RadiusEnfProfiles>
+    <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="DUR with nested ACL" name="dur-with-acl" productVersion="1.0" product="durPluginA" action="Accept">
+      <DURRoleConfig pluginType="durPluginA">
+        <Attribute value="contractor" name="roleName"/>
+        <!-- SYNTHETIC nested block -->
+        <Acl name="web-only" type="ipv4">
+          <Rule action="permit" protocol="tcp" port="443"/>
+          <Rule action="deny" protocol="any"/>
+        </Acl>
+      </DURRoleConfig>
+    </RadiusEnfProfile>
+  </RadiusEnfProfiles>
+  <!-- SYNTHETIC profile type -->
+  <SnmpEnfProfiles>
+    <SnmpEnfProfile description="Bounce port via SNMP" name="snmp-bounce" action="Accept">
+      <SnmpSettings vlanId="99" bouncePort="true"/>
+    </SnmpEnfProfile>
+  </SnmpEnfProfiles>
+</TipsContents>

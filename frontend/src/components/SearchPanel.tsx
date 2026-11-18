@@ -41,6 +41,7 @@ function searchableText(node: FlowNode, details?: PolicyDetails): string {
       for (const p of rule.profiles ?? []) {
         parts.push(p.name);
         for (const a of p.attributes) parts.push(a.name, a.display_value || a.value);
+        for (const e of p.extras ?? []) parts.push(e.path, e.value);
       }
     }
   }

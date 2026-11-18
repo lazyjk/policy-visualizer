@@ -27,6 +27,12 @@ export interface ProfileAttribute {
   display_value: string;
 }
 
+/** A raw setting from the export that this version does not interpret. */
+export interface ExtraSetting {
+  path: string;
+  value: string;
+}
+
 export interface ProfileDetail {
   name: string;
   profile_type: string;
@@ -36,7 +42,10 @@ export interface ProfileDetail {
   product: string;
   /** NAD groups this profile is restricted to (empty = all). */
   nad_groups: string[];
+  /** XML element for profile types not modelled (profile_type "other"). */
+  element_type: string;
   attributes: ProfileAttribute[];
+  extras: ExtraSetting[];
 }
 
 export interface RuleDetail {
@@ -68,6 +77,7 @@ export interface ServiceContext {
   audit_enabled: boolean;
   role_mapping_policy_name: string;
   enforcement_policy_name: string;
+  extras: ExtraSetting[];
 }
 
 export interface PolicyDetails {

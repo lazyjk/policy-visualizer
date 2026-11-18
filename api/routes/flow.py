@@ -26,7 +26,7 @@ from src.ise_parser import ise_parse
 from src.ise_policy_ir import ise_build
 from src.normalizer import And, Op, Or, Predicate
 from src.parser import parse
-from src.policy_details import build_clearpass_details, build_ise_details
+from src.policy_details import build_clearpass_details, build_ise_details, uninterpreted_notes
 from src.policy_ir import (
     ApplyProfiles,
     AuthMethod,
@@ -226,7 +226,7 @@ async def get_flow(
             svc = next(iter(ir.services.values()))
         flow = compile_service(svc, ir)
         details = PolicyDetailsSchema.model_validate(build_clearpass_details(svc, ir)) if include_details else None
-        return _flow_ir_to_schema(flow, ir.warnings, details)
+        return _flow_ir_to_schema(flow, ir.warnings + uninterpreted_notes(svc, ir), details)
 
 
 # ---------------------------------------------------------------------------
