@@ -28,6 +28,21 @@ class FlowEdgeSchema(BaseModel):
     reason: str = ""      # human-readable cause for conditional edges (e.g. "usernotfound")
 
 
+class ProfileAttributeSchema(BaseModel):
+    name: str
+    type: str = ""
+    value: str = ""
+    display_value: str = ""
+
+
+class ProfileDetailSchema(BaseModel):
+    name: str
+    profile_type: str = ""
+    action: str = ""
+    template: str = ""
+    attributes: list[ProfileAttributeSchema] = []
+
+
 class RuleDetailSchema(BaseModel):
     rule_id: str
     node_trace_id: str
@@ -37,6 +52,7 @@ class RuleDetailSchema(BaseModel):
     action_text: str
     on_match: str = "stop"
     linked_names: list[str] = []
+    profiles: list[ProfileDetailSchema] = []
 
 
 class ServiceContextSchema(BaseModel):
@@ -46,6 +62,16 @@ class ServiceContextSchema(BaseModel):
     auth_method_names: list[str] = []
     auth_source_names: list[str] = []
     condition_text: str
+    # Service settings (ClearPass; ISE fills enabled only via defaults)
+    enabled: bool = True
+    template: str = ""
+    monitor_mode: bool = False
+    use_cached_results: bool = False
+    posture_enabled: bool = False
+    profiler_enabled: bool = False
+    audit_enabled: bool = False
+    role_mapping_policy_name: str = ""
+    enforcement_policy_name: str = ""
 
 
 class PolicyDetailsSchema(BaseModel):
@@ -53,6 +79,7 @@ class PolicyDetailsSchema(BaseModel):
     authen_rules: list[RuleDetailSchema] = []
     role_mapping_rules: list[RuleDetailSchema] = []
     enforcement_rules: list[RuleDetailSchema] = []
+    enforcement_default: RuleDetailSchema | None = None
     warnings: list[str] = []
     rule_index: dict[str, RuleDetailSchema] = {}
 
@@ -72,6 +99,10 @@ class ServiceSummary(BaseModel):
     name: str
     description: str = ""
     service_type: str = "RADIUS"
+    enabled: bool = True
+    template: str = ""
+    is_category: bool = False      # ClearPass "------Name------" divider service
+    export_order: int | None = None  # position in the uploaded file (not precedence)
 
 
 class ServiceListResponse(BaseModel):

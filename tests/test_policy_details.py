@@ -282,3 +282,73 @@ def test_first_applicable_enf_rules_on_match_stop():
     for ep in first_applicable_eps:
         for rule in ep.rules:
             assert rule.flow.on_match == "stop"
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: profiles, enforcement default, service settings
+# ---------------------------------------------------------------------------
+
+ATTR_FIXTURE = Path(__file__).parent / "fixtures" / "ProfileAttributes.xml"
+
+
+@pytest.fixture(scope="module")
+def attr_ctx():
+    ir = build(parse(ATTR_FIXTURE), source_file=str(ATTR_FIXTURE))
+    svc = next(s for s in ir.services.values() if s.name == "corp-wireless")
+    return svc, ir, build_clearpass_details(svc, ir), compile_service(svc, ir)
+
+
+def test_enforcement_rule_profiles_with_attributes(attr_ctx):
+    _, _, details, _ = attr_ctx
+    rule0 = details["enforcement_rules"][0]
+    assert [p["name"] for p in rule0["profiles"]] == ["corp-staff-access"]
+    attrs = rule0["profiles"][0]["attributes"]
+    assert attrs[0] == {
+        "name": "Aruba-User-Role", "type": "Radius:Aruba",
+        "value": "staff-role", "display_value": "staff-role",
+    }
+    # Multi-profile rule keeps rule order
+    rule1 = details["enforcement_rules"][1]
+    assert [p["name"] for p in rule1["profiles"]] == ["contractor-vlan", "contractor-role"]
+    # Back-compat fields unchanged
+    assert rule1["action_text"] == "contractor-vlan, contractor-role"
+
+
+def test_role_mapping_rules_have_empty_profiles(attr_ctx):
+    _, _, details, _ = attr_ctx
+    assert all(r["profiles"] == [] for r in details["role_mapping_rules"])
+
+
+def test_enforcement_default_entry(attr_ctx):
+    _, _, details, flow = attr_ctx
+    default = details["enforcement_default"]
+    assert default is not None
+    assert default["name"] == "Default"
+    assert default["profiles"][0]["name"] == "corp-guest-default"
+    assert details["rule_index"][default["node_trace_id"]] is default
+    default_node = next(n for n in flow.nodes if n.id.endswith("__enf_default_action"))
+    assert default_node.trace_rule_id == default["node_trace_id"]
+
+
+def test_rule_index_keys_still_subset_of_trace_ids(attr_ctx):
+    _, _, details, flow = attr_ctx
+    trace_ids = {n.trace_rule_id for n in flow.nodes if n.trace_rule_id}
+    assert set(details["rule_index"]).issubset(trace_ids)
+
+
+def test_service_context_settings(attr_ctx):
+    _, _, details, _ = attr_ctx
+    ctx = details["service_context"]
+    assert ctx["enabled"] is True
+    assert ctx["template"] == "IBNS_WIRELESS"
+    assert ctx["use_cached_results"] is True
+    assert ctx["monitor_mode"] is False
+    assert ctx["role_mapping_policy_name"] == "corp-rm"
+    assert ctx["enforcement_policy_name"] == "corp-enf"
+
+
+def test_ise_details_new_fields_default():
+    ir = ise_build(ise_parse(ISE_FIXTURE), source_file=str(ISE_FIXTURE))
+    details = build_ise_details(ir.policy_sets[0], ir)
+    assert details.get("enforcement_default") is None
+    assert all(r.get("profiles", []) == [] for r in details["enforcement_rules"])

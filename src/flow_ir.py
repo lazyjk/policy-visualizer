@@ -132,6 +132,15 @@ def _end_label(
     return f"{base}\n({suffix})" if suffix else base
 
 
+def default_trace_id(enforcement_policy_id: str) -> str:
+    """trace_rule_id for an enforcement policy's default action node.
+
+    Shared with policy_details so the inspector can look the default up in
+    rule_index like any other rule.
+    """
+    return f"{enforcement_policy_id}__default"
+
+
 def _profiles_label(profile_names: list[str]) -> str:
     return ", ".join(profile_names) if profile_names else "Apply profiles"
 
@@ -268,6 +277,7 @@ def compile_service(service: Service, ir: PolicyIR) -> FlowIR:
                 id=f"{sid}__enf_default_action",
                 type="action",
                 label=f"Default:\n{_profiles_label(def_names)}",
+                trace_rule_id=default_trace_id(ep.id),
             ))
             flow.add_edge(prev_enf_id, def_action.id, "NO")  # type: ignore[arg-type]
             def_end = flow.add_node(FlowNode(

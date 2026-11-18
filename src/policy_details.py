@@ -20,7 +20,7 @@ from .normalizer import BooleanExpr, expr_to_node_label
 
 if TYPE_CHECKING:
     from .ise_policy_ir import ISEPolicyIR, ISEPolicySet
-    from .policy_ir import PolicyIR, Service
+    from .policy_ir import EnforcementProfile, PolicyIR, Service
 
 
 def condition_to_text(expr: BooleanExpr | None) -> str:
@@ -48,6 +48,7 @@ def _rule_detail(
     action_text: str,
     on_match: str,
     linked_names: list[str],
+    profiles: list[dict] | None = None,
 ) -> dict:
     return {
         "rule_id": rule_id,
@@ -58,7 +59,36 @@ def _rule_detail(
         "action_text": action_text,
         "on_match": on_match,
         "linked_names": linked_names,
+        "profiles": profiles or [],
     }
+
+
+def _profile_detail(profile: "EnforcementProfile") -> dict:
+    return {
+        "name": profile.name,
+        "profile_type": profile.profile_type,
+        "action": profile.action,
+        "template": profile.template,
+        "attributes": [
+            {
+                "name": a.name,
+                "type": a.type,
+                "value": a.value,
+                "display_value": a.display_value,
+            }
+            for a in profile.attributes
+        ],
+    }
+
+
+def _profile_details(profile_ids: list[str], ir: "PolicyIR") -> list[dict]:
+    """Resolve profile IDs to detail dicts, preserving rule order."""
+    out = []
+    for pid in profile_ids:
+        prof = ir.enforcement_profiles.get(pid)
+        if prof is not None:
+            out.append(_profile_detail(prof))
+    return out
 
 
 def _build_rule_index(
@@ -89,6 +119,15 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "auth_method_names": list(service.authentication.method_names),
         "auth_source_names": list(service.authentication.source_names),
         "condition_text": condition_to_text(service.match),
+        "enabled": service.enabled,
+        "template": service.template,
+        "monitor_mode": service.monitor_mode,
+        "use_cached_results": service.use_cached_results,
+        "posture_enabled": service.posture_enabled,
+        "profiler_enabled": service.profiler_enabled,
+        "audit_enabled": service.audit_enabled,
+        "role_mapping_policy_name": service.role_mapping_policy_name,
+        "enforcement_policy_name": service.enforcement_policy_name,
     }
 
     # Role mapping rules (ordered by index)
@@ -126,10 +165,12 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         for rule in sorted(enf_policy.rules, key=lambda r: r.index):
             from .policy_ir import ApplyProfiles
             then = rule.then
+            profiles: list[dict] = []
             if isinstance(then, ApplyProfiles):
                 names = then.profile_names if then.profile_names else then.profile_ids
                 action_text = ", ".join(names)
                 linked = list(names)
+                profiles = _profile_details(then.profile_ids, ir)
             else:
                 action_text = str(then)
                 linked = []
@@ -143,10 +184,34 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
                     action_text=action_text,
                     on_match=rule.flow.on_match,
                     linked_names=linked,
+                    profiles=profiles,
                 )
             )
 
+    # Enforcement default (keyed by the default action node's trace_rule_id)
+    enforcement_default: dict | None = None
+    if enf_policy and enf_policy.rules and enf_policy.default is not None:
+        from .flow_ir import default_trace_id
+        from .policy_ir import ApplyProfiles
+        if isinstance(enf_policy.default, ApplyProfiles):
+            d = enf_policy.default
+            names = d.profile_names if d.profile_names else d.profile_ids
+            dtid = default_trace_id(enf_policy.id)
+            enforcement_default = _rule_detail(
+                rule_id=dtid,
+                node_trace_id=dtid,
+                index=len(enf_policy.rules),
+                name="Default",
+                condition_text="(no rule matched)",
+                action_text=", ".join(names),
+                on_match="stop",
+                linked_names=list(names),
+                profiles=_profile_details(d.profile_ids, ir),
+            )
+
     rule_index = _build_rule_index([], role_mapping_rules, enforcement_rules)
+    if enforcement_default is not None:
+        rule_index[enforcement_default["node_trace_id"]] = enforcement_default
 
     svc_match_key = f"{service.id}__match"
     rule_index[svc_match_key] = _rule_detail(
@@ -165,6 +230,7 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "authen_rules": [],
         "role_mapping_rules": role_mapping_rules,
         "enforcement_rules": enforcement_rules,
+        "enforcement_default": enforcement_default,
         "warnings": list(ir.warnings),
         "rule_index": rule_index,
     }
