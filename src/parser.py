@@ -104,7 +104,7 @@ _SERVICE_FLAG_ATTRS: dict[str, str] = {
 _MAX_EXTRAS = 200
 
 # Attributes read explicitly, or deliberately ignored as noise.
-_KNOWN_SERVICE_ATTRS = {"name", "description", "enabled", "acctProxyTargets", *_SERVICE_FLAG_ATTRS}
+_KNOWN_SERVICE_ATTRS = {"name", "description", "enabled", "acctProxyTargets", "stripRulesCsv", *_SERVICE_FLAG_ATTRS}
 _KNOWN_SERVICE_CHILDREN = {
     "RuleExpression", "ServiceTemplate", "AuthMethodNameList", "AuthSourceNameList",
     "AutzSourceNameList", "RoleMappingNameList", "EnfPolicyNameList", "ProxyNameList",
@@ -257,6 +257,8 @@ def _parse_service(svc: ET.Element, service_type: str, export_order: int | None)
         "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
         "exportOrder": export_order,
         **_service_flags(svc),
+        # Strip-username rules, e.g. "user:@, \\:user" -> ["user:@", "\\:user"]
+        "stripRules": [r.strip() for r in svc.get("stripRulesCsv", "").split(",") if r.strip()],
         "extras": _extras(svc, _KNOWN_SERVICE_ATTRS, _KNOWN_SERVICE_CHILDREN),
     }
     if is_proxy:

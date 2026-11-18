@@ -61,6 +61,12 @@ export interface RuleDetail {
   profiles: ProfileDetail[];
 }
 
+/** ClearPass strip-username rule, e.g. "user:@" with a plain-English reading. */
+export interface StripRule {
+  rule: string;
+  description: string;
+}
+
 export interface ServiceContext {
   service_name: string;
   service_type: string;
@@ -72,6 +78,8 @@ export interface ServiceContext {
   template: string;
   monitor_mode: boolean;
   use_cached_results: boolean;
+  strip_username: boolean;
+  strip_rules: StripRule[];
   posture_enabled: boolean;
   profiler_enabled: boolean;
   audit_enabled: boolean;

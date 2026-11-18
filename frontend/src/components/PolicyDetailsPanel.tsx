@@ -204,6 +204,27 @@ function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
   );
 }
 
+function StripUsername({ ctx }: { ctx: ServiceContext }) {
+  const rules = ctx.strip_rules ?? [];
+  if (!ctx.strip_username && rules.length === 0) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <span style={{ color: "#6b7280" }}>Strip username: </span>
+      {ctx.strip_username ? "Enabled" : <span style={{ color: "#9ca3af" }}>Disabled (rules configured)</span>}
+      {rules.length > 0 && (
+        <ul style={{ margin: "2px 0 0", paddingLeft: 16, lineHeight: 1.6 }}>
+          {rules.map((r, i) => (
+            <li key={i}>
+              <code style={MONO_STYLE}>{r.rule}</code>
+              {r.description && <span style={{ color: "#6b7280", fontSize: 11 }}> — {r.description}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
   const flags: string[] = [];
   if (ctx.use_cached_results) flags.push("Cached results");
@@ -230,7 +251,8 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
         <OtherSettings extras={ctx.extras ?? []} />
       </Section>
 
-      {(ctx.auth_method_names.length > 0 || ctx.auth_source_names.length > 0) && (
+      {(ctx.auth_method_names.length > 0 || ctx.auth_source_names.length > 0
+        || ctx.strip_username || (ctx.strip_rules ?? []).length > 0) && (
         <Section title="Authentication">
           {ctx.auth_method_names.length > 0 && (
             <div><span style={{ color: "#6b7280" }}>Methods: </span>{ctx.auth_method_names.join(", ")}</div>
@@ -238,6 +260,7 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
           {ctx.auth_source_names.length > 0 && (
             <div><span style={{ color: "#6b7280" }}>Sources: </span>{ctx.auth_source_names.join(", ")}</div>
           )}
+          <StripUsername ctx={ctx} />
         </Section>
       )}
 

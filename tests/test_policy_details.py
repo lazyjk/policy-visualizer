@@ -362,3 +362,40 @@ def test_dur_profile_details(attr_ctx):
     assert prof["nad_groups"] == ["All-Access-Switches"]
     assert {"name": "vlanAccessId", "type": "DUR:durPluginA",
             "value": "2091", "display_value": "2091"} in prof["attributes"]
+
+
+# ---------------------------------------------------------------------------
+# Strip-username rules (normalized, not "Other settings")
+# ---------------------------------------------------------------------------
+
+from src.policy_details import describe_strip_rule  # noqa: E402
+
+
+def test_strip_username_rules_in_service_context():
+    ir = build(parse(CP_FIXTURE), source_file=str(CP_FIXTURE))
+    svc = next(iter(ir.services.values()))
+    ctx = build_clearpass_details(svc, ir)["service_context"]
+    assert ctx["strip_username"] is True
+    assert [r["rule"] for r in ctx["strip_rules"]] == ["user:@", "\\:user"]
+    assert "before '@'" in ctx["strip_rules"][0]["description"]
+    assert "after '\\'" in ctx["strip_rules"][1]["description"]
+    # Interpreted now, so no longer reported as an uninterpreted setting
+    assert ctx["extras"] == []
+
+
+@pytest.mark.parametrize("rule,expected", [
+    ("user:@", "Keep text before '@'"),
+    ("\\:user", "Keep text after '\\'"),
+    ("user:%", "Keep text before '%'"),
+    ("odd-rule", ""),
+    ("user:", ""),
+])
+def test_describe_strip_rule(rule, expected):
+    assert describe_strip_rule(rule).startswith(expected)
+
+
+def test_strip_rules_empty_when_not_configured():
+    ir = build(parse(TACACS_FIXTURE), source_file=str(TACACS_FIXTURE))
+    ctx = build_clearpass_details(next(iter(ir.services.values())), ir)["service_context"]
+    assert ctx["strip_username"] is False
+    assert ctx["strip_rules"] == []

@@ -360,3 +360,11 @@ def test_non_dur_profile_has_no_product_or_nad_groups(attr_raw):
     prof = _by_name(attr_raw["radiusEnfProfiles"], "corp-staff-access")
     assert prof["product"] == ""
     assert prof["nadGroups"] == []
+
+
+def test_strip_rules_parsed_from_csv():
+    raw = parse(Path(__file__).parent / "fixtures" / "Service.xml")
+    svc = raw["services"][0]
+    assert svc["stripUsername"] is True
+    assert svc["stripRules"] == ["user:@", "\\:user"]
+    assert all("stripRulesCsv" not in e["path"] for e in svc["extras"])

@@ -85,6 +85,23 @@ def _profile_detail(profile: "EnforcementProfile") -> dict:
     }
 
 
+def describe_strip_rule(rule: str) -> str:
+    """Plain-English reading of a ClearPass strip-username rule.
+
+    Rules use the keyword `user` for the part that is kept and the other side
+    of the colon as the delimiter: "user:@" keeps what precedes "@"
+    (user@example.com -> user); "\\:user" keeps what follows "\\"
+    (EXAMPLE\\user -> user). Unrecognised shapes return "".
+    """
+    if rule.startswith("user:") and len(rule) > len("user:"):
+        delim = rule[len("user:"):]
+        return f"Keep text before '{delim}' (user{delim}example → user)"
+    if rule.endswith(":user") and len(rule) > len(":user"):
+        delim = rule[: -len(":user")]
+        return f"Keep text after '{delim}' (EXAMPLE{delim}user → user)"
+    return ""
+
+
 def _extras_detail(extras) -> list[dict]:
     return [{"path": e.path, "value": e.value} for e in extras]
 
@@ -171,6 +188,10 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "template": service.template,
         "monitor_mode": service.monitor_mode,
         "use_cached_results": service.use_cached_results,
+        "strip_username": service.strip_username,
+        "strip_rules": [
+            {"rule": r, "description": describe_strip_rule(r)} for r in service.strip_rules
+        ],
         "posture_enabled": service.posture_enabled,
         "profiler_enabled": service.profiler_enabled,
         "audit_enabled": service.audit_enabled,

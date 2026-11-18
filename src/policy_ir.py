@@ -175,6 +175,7 @@ class Service:
     monitor_mode: bool = False
     use_cached_results: bool = False
     strip_username: bool = False
+    strip_rules: list[str] = field(default_factory=list)  # e.g. ["user:@", "\\:user"] (tips_service.strip_rules_csv)
     posture_enabled: bool = False
     profiler_enabled: bool = False
     audit_enabled: bool = False
@@ -548,6 +549,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             monitor_mode=bool(svc.get("monitorMode", False)),
             use_cached_results=bool(svc.get("useCachedResults", False)),
             strip_username=bool(svc.get("stripUsername", False)),
+            strip_rules=list(svc.get("stripRules", [])),
             posture_enabled=bool(svc.get("postureEnabled", False)),
             profiler_enabled=bool(svc.get("profilerEnabled", False)),
             audit_enabled=bool(svc.get("auditEnabled", False)),

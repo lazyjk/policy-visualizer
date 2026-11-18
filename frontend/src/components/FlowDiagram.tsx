@@ -688,6 +688,13 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   }
   if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
   if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
+  if (ctx.strip_username || (ctx.strip_rules ?? []).length > 0) {
+    const rules = (ctx.strip_rules ?? [])
+      // jsPDF's built-in fonts can't render "→"
+      .map((r) => (r.description ? `${r.rule} (${r.description.replace(/→/g, "->")})` : r.rule))
+      .join("; ");
+    printLabel("Strip username:", [ctx.strip_username ? "Enabled" : "Disabled", rules].filter(Boolean).join(" — "));
+  }
   if (ctx.condition_text && ctx.condition_text !== "(no condition)") {
     checkPageBreak(APPX_LINE_H * 2);
     pdf.setFontSize(9);

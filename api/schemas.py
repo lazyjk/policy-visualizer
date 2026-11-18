@@ -65,6 +65,11 @@ class RuleDetailSchema(BaseModel):
     profiles: list[ProfileDetailSchema] = []
 
 
+class StripRuleSchema(BaseModel):
+    rule: str                     # as configured, e.g. "user:@"
+    description: str = ""         # plain-English reading; "" if unrecognised
+
+
 class ServiceContextSchema(BaseModel):
     service_name: str
     service_type: str
@@ -77,6 +82,8 @@ class ServiceContextSchema(BaseModel):
     template: str = ""
     monitor_mode: bool = False
     use_cached_results: bool = False
+    strip_username: bool = False
+    strip_rules: list[StripRuleSchema] = []
     posture_enabled: bool = False
     profiler_enabled: bool = False
     audit_enabled: bool = False
