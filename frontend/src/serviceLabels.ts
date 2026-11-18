@@ -21,8 +21,3 @@ export function templateLabel(template: string): string {
   if (!template) return "";
   return TEMPLATE_LABELS[template] ?? template;
 }
-
-/** "--------Wireless Services--------" → "Wireless Services". */
-export function categoryLabel(name: string): string {
-  return name.replace(/^[\s-]+|[\s-]+$/g, "") || name;
-}

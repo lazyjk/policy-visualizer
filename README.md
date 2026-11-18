@@ -20,7 +20,7 @@ Policy Visualizer converts a network policy XML service export into:
 - Surfaces full rule conditions and actions in a Policy Details side panel (click any decision or action node), including each enforcement profile's attributes (e.g. Aruba-User-Role, VLAN); with nothing selected it shows a service summary (template, enabled/monitor mode, auth, policies)
 - Shows key profile attributes (role / VLAN / filter) directly under enforcement action nodes
 - Searches the diagram (node labels, conditions, profile names and attribute values) with next/previous navigation
-- Service picker shows disabled services, template badges, and ClearPass "------Name------" divider services as section headers
+- Service picker shows disabled services and template badges, and hides ClearPass "------Name------" divider services
 - Exports diagrams to PNG, SVG, PDF, and Draw.io format (BETA)
 - Exports PDF with optional policy details appendix (service settings, rule tables, conditions, actions, profile attributes)
 - Builds new policies interactively in the **Policy Builder** tab (v4.0.0-beta.2): connect to a live ClearPass appliance, browse policy elements, compose rules on a canvas, and preview the resulting flow diagram

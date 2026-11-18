@@ -3,7 +3,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceSummary } from "../api";
-import { categoryLabel, templateLabel } from "../serviceLabels";
+import { templateLabel } from "../serviceLabels";
 
 interface Props {
   services: ServiceSummary[];
@@ -40,20 +40,17 @@ export default function UploadPanel({
   // Real services exclude ClearPass "------Name------" divider entries.
   const realServiceCount = useMemo(() => services.filter((s) => !s.is_category).length, [services]);
 
-  // Category headers are only meaningful in file order with no filtering.
-  const grouped = sortOrder === "none" && !nameFilter.trim() && !filterType;
-
   const displayedServices = useMemo(() => {
-    // File order first (stable for services lacking export_order).
+    // File order (as ClearPass wrote the export — NOT ClearPass service
+    // precedence, which the XML doesn't carry). Stable for missing export_order.
     let list = services
       .map((s, i) => ({ s, i }))
       .sort((a, b) => (a.s.export_order ?? a.i) - (b.s.export_order ?? b.i))
       .map(({ s }) => s);
-    list = grouped ? list : list.filter((s) => !s.is_category);
-    // Drop a trailing header / headers immediately followed by another header.
-    if (grouped) {
-      list = list.filter((s, idx) => !s.is_category || (idx + 1 < list.length && !list[idx + 1].is_category));
-    }
+    // ClearPass "------Name------" divider services are hidden: they carry no
+    // policy, and the XML export doesn't preserve ClearPass service order, so
+    // they can't be used as reliable section headers.
+    list = list.filter((s) => !s.is_category);
     if (filterType) list = list.filter((s) => s.service_type === filterType);
     if (nameFilter.trim()) {
       const raw = nameFilter.trim();
@@ -66,7 +63,7 @@ export default function UploadPanel({
     if (sortOrder === "asc") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === "desc") list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
-  }, [services, filterType, nameFilter, sortOrder, grouped]);
+  }, [services, filterType, nameFilter, sortOrder]);
 
   function cycleSortOrder() {
     setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
@@ -212,13 +209,6 @@ export default function UploadPanel({
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {displayedServices.map((svc) => {
-                if (svc.is_category) {
-                  return (
-                    <li key={svc.id} style={categoryHeaderStyle} title={svc.name}>
-                      {categoryLabel(svc.name)}
-                    </li>
-                  );
-                }
                 const isActive = svc.id === selectedService;
                 const enabled = svc.enabled !== false;
                 const tmpl = templateLabel(svc.template ?? "");
@@ -339,18 +329,6 @@ const disabledBadgeStyle: React.CSSProperties = {
   ...serviceTypeBadgeStyle,
   color: "#991b1b",
   background: "#fee2e2",
-};
-
-const categoryHeaderStyle: React.CSSProperties = {
-  margin: "12px 0 6px",
-  padding: "0 2px 3px",
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
-  color: "#6b7280",
-  borderBottom: "1px solid #e5e7eb",
-  cursor: "default",
 };
 
 const nameFilterStyle: React.CSSProperties = {
