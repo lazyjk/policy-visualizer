@@ -1,15 +1,17 @@
 """
 Flow API routes.
 
-POST /api/flow    — compile a service from an uploaded XML file into Flow IR JSON
-POST /api/services — list all services in an uploaded XML file
+POST /api/flow    — compile a service from an uploaded file into Flow IR JSON
+POST /api/services — list all services in an uploaded file
 GET  /api/health  — liveness check
 
-Supports both ClearPass (TipsContents) and Cisco ISE (Root/policysets) XML formats.
+Supports ClearPass (TipsContents) and Cisco ISE (Root/policysets) XML exports,
+and ClearPass DB backups (tipsdb .pgdump, PostgreSQL custom format).
 Format is auto-detected from the file contents.
 """
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -26,6 +28,8 @@ from src.ise_parser import ise_parse
 from src.ise_policy_ir import ise_build
 from src.normalizer import And, Op, Or, Predicate
 from src.parser import parse
+from src.pgdump_parser import parse_pgdump
+from src.pgdump_reader import PgDumpError, PgRestoreNotFound, is_pgdump
 from src.policy_details import build_clearpass_details, build_ise_details, uninterpreted_notes
 from src.policy_ir import (
     ApplyProfiles,
@@ -46,36 +50,49 @@ from src.policy_ir import (
 
 router = APIRouter()
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {".xml"}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB (XML exports)
+# DB backups are larger; keep in step with client_max_body_size in frontend/nginx.conf.
+MAX_PGDUMP_BYTES = int(os.environ.get("PV_MAX_PGDUMP_MB", "100")) * 1024 * 1024
+_PGDUMP_EXTENSIONS = {".pgdump", ".dump"}
+_ALLOWED_EXTENSIONS = {".xml"} | _PGDUMP_EXTENSIONS
 
 
 def _check_upload(file: UploadFile) -> None:
-    """Raise 415 if the file does not have an .xml extension."""
+    """Raise 415 if the file is not an .xml export or a .pgdump/.dump DB backup."""
     ext = Path(file.filename or "").suffix.lower()
     if ext not in _ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=415, detail="Only .xml files are accepted.")
+        raise HTTPException(
+            status_code=415,
+            detail="Only .xml exports and .pgdump/.dump ClearPass DB backups are accepted.",
+        )
 
 
 def _read_upload(file: UploadFile) -> bytes:
-    """Read upload into memory, raising 413 if it exceeds MAX_UPLOAD_BYTES."""
-    data = file.file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
+    """Read upload into memory, raising 413 if it exceeds the limit for its type."""
+    is_dump = Path(file.filename or "").suffix.lower() in _PGDUMP_EXTENSIONS
+    limit = MAX_PGDUMP_BYTES if is_dump else MAX_UPLOAD_BYTES
+    data = file.file.read(limit + 1)
+    if len(data) > limit:
         raise HTTPException(
             status_code=413,
-            detail=f"Upload exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+            detail=f"Upload exceeds the {limit // (1024 * 1024)} MB limit.",
         )
     return data
 
 
 def _detect_format(data: bytes) -> str:
-    """Detect whether the XML is ClearPass or ISE format from a content prefix scan."""
+    """Detect ClearPass XML, ISE XML or a ClearPass DB backup from the content."""
+    if is_pgdump(data):
+        return "pgdump"
     snippet = data[:2000].decode("utf-8", errors="ignore")
     if "<policysets>" in snippet or "<radiusPolicySets>" in snippet:
         return "ise"
     if "avendasys.com" in snippet or "TipsContents" in snippet:
         return "clearpass"
-    raise HTTPException(status_code=422, detail="Unrecognized XML format (not ClearPass or ISE).")
+    raise HTTPException(
+        status_code=422,
+        detail="Unrecognized file (not a ClearPass or ISE XML export, or a ClearPass DB backup).",
+    )
 
 
 def _parse_and_build_clearpass(data: bytes, filename: str):
@@ -90,6 +107,29 @@ def _parse_and_build_clearpass(data: bytes, filename: str):
         raise HTTPException(status_code=422, detail=f"Invalid XML: {exc}") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Processing error.") from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    return raw, ir
+
+
+def _parse_and_build_pgdump(data: bytes, filename: str):
+    """Read a ClearPass DB backup into (raw, ir). The upload is spooled to a
+    temp file (pg_restore needs a seekable archive) and deleted afterwards."""
+    with tempfile.NamedTemporaryFile(suffix=".pgdump", delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = Path(tmp.name)
+    try:
+        raw = parse_pgdump(tmp_path)
+        ir = build(raw, source_file=filename)
+    except PgRestoreNotFound as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="This server cannot read DB backups: the PostgreSQL client (pg_restore) is not installed.",
+        ) from exc
+    except PgDumpError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid ClearPass DB backup: {exc}") from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Processing error.") from exc
     finally:
@@ -165,19 +205,20 @@ async def list_services(file: UploadFile = File(...)):
             for i, ps in enumerate(ir.policy_sets)
         ]
     else:
-        _, ir = _parse_and_build_clearpass(data, file.filename or "")
+        build_fn = _parse_and_build_pgdump if fmt == "pgdump" else _parse_and_build_clearpass
+        _, ir = build_fn(data, file.filename or "")
         services = [
             ServiceSummary(
                 id=s.id, name=s.name, description=s.description,
                 service_type=s.service_type, enabled=s.enabled,
                 template=s.template, is_category=s.is_category,
-                export_order=s.export_order,
+                export_order=s.export_order, precedence=s.precedence,
             )
             for s in ir.services.values()
         ]
 
     if not services:
-        raise HTTPException(status_code=422, detail="No services found in the uploaded XML.")
+        raise HTTPException(status_code=422, detail="No services found in the uploaded file.")
     return ServiceListResponse(services=services)
 
 
@@ -211,9 +252,10 @@ async def get_flow(
         return _flow_ir_to_schema(flow, ir.warnings, details)
 
     else:
-        _, ir = _parse_and_build_clearpass(data, file.filename or "")
+        build_fn = _parse_and_build_pgdump if fmt == "pgdump" else _parse_and_build_clearpass
+        _, ir = build_fn(data, file.filename or "")
         if not ir.services:
-            raise HTTPException(status_code=422, detail="No services found in the uploaded XML.")
+            raise HTTPException(status_code=422, detail="No services found in the uploaded file.")
         if service:
             svc = ir.services.get(service)
             if svc is None:

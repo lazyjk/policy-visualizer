@@ -198,6 +198,9 @@ class Service:
     # Position of the service element in the XML file. NOT ClearPass
     # evaluation precedence (the export does not carry it).
     export_order: int | None = None
+    # True ClearPass evaluation order (tips_service.order_no). Only a DB
+    # backup carries it; None for XML exports.
+    precedence: int | None = None
     is_category: bool = False
     extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
 
@@ -223,6 +226,7 @@ def _attrs(raw_profile: dict[str, Any]) -> list[ProfileAttribute]:
 class PolicyIR:
     version: str
     source_file: str
+    source_format: str = "xml"  # "xml" (service export) | "pgdump" (DB backup)
     services: dict[str, Service] = field(default_factory=dict)
     role_mapping_policies: dict[str, RoleMappingPolicy] = field(default_factory=dict)
     enforcement_policies: dict[str, EnforcementPolicy] = field(default_factory=dict)
@@ -244,7 +248,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     # breaking way (field renames, removals, or type changes). Adding optional
     # fields is non-breaking and does not require a schema version bump.
     # See CLAUDE.md § 12 "Versioning & Release Policy" for full rules.
-    ir = PolicyIR(version="1.0", source_file=source_file)
+    ir = PolicyIR(version="1.0", source_file=source_file, source_format=raw.get("format", "xml"))
+    ir.warnings.extend(raw.get("warnings", []))  # input-adapter warnings (pgdump rule conversion)
 
     def _warn_unknown_ops(expr: BooleanExpr | None, context: str) -> None:
         ops = unknown_operators(expr)
@@ -374,7 +379,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         action = op.get("action", "").lower()
         _put_profile(EnforcementProfile(
             id=pid, name=op["name"],
-            profile_type="other",
+            # The DB path models SNMP/Agent profiles ("snmp"/"agent"); XML
+            # profile elements we don't recognise stay "other".
+            profile_type=op.get("profileType") or "other",
             action=action,
             description=op.get("description", ""),
             attributes=_attrs(op),
@@ -594,6 +601,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profiler_coa_profile=svc.get("profilerCoaProfile", ""),
             profiler_categories=list(svc.get("profilerCategories", [])),
             export_order=svc.get("exportOrder"),
+            precedence=svc.get("precedence"),
             is_category=is_category_name(svc["name"]),
             extras=_extras(svc),
         )

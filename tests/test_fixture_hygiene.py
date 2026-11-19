@@ -15,7 +15,7 @@ _spec = importlib.util.spec_from_file_location("sanitize_fixture", ROOT / "tools
 sanitize_fixture = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sanitize_fixture)
 
-LAB_FIXTURES = [FIXTURES / "LabKitchenSink.xml"]
+LAB_FIXTURES = [FIXTURES / "LabKitchenSink.xml", FIXTURES / "pgdump" / "LabKitchenSink.copy.txt"]
 
 
 @pytest.mark.parametrize("path", LAB_FIXTURES, ids=lambda p: p.name)

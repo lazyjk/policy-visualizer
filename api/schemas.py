@@ -129,6 +129,7 @@ class ServiceSummary(BaseModel):
     template: str = ""
     is_category: bool = False      # ClearPass "------Name------" divider service
     export_order: int | None = None  # position in the uploaded file (not precedence)
+    precedence: int | None = None    # true ClearPass evaluation order (DB backups only)
 
 
 class ServiceListResponse(BaseModel):

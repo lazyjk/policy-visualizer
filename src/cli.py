@@ -5,6 +5,7 @@ Usage:
     python -m src.cli service.xml --output diagram.svg
     python -m src.cli service.xml --output diagram.png --format png
     python -m src.cli service.xml --output diagram.svg --service "My Service Name"
+    python -m src.cli tipsdb.pgdump --list-services     # ClearPass DB backup (needs pg_restore)
 """
 from __future__ import annotations
 
@@ -16,6 +17,8 @@ import click
 from . import parser as xml_parser
 from . import policy_ir as ir_builder
 from .flow_ir import compile_service
+from .pgdump_parser import parse_pgdump
+from .pgdump_reader import PgDumpError, is_pgdump
 from .renderer import render
 
 
@@ -49,11 +52,20 @@ def main(
     service: str | None,
     list_services: bool,
 ) -> None:
-    """Generate a flow diagram SVG from a ClearPass XML service export."""
+    """Generate a flow diagram from a ClearPass XML export or DB backup (.pgdump)."""
 
-    # Phase 1: Parse
+    # Phase 1: Parse (XML export, or DB backup detected by its magic bytes)
     click.echo(f"Parsing {xml_file} ...")
-    raw = xml_parser.parse(xml_file)
+    with open(xml_file, "rb") as fh:
+        head = fh.read(8)
+    if is_pgdump(head):
+        try:
+            raw = parse_pgdump(xml_file)
+        except PgDumpError as exc:
+            click.echo(str(exc), err=True)
+            sys.exit(1)
+    else:
+        raw = xml_parser.parse(xml_file)
 
     # Phase 2+3: Build Policy IR
     ir = ir_builder.build(raw, source_file=str(xml_file))
@@ -61,7 +73,9 @@ def main(
     if list_services:
         click.echo("Services found:")
         for svc in ir.services.values():
-            click.echo(f"  - {svc.name}")
+            order = f"{svc.precedence:>3}. " if svc.precedence is not None else "  - "
+            flags = "" if svc.enabled else "  (disabled)"
+            click.echo(f"  {order}{svc.name}{flags}")
         return
 
     if not ir.services:
