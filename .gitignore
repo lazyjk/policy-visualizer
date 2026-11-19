@@ -47,3 +47,6 @@ frontend/dist/
 
 # VSCode
 .vscode/
+
+# ClearPass DB backups (contain secret-bearing tables) — never commit
+*.pgdump
