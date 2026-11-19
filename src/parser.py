@@ -104,10 +104,15 @@ _SERVICE_FLAG_ATTRS: dict[str, str] = {
 _MAX_EXTRAS = 200
 
 # Attributes read explicitly, or deliberately ignored as noise.
-_KNOWN_SERVICE_ATTRS = {"name", "description", "enabled", "acctProxyTargets", "stripRulesCsv", *_SERVICE_FLAG_ATTRS}
+_KNOWN_SERVICE_ATTRS = {
+    "name", "description", "enabled", "acctProxyTargets", "stripRulesCsv", *_SERVICE_FLAG_ATTRS,
+    "actionProfileName", "categoryCsv",          # profiler: CoA on category change
+    "forwardType", "proxyAccountRequest",        # RADIUS proxy
+}
 _KNOWN_SERVICE_CHILDREN = {
     "RuleExpression", "ServiceTemplate", "AuthMethodNameList", "AuthSourceNameList",
     "AutzSourceNameList", "RoleMappingNameList", "EnfPolicyNameList", "ProxyNameList",
+    "AcctProxyTargetNameList",
 }
 
 # element tag -> (known attributes, known child elements)
@@ -119,7 +124,7 @@ _KNOWN_PROFILE_PARTS: dict[str, tuple[set[str], set[str]]] = {
     "PostAuthEnfProfile": ({"name", "description", "postAuthType"}, {"AttributeList"}),
     "TacacsEnfProfile": (
         {"name", "description", "action", "autzStatus", "maxPrivLevel"},
-        {"AttributeList", "NadGroupNameList"},
+        {"AttributeList", "NadGroupNameList", "ServiceNameList", "ServiceAttrList"},
     ),
     "RadiusCoAEnfProfile": (
         {"name", "description", "action", "template"},
@@ -217,6 +222,27 @@ def _attribute_list(el: ET.Element) -> list[dict[str, str]]:
     ]
 
 
+def _tacacs_service_attributes(el: ET.Element) -> list[dict[str, str]]:
+    """Per-TACACS-service attributes from a TACACS profile's <ServiceAttrList>.
+
+    Each <RulesCondition name value valueDispName type> sets one attribute for
+    one TACACS service (e.g. AdminPrivilege for "cpass:HTTP"); the service name
+    becomes the attribute type, the same way DB rows key them by service_id.
+    """
+    container = el.find(_tag("ServiceAttrList"))
+    if container is None:
+        return []
+    return [
+        {
+            "name": rc.get("name", ""),
+            "type": rc.get("type", ""),
+            "value": rc.get("value", ""),
+            "displayValue": rc.get("valueDispName", rc.get("value", "")),
+        }
+        for rc in container.findall(_tag("RulesCondition"))
+    ]
+
+
 def _dur_attributes(el: ET.Element) -> list[dict[str, str]]:
     """Aruba Downloadable User Role settings from a profile's <DURRoleConfig>.
 
@@ -257,6 +283,13 @@ def _parse_service(svc: ET.Element, service_type: str, export_order: int | None)
         "enfPolicies": _string_list(svc, "EnfPolicyNameList"),
         "exportOrder": export_order,
         **_service_flags(svc),
+        "acctProxyTargets": _string_list(svc, "AcctProxyTargetNameList"),
+        "proxyForwardType": svc.get("forwardType", ""),
+        "proxyAccountRequests": _bool_attr(svc, "proxyAccountRequest"),
+        # Profiler: CoA profile sent when an endpoint's category changes,
+        # and the categories that trigger it ("Access Points, Printers").
+        "profilerCoaProfile": svc.get("actionProfileName", ""),
+        "profilerCategories": [c.strip() for c in svc.get("categoryCsv", "").split(",") if c.strip()],
         # Strip-username rules, e.g. "user:@, \\:user" -> ["user:@", "\\:user"]
         "stripRules": [r.strip() for r in svc.get("stripRulesCsv", "").split(",") if r.strip()],
         "extras": _extras(svc, _KNOWN_SERVICE_ATTRS, _KNOWN_SERVICE_CHILDREN),
@@ -401,7 +434,8 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "action":       tp.get("action", ""),
             "autzStatus":   tp.get("autzStatus", ""),   # PASS_ADD | PASS_REPL | FAIL
             "maxPrivLevel": tp.get("maxPrivLevel", ""),  # "0"–"15" or ""
-            "attributes":   _attribute_list(tp),
+            "attributes":   _attribute_list(tp) + _tacacs_service_attributes(tp),
+            "tacacsServices": _string_list(tp, "ServiceNameList"),  # e.g. ["shell", "cpass:HTTP"]
             "nadGroups":    _string_list(tp, "NadGroupNameList"),
             "extras": _profile_extras(tp),
         })

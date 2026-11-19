@@ -42,6 +42,8 @@ export interface ProfileDetail {
   product: string;
   /** NAD groups this profile is restricted to (empty = all). */
   nad_groups: string[];
+  /** TACACS services this profile grants, e.g. ["shell", "cpass:HTTP"] (TACACS only). */
+  tacacs_services: string[];
   /** XML element for profile types not modelled (profile_type "other"). */
   element_type: string;
   attributes: ProfileAttribute[];
@@ -83,6 +85,17 @@ export interface ServiceContext {
   posture_enabled: boolean;
   profiler_enabled: boolean;
   audit_enabled: boolean;
+  /** Authorization sources queried in addition to the authentication sources. */
+  authorization_source_names: string[];
+  /** RADIUS proxy services: target names, load-balancing mode, accounting proxied. */
+  proxy_targets: string[];
+  proxy_forward_type: string;
+  proxy_accounting: boolean;
+  /** Accounting proxy targets. */
+  acct_proxy_targets: string[];
+  /** Profiler: CoA profile sent when an endpoint's category changes, and the trigger categories. */
+  profiler_coa_profile: string;
+  profiler_categories: string[];
   role_mapping_policy_name: string;
   enforcement_policy_name: string;
   extras: ExtraSetting[];

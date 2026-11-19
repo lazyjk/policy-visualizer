@@ -626,6 +626,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
         .filter(Boolean).join(", ");
       printLabel("Profile:", `${prof.name} (${meta})`, 8);
       if ((prof.nad_groups ?? []).length > 0) printLabel("NAD groups:", prof.nad_groups.join(", "), 20);
+      if ((prof.tacacs_services ?? []).length > 0) printLabel("TACACS services:", prof.tacacs_services.join(", "), 20);
       for (const a of prof.attributes) {
         printLabel(`${a.name}:`, a.display_value || a.value || "(empty)", 20);
       }
@@ -688,6 +689,23 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   }
   if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
   if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
+  if ((ctx.authorization_source_names ?? []).length > 0) {
+    printLabel("Authorization Sources:", ctx.authorization_source_names.join(", "));
+  }
+  if ((ctx.proxy_targets ?? []).length > 0) {
+    const mode = [ctx.proxy_forward_type, ctx.proxy_accounting && "accounting proxied"].filter(Boolean).join(", ");
+    printLabel("Proxy targets:", ctx.proxy_targets.join(", ") + (mode ? ` (${mode})` : ""));
+  }
+  if ((ctx.acct_proxy_targets ?? []).length > 0) {
+    printLabel("Accounting proxy:", ctx.acct_proxy_targets.join(", "));
+  }
+  if (ctx.profiler_coa_profile || (ctx.profiler_categories ?? []).length > 0) {
+    const cats = (ctx.profiler_categories ?? []).join(", ");
+    printLabel(
+      "Profiler CoA:",
+      [ctx.profiler_coa_profile || "(none)", cats && `on category change: ${cats}`].filter(Boolean).join(" — "),
+    );
+  }
   if (ctx.strip_username || (ctx.strip_rules ?? []).length > 0) {
     const rules = (ctx.strip_rules ?? [])
       // jsPDF's built-in fonts can't render "→"
