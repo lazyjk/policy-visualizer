@@ -2,10 +2,11 @@ import { useMemo, useState, useRef } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
-import { fetchServices, fetchFlow, fetchXref } from "./api";
-import type { FlowIR, FlowNode, ServiceSummary, XrefReport } from "./api";
+import { fetchServices, fetchFlow, fetchXref, fetchCoverage } from "./api";
+import type { CoverageReport, FlowIR, FlowNode, ServiceSummary, XrefReport } from "./api";
 import PolicyDetailsPanel from "./components/PolicyDetailsPanel";
 import ConfigReportModal from "./components/ConfigReportModal";
+import CoverageModal from "./components/CoverageModal";
 import BuilderView from "./components/builder/BuilderView";
 import { DiagramSessionProvider, useDiagramSession } from "./context/DiagramSessionContext";
 import { version } from "../package.json";
@@ -36,6 +37,7 @@ function AppContent() {
   // Where-used report for the current file (ClearPass only; null for ISE or on error).
   const [xref, setXref] = useState<XrefReport | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [coverage, setCoverage] = useState<CoverageReport | null>(null);
 
   // Category dividers ("------Name------") are not real services: never batch-export them.
   const exportableServices = useMemo(() => services.filter((s) => !s.is_category), [services]);
@@ -50,6 +52,7 @@ function AppContent() {
     setError(null);
     setXref(null);
     setReportOpen(false);
+    setCoverage(null);
     setLoading(true);
     try {
       const result = await fetchServices(file);
@@ -84,6 +87,17 @@ function AppContent() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleOpenCoverage() {
+    const file = fileRef.current;
+    if (!file) return;
+    try {
+      const report = await fetchCoverage(file);
+      if (fileRef.current === file) setCoverage(report);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -144,6 +158,7 @@ function AppContent() {
             onFileSelect={handleFileSelect}
             onServiceSelect={handleServiceSelect}
             onOpenReport={xref ? () => setReportOpen(true) : undefined}
+            onOpenCoverage={xref ? handleOpenCoverage : undefined}
           />
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
             <div style={{ flex: 1, position: "relative", background: "#f9fafb" }}>
@@ -203,6 +218,10 @@ function AppContent() {
 
       {reportOpen && xref && (
         <ConfigReportModal report={xref} fileName={fileName} onClose={() => setReportOpen(false)} />
+      )}
+
+      {coverage && (
+        <CoverageModal report={coverage} fileName={fileName} onClose={() => setCoverage(null)} />
       )}
 
       {/* Version watermark */}

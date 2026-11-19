@@ -15,6 +15,8 @@ interface Props {
   onServiceSelect: (id: string) => void;
   /** Opens the where-used / unused-object report; undefined while unavailable. */
   onOpenReport?: () => void;
+  /** Opens the anonymous coverage report; undefined while unavailable (e.g. ISE). */
+  onOpenCoverage?: () => void;
 }
 
 export default function UploadPanel({
@@ -26,6 +28,7 @@ export default function UploadPanel({
   onFileSelect,
   onServiceSelect,
   onOpenReport,
+  onOpenCoverage,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -141,10 +144,23 @@ export default function UploadPanel({
         </div>
       )}
 
-      {onOpenReport && (
-        <button onClick={onOpenReport} style={reportButtonStyle} title="Where objects are used, and what nothing uses">
-          Configuration report
-        </button>
+      {(onOpenReport || onOpenCoverage) && (
+        <div style={{ display: "flex", gap: 6 }}>
+          {onOpenReport && (
+            <button onClick={onOpenReport} style={reportButtonStyle} title="Where objects are used, and what nothing uses">
+              Configuration report
+            </button>
+          )}
+          {onOpenCoverage && (
+            <button
+              onClick={onOpenCoverage}
+              style={reportButtonStyle}
+              title="Anonymous feature counts (no names or values) you can share to help prioritise support"
+            >
+              Coverage report
+            </button>
+          )}
+        </div>
       )}
 
       {/* Error */}

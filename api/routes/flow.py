@@ -4,6 +4,7 @@ Flow API routes.
 POST /api/flow    — compile a service from an uploaded file into Flow IR JSON
 POST /api/services — list all services in an uploaded file
 POST /api/xref    — where-used / unused-object report (ClearPass)
+POST /api/coverage — anonymous feature-usage counts (ClearPass)
 GET  /api/health  — liveness check
 
 Supports ClearPass (TipsContents) and Cisco ISE (Root/policysets) XML exports,
@@ -41,6 +42,7 @@ from src.parser import parse
 from src.pgdump_parser import parse_pgdump
 from src.pgdump_reader import PgDumpError, PgRestoreNotFound, is_pgdump
 from src.policy_details import build_clearpass_details, build_ise_details, uninterpreted_notes
+from src.coverage import coverage_report
 from src.xref import build_xref
 from src.policy_ir import (
     ApplyProfiles,
@@ -293,6 +295,20 @@ async def get_xref(file: UploadFile = File(...)):
     build_fn = _parse_and_build_pgdump if fmt == "pgdump" else _parse_and_build_clearpass
     _, ir = build_fn(data, file.filename or "")
     return XrefResponse.model_validate(build_xref(ir))
+
+
+@router.post("/coverage")
+async def get_coverage(file: UploadFile = File(...)) -> dict:
+    """Anonymous coverage report: which features the file uses, as counts only
+    (no names, descriptions or values) — safe to share for prioritising support."""
+    _check_upload(file)
+    data = _read_upload(file)
+    fmt = _detect_format(data)
+    if fmt == "ise":
+        raise HTTPException(status_code=422, detail="The coverage report is available for ClearPass files only.")
+    build_fn = _parse_and_build_pgdump if fmt == "pgdump" else _parse_and_build_clearpass
+    raw, ir = build_fn(data, file.filename or "")
+    return coverage_report(raw, ir)
 
 
 # ---------------------------------------------------------------------------

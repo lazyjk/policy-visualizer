@@ -6,9 +6,11 @@ Usage:
     python -m src.cli service.xml --output diagram.png --format png
     python -m src.cli service.xml --output diagram.svg --service "My Service Name"
     python -m src.cli tipsdb.pgdump --list-services     # ClearPass DB backup (needs pg_restore)
+    python -m src.cli service.xml --coverage            # anonymous feature-usage report (JSON)
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -16,6 +18,7 @@ import click
 
 from . import parser as xml_parser
 from . import policy_ir as ir_builder
+from .coverage import coverage_report
 from .flow_ir import compile_service
 from .pgdump_parser import parse_pgdump
 from .pgdump_reader import PgDumpError, is_pgdump
@@ -45,17 +48,23 @@ from .renderer import render
     "--list-services", is_flag=True, default=False,
     help="List all services in the XML file and exit.",
 )
+@click.option(
+    "--coverage", is_flag=True, default=False,
+    help="Print the anonymous coverage report (JSON: counts only, no names or values) and exit.",
+)
 def main(
     xml_file: Path,
     output: str,
     fmt: str | None,
     service: str | None,
     list_services: bool,
+    coverage: bool,
 ) -> None:
     """Generate a flow diagram from a ClearPass XML export or DB backup (.pgdump)."""
 
     # Phase 1: Parse (XML export, or DB backup detected by its magic bytes)
-    click.echo(f"Parsing {xml_file} ...")
+    # Progress goes to stderr in --coverage mode so stdout stays valid JSON.
+    click.echo(f"Parsing {xml_file} ...", err=coverage)
     with open(xml_file, "rb") as fh:
         head = fh.read(8)
     if is_pgdump(head):
@@ -69,6 +78,10 @@ def main(
 
     # Phase 2+3: Build Policy IR
     ir = ir_builder.build(raw, source_file=str(xml_file))
+
+    if coverage:
+        click.echo(json.dumps(coverage_report(raw, ir), indent=2))
+        return
 
     if list_services:
         click.echo("Services found:")
