@@ -48,6 +48,7 @@ class ProfileDetailSchema(BaseModel):
     template: str = ""
     product: str = ""            # e.g. "durPluginA" (Aruba Downloadable User Role)
     nad_groups: list[str] = []   # NAD groups the profile is restricted to
+    tacacs_services: list[str] = []  # TACACS services granted, e.g. ["shell", "cpass:HTTP"]
     element_type: str = ""       # XML element for unmodelled profile types (profile_type "other")
     attributes: list[ProfileAttributeSchema] = []
     extras: list[ExtraSettingSchema] = []
@@ -87,6 +88,13 @@ class ServiceContextSchema(BaseModel):
     posture_enabled: bool = False
     profiler_enabled: bool = False
     audit_enabled: bool = False
+    authorization_source_names: list[str] = []
+    proxy_targets: list[str] = []          # RADIUS proxy services
+    proxy_forward_type: str = ""           # e.g. "ROUND_ROBIN"
+    proxy_accounting: bool = False         # accounting requests proxied too
+    acct_proxy_targets: list[str] = []
+    profiler_coa_profile: str = ""         # CoA sent when an endpoint's category changes
+    profiler_categories: list[str] = []
     role_mapping_policy_name: str = ""
     enforcement_policy_name: str = ""
     extras: list[ExtraSettingSchema] = []

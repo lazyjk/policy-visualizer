@@ -152,6 +152,7 @@ class EnforcementProfile:
     template: str = ""
     product: str = ""                 # e.g. "durPluginA" (Aruba Downloadable User Role)
     nad_groups: list[str] = field(default_factory=list)  # NAD groups the profile is restricted to
+    tacacs_services: list[str] = field(default_factory=list)  # TACACS services granted, e.g. ["shell", "cpass:HTTP"]
     extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
     element_type: str = ""            # XML element for profile types we don't model (profile_type "other")
 
@@ -179,6 +180,21 @@ class Service:
     posture_enabled: bool = False
     profiler_enabled: bool = False
     audit_enabled: bool = False
+    # Authorization sources queried in addition to the authentication sources
+    # (tips_service_autz_source).
+    authorization_source_names: list[str] = field(default_factory=list)
+    # RADIUS proxy: target names (tips_service_proxies), load-balancing mode
+    # (proxy_load_balance_type, e.g. "ROUND_ROBIN") and whether accounting
+    # requests are proxied too (proxy_acct_requests).
+    proxy_targets: list[str] = field(default_factory=list)
+    proxy_forward_type: str = ""
+    proxy_accounting: bool = False
+    # Accounting proxy targets (tips_service_acct_proxy_servers).
+    acct_proxy_targets: list[str] = field(default_factory=list)
+    # Profiler: CoA profile sent when an endpoint's category changes, and the
+    # categories that trigger it (tips_service_coa).
+    profiler_coa_profile: str = ""
+    profiler_categories: list[str] = field(default_factory=list)
     # Position of the service element in the XML file. NOT ClearPass
     # evaluation precedence (the export does not carry it).
     export_order: int | None = None
@@ -268,12 +284,28 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         )
     source_by_name = {v.name: v for v in ir.auth_sources.values()}
 
-    # Enforcement profiles (RADIUS + PostAuth)
+    # Enforcement profiles. ClearPass exports repeat a profile once per policy
+    # that references it; identical copies collapse silently (same stable ID),
+    # but a same-named profile with different settings is worth flagging.
+    seen_profile_names: set[str] = set()
+
+    def _put_profile(profile: EnforcementProfile) -> None:
+        existing = ir.enforcement_profiles.get(profile.id)
+        if existing is not None and existing != profile and profile.name not in seen_profile_names:
+            seen_profile_names.add(profile.name)
+            msg = (
+                f"Enforcement profile '{profile.name}' appears more than once in the export "
+                "with different settings — showing the last copy"
+            )
+            logger.warning("%s", msg)
+            ir.warnings.append(msg)
+        ir.enforcement_profiles[profile.id] = profile
+
     for rp in raw.get("radiusEnfProfiles", []):
         pid = _stable_id(rp["name"])
         action = rp.get("action", "").lower()
         profile_type = "radius_accept" if action == "accept" else "radius_reject"
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=rp["name"],
             profile_type=profile_type,
             action=action,
@@ -282,16 +314,16 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             product=rp.get("product", ""),
             nad_groups=list(rp.get("nadGroups", [])),
             extras=_extras(rp),
-        )
+        ))
     for pp in raw.get("postAuthEnfProfiles", []):
         pid = _stable_id(pp["name"])
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=pp["name"],
             profile_type="post_auth",
             description=pp.get("description", ""),
             attributes=_attrs(pp),
             extras=_extras(pp),
-        )
+        ))
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
         action = tp.get("action", "").lower()
@@ -303,19 +335,20 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             "tacacs_priv_level":  priv,
             "tacacs_autz_status": autz,
         }.items() if v}
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=tp["name"],
             profile_type="tacacs_deny" if is_deny else "tacacs_accept",
             action=action,
             description=tp.get("description", ""),
             metadata=meta,
             attributes=_attrs(tp),
+            tacacs_services=list(tp.get("tacacsServices", [])),
             nad_groups=list(tp.get("nadGroups", [])),
             extras=_extras(tp),
-        )
+        ))
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=cp["name"],
             profile_type="radius_coa",
             action=cp.get("action", "").lower(),
@@ -324,22 +357,22 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             template=cp.get("template", ""),
             nad_groups=list(cp.get("nadGroups", [])),
             extras=_extras(cp),
-        )
+        ))
     for gp in raw.get("genericEnfProfiles", []):
         pid = _stable_id(gp["name"])
         action = gp.get("action", "").lower()
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=gp["name"],
             profile_type="generic_accept" if action == "accept" else "generic_reject",
             action=action,
             description=gp.get("description", ""),
             attributes=_attrs(gp),
             extras=_extras(gp),
-        )
+        ))
     for op in raw.get("otherEnfProfiles", []):
         pid = _stable_id(op["name"])
         action = op.get("action", "").lower()
-        ir.enforcement_profiles[pid] = EnforcementProfile(
+        _put_profile(EnforcementProfile(
             id=pid, name=op["name"],
             profile_type="other",
             action=action,
@@ -348,7 +381,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             nad_groups=list(op.get("nadGroups", [])),
             extras=_extras(op),
             element_type=op.get("elementType", ""),
-        )
+        ))
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
     def _resolve_profiles(display_value: str, context: str = "") -> tuple[list[str], list[str]]:
@@ -553,6 +586,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             posture_enabled=bool(svc.get("postureEnabled", False)),
             profiler_enabled=bool(svc.get("profilerEnabled", False)),
             audit_enabled=bool(svc.get("auditEnabled", False)),
+            authorization_source_names=list(svc.get("autzSources", [])),
+            proxy_targets=list(svc.get("proxyNames", [])),
+            proxy_forward_type=svc.get("proxyForwardType", ""),
+            proxy_accounting=bool(svc.get("proxyAccountRequests", False)),
+            acct_proxy_targets=list(svc.get("acctProxyTargets", [])),
+            profiler_coa_profile=svc.get("profilerCoaProfile", ""),
+            profiler_categories=list(svc.get("profilerCategories", [])),
             export_order=svc.get("exportOrder"),
             is_category=is_category_name(svc["name"]),
             extras=_extras(svc),
