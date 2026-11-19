@@ -1,0 +1,725 @@
+COPY public.dur_role_config (profile_id, plugin_type, attributes) FROM stdin;
+3006	durPluginA	{"mtu": "9198", "desc": "test-role-desc", "policy": "test-policy", "authMode": "multi-domain-mode", "roleName": "test-dur-role", "cpProfile": "test-captive-portal", "trustMode": "dscp", "redSecRole": "Static", "vlanAccess": "Id", "gatewayRole": "test-static-role", "gatewayZone": "gateway-zone", "poePriority": "critical", "privateVlan": "promiscuous", "reauthManual": "30", "reauthInterval": "Manual", "sessionTimeout": "Parameterized", "vlanTrunkNative": "Id", "vlanTrunkAllowed": "Id", "vlanTrunkNativeId": "10", "deviceTrafficClass": "Voice", "vlanTrunkAllowedId": "10,20", "cachedReAuthInterval": "30", "vlanTrunkAllowedName": "corporate", "clientInactivityTimeout": "Value", "sessionTimeoutParameterized": "%{Authorization:[Admin User Repository]:Role_Name}", "clientInactivityTimeoutValue": "300", "vlanTrunkAllowedParameterized": "%{Authorization:[Endpoints Repository]:IsProfiled}"}
+\.
+
+COPY public.role_config (profile_id, type, version) FROM stdin;
+3006	durPluginA	1.0
+\.
+
+COPY public.tips_auth_method_inner (method_id, inner_method_id, order_no) FROM stdin;
+4	1	1
+4	3	2
+4	9	3
+4	8	4
+4	2	5
+4	6	6
+5	8	1
+5	3	2
+5	9	3
+10	8	1
+10	9	2
+10	3	3
+14	8	1
+14	3	2
+14	9	3
+20	8	1
+\.
+
+COPY public.tips_auth_methods (id, name, description, method_type) FROM stdin;
+1	[PAP]	Default settings for PAP	PAP
+2	[MSCHAP]	Default settings for MSCHAP	MSCHAP
+3	[EAP TLS]	Default settings for EAP-TLS	EAP-TLS
+4	[EAP TTLS]	Default settings for EAP-TTLS	EAP-TTLS
+5	[EAP PEAP]	Default settings for EAP-PEAP	EAP-PEAP
+6	[CHAP]	Default settings for CHAP	CHAP
+7	[EAP MD5]	Default settings for EAP-MD5	EAP-MD5
+8	[EAP MSCHAPv2]	Default settings for EAP-MSCHAPv2	EAP-MSCHAPv2
+9	[EAP GTC]	Default settings for EAP-GTC	EAP-GTC
+10	[EAP FAST]	Default settings for EAP-FAST	EAP-FAST
+11	[MAC AUTH]	Default settings for MAC-AUTH	MAC-AUTH
+12	[Allow All MAC AUTH]	Default settings for Allow All MAC-AUTH	MAC-AUTH
+13	[EAP TLS With OCSP Enabled]	EAP-TLS with OCSP enabled; recommended for Onboard	EAP-TLS
+14	[EAP PEAP Without Fast Reconnect]	EAP-PEAP with Fast Reconnect disabled; recommended for Onboard	EAP-PEAP
+15	[Authorize]	Default settings for Authorize	Authorize
+16	[SSO]	Default settings for SSO	PAP
+17	[Aruba EAP GTC]	EAP-GTC method to use with Aruba EAP-GTC plugin for Windows	EAP-GTC
+18	[EAP SIM]	Default settings for EAP-SIM	EAP-SIM
+19	[Anonymous EAP TLS]	Default settings for Anonymous EAP-TLS	Anonymous-EAP-TLS
+20	[EAP PEAP Public]	Default settings for EAP-PEAP-Public	EAP-PEAP-Public
+21	[EAP AKA]	Default settings for EAP-AKA	EAP-AKA
+22	[EAP AKA PRIME]	Default settings for EAP-AKA PRIME	EAP-AKA-PRIME
+23	[EAP PWD]	Default settings for EAP-PWD	EAP-PWD
+24	[EAP LEAP]	Default settings for EAP-LEAP	EAP-LEAP
+25	[EAP TLS With CN Check]	EAP-TLS with Certificate Comparison configured to Compare Common Name (CN)	EAP-TLS
+\.
+
+COPY public.tips_auth_sources (id, name, description, source_type, is_autz_source) FROM stdin;
+1	[Local User Repository]	Authenticate users against Policy Manager local user database	Local	t
+3	[Guest Device Repository]	Authenticate guest devices against Policy Manager local database	Local	t
+5	[Onboard Devices Repository]	Authenticate Onboard devices against Policy Manager local database	Local	t
+6	[Admin User Repository]	Authenticate users against Policy Manager admin user database	Local	t
+7	[Denylist User Repository]	Denylist database with users who have exceeded bandwidth or session related limits	Local	t
+8	[Insight Repository]	Insight database with session information for users and devices	Local	t
+9	[Time Source]	Authorization source for implementing various time functions	Local	t
+10	[Social Login Repository]	Authenticate users against Policy Manager social login database	Local	t
+100	[Zone Cache Repository]	Access attributes cached by Context Server Actions in previous sessions	HTTP	t
+3001	lab-ad		AD	t
+2	[Guest User Repository]	Authenticate guest users against Policy Manager local database	Local	t
+4	[Endpoints Repository]	Authenticate endpoints against Policy Manager local database	Local	t
+\.
+
+COPY public.tips_dic_internal (id, dic_prefix, attr_name) FROM stdin;
+72	Endpoint	\N
+100	Status-Update	Endpoint
+106	Bandwidth-Check	Allowed-Limit
+107	Bandwidth-Check	Limit-Units
+108	Bandwidth-Check	Check-Type
+111	Session-Check	Active-Session-Count
+112	Post-Auth-Check	Action
+116	Expiry-Check	Expiry-Action
+117	Expire-Time-Update	GuestUser
+\.
+
+COPY public.tips_dic_rad_attributes (vendor_id, attr_name, attr_id, attr_type) FROM stdin;
+0	User-Name	1	String
+0	NAS-IP-Address	4	IPv4Address
+0	NAS-Port	5	Unsigned32
+0	Service-Type	6	Unsigned32
+0	Filter-Id	11	String
+0	Session-Timeout	27	Unsigned32
+0	Termination-Action	29	Unsigned32
+0	Called-Station-Id	30	String
+0	Calling-Station-Id	31	String
+0	NAS-Identifier	32	String
+0	Acct-Session-Id	44	String
+0	Acct-Terminate-Cause	49	Unsigned32
+0	Event-Timestamp	55	Time
+0	Egress-VLANID	56	Unsigned32
+0	Tunnel-Type	64	Unsigned32
+0	Tunnel-Medium-Type	65	Unsigned32
+0	Tunnel-Private-Group-Id	81	String
+0	NAS-Port-Id	87	String
+9	Cisco-AVPair	1	String
+9	Cisco-IP-Downloadable-ACL	185	OctetPointer
+11	HPE-Port-Bounce-Host	23	Unsigned32
+1397	Tellabs-AVPair	1	String
+25506	H3C-AVPair	210	String
+14823	Aruba-User-Role	1	String
+14823	Aruba-User-Vlan	2	Unsigned32
+14823	Aruba-Location-Id	6	String
+14823	Aruba-CPPM-Role	23	String
+14823	Aruba-AirGroup-User-Name	24	String
+14823	Aruba-AirGroup-Shared-User	25	String
+14823	Aruba-AirGroup-Shared-Role	26	String
+14823	Aruba-AirGroup-Device-Type	27	Unsigned32
+14823	Aruba-AirGroup-Shared-Group	35	String
+14823	Aruba-AirGroup-Version	38	Unsigned32
+14823	Aruba-Port-Bounce-Host	40	Unsigned32
+14823	Aruba-MPSK-Passphrase	44	OctetArray
+\.
+
+COPY public.tips_dic_tacacs_service (id, name, disp_name) FROM stdin;
+100	cpass:http	cpass:HTTP
+101	cpass:cli	cpass:CLI
+2003	Aruba:common	Aruba:Common
+\.
+
+COPY public.tips_dic_vendor_info (vendor_name, vendor_id) FROM stdin;
+H3C	25506
+Tellabs	1397
+Aruba	14823
+Cisco	9
+Hewlett-Packard-Enterprise	11
+IETF	0
+\.
+
+COPY public.tips_enf_policy (id, policy_name, description, policy_xml, dft_profile_id, policy_type) FROM stdin;
+5	[Admin Network Login Policy]	Enforcement policy controlling access to Policy Manager Admin	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_eTIPS_Admin_Network_Login_Policy"\nRuleCombiningAlgId="evaluate-all">\n<Description>Policy for Policy Manager Admin access</Description>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_1">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ Help Desk]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ Help Desk]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="16"\nAttributeValueDispName="[TACACS+ Help Desk]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_2">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ Network Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ Network Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="15"\nAttributeValueDispName="[TACACS+ Network Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_3">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ Receptionist]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ Receptionist]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="17"\nAttributeValueDispName="[TACACS+ Receptionist]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_4">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ Super Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ Super Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="13"\nAttributeValueDispName="[TACACS+ Super Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_5">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ Read-only Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ Read-only Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="18"\nAttributeValueDispName="[TACACS+ Read-only Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_6">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[TACACS+ API Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[TACACS+ API Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="19"\nAttributeValueDispName="[TACACS+ API Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_7">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="Help Desk"\nAttributeValueDispName="Help Desk">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="16"\nAttributeValueDispName="[TACACS+ Help Desk]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_8">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="Network Administrator"\nAttributeValueDispName="Network Administrator">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="15"\nAttributeValueDispName="[TACACS+ Network Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_9">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="Receptionist"\nAttributeValueDispName="Receptionist">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="17"\nAttributeValueDispName="[TACACS+ Receptionist]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_10">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="Super Administrator"\nAttributeValueDispName="Super Administrator">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="13"\nAttributeValueDispName="[TACACS+ Super Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_11">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="Read-only Administrator"\nAttributeValueDispName="Read-only Administrator">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="18"\nAttributeValueDispName="[TACACS+ Read-only Admin]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_eTIPS_Admin_Network_Login_Policy_12">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authorization:[Admin User Repository]:Role_Name"\nAttributeValue="API Administrator"\nAttributeValueDispName="API Administrator">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="19"\nAttributeValueDispName="[TACACS+ API Admin]">\n</Result>\n</Rule>\n</Policy>	12	TACACS
+7	[AirGroup Enforcement Policy]	Enforcement policy controlling access for AirGroup devices	<?xml version="1.0" encoding="UTF-8"?><Policy\n  xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_AirGroup_Enforcement_Policy"\n RuleCombiningAlgId="evaluate-all">\n <Description>Enforcement policy controlling access for AirGroup devices</Description>\n <Rule RuleId="EnfPolicyRule_AirGroup_Enforcement_Policy_1">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_enable"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="MATCHES_REGEX"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared_time"\n AttributeValue="."\n AttributeValueDispName=".">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authorization:[Guest Device Repository]:AccountStatus"\n AttributeValue="0"\n AttributeValueDispName="0">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="40,33"\n AttributeValueDispName="[AirGroup Response], [Handle AirGroup Time Sharing]">\n </Result>\n </Rule>\n <Rule RuleId="EnfPolicyRule_AirGroup_Enforcement_Policy_2">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_enable"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="NOT_MATCHES_REGEX"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared_time"\n AttributeValue="."\n AttributeValueDispName=".">\n </Attribute>\n <Attribute\n Operator="MATCHES_REGEX"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared_group"\n AttributeValue="."\n AttributeValueDispName=".">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authorization:[Guest Device Repository]:AccountStatus"\n AttributeValue="0"\n AttributeValueDispName="0">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="List"\n AttributeId="Tips:Role"\n AttributeValue="[AirGroup v2]"\n AttributeValueDispName="[AirGroup v2]">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="40,42"\n AttributeValueDispName="[AirGroup Response], [AirGroup Shared Device]">\n </Result>\n </Rule>\n <Rule RuleId="EnfPolicyRule_AirGroup_Enforcement_Policy_3">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_enable"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="NOT_MATCHES_REGEX"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared_time"\n AttributeValue="."\n AttributeValueDispName=".">\n </Attribute>\n <Attribute\n Operator="NOT_MATCHES_REGEX"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared_group"\n AttributeValue="."\n AttributeValueDispName=".">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authorization:[Guest Device Repository]:AccountStatus"\n AttributeValue="0"\n AttributeValueDispName="0">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="40,42"\n AttributeValueDispName="[AirGroup Response], [AirGroup Shared Device]">\n </Result>\n </Rule>\n <Rule RuleId="EnfPolicyRule_AirGroup_Enforcement_Policy_4">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_enable"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="NOT_EQUALS"\n DataType="String"\n AttributeId="GuestUser:airgroup_shared"\n AttributeValue="1"\n AttributeValueDispName="1">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authorization:[Guest Device Repository]:AccountStatus"\n AttributeValue="0"\n AttributeValueDispName="0">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="40,41"\n AttributeValueDispName="[AirGroup Response], [AirGroup Personal Device]">\n </Result>\n </Rule>\n\n </Policy>	40	RADIUS
+17	[Aruba Device Access Policy]	Enforcement policy controlling access to Aruba device	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_Aruba_TACACS_Access_Policy"\nRuleCombiningAlgId="first-applicable">\n<Description>Policy for Aruba device Access</Description>\n<Rule RuleId="EnfPolicyRule_Aruba_TACACS_Access_Policy_1">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Aruba TACACS+ root Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[Aruba TACACS+ root Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="20"\nAttributeValueDispName="[ArubaOS Wireless - TACACS+ Root Access]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_Aruba_TACACS_Access_Policy_2">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Aruba TACACS+ read-only Admin]"\nAttributeValueDelimiter="|"\nAttributeValueDispName="[Aruba TACACS+ read-only Admin]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="21"\nAttributeValueDispName="[ArubaOS Wireless - TACACS+ Read-Only Access]">\n</Result>\n</Rule>\n</Policy>	21	TACACS
+18	[Guest Operator Logins]	Enforcement policy controlling access to Guest application	<?xml version="1.0" encoding="UTF-8"?><Policy\n  xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_eTIPS_ClearPass_Guest_Enforcement_Policy"\n RuleCombiningAlgId="first-applicable">\n <Description>Policy for ClearPass Guest application access</Description>\n <Rule RuleId="EnfPolicyRule_eTIPS_ClearPass_Guest_Enforcement_Policy_1">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="List"\n AttributeId="Tips:Role"\n AttributeValue="[User Authenticated]"\n AttributeValueDispName="[User Authenticated]">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authentication:Source"\n AttributeValue="[Local User Repository]"\n AttributeValueDispName="[Local User Repository]">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="61"\n AttributeValueDispName="Operator Login - Local Users">\n </Result>\n </Rule>\n <Rule RuleId="EnfPolicyRule_eTIPS_ClearPass_Guest_Enforcement_Policy_2">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="List"\n AttributeId="Tips:Role"\n AttributeValue="[User Authenticated]"\n AttributeValueDispName="[User Authenticated]">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authentication:Source"\n AttributeValue="[Admin User Repository]"\n AttributeValueDispName="[Admin User Repository]">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="62"\n AttributeValueDispName="Operator Login - Admin Users">\n </Result>\n </Rule>\n</Policy>	31	Application
+19	[Insight Operator Logins]	Enforcement policy controlling access to Insight application	<?xml version="1.0" encoding="UTF-8"?><Policy\n  xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_eTIPS_ClearPass_Insight_Enforcement_Policy"\n RuleCombiningAlgId="first-applicable">\n <Description>Policy for ClearPass Insight application access</Description>\n <Rule RuleId="EnfPolicyRule_eTIPS_ClearPass_Insight_Enforcement_Policy_1">\n <Condition><Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="List"\n AttributeId="Tips:Role"\n AttributeValue="[User Authenticated]"\n AttributeValueDispName="[User Authenticated]">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Authentication:Source"\n AttributeValue="[Local User Repository]"\n AttributeValueDispName="[Local User Repository]">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Enforcement-Profile"\n AttributeValue="61"\n AttributeValueDispName="Operator Login - Local Users">\n </Result>\n </Rule>\n</Policy>	31	Application
+20	[Device Registration Disconnect]	Enforcement policy to disconnect devices from network	<?xml version="1.0" encoding="UTF-8"?><Policy\n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_Device_Registration_Disconnect_Enforcement_Policy"\nRuleCombiningAlgId="first-applicable">\n<Description>Enforcement policy to disconnect devices from network</Description>\n<Rule RuleId="EnfPolicyRule_Device_Registration_Disconnect_Enforcement_Policy_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authentication:Source"\nAttributeValue="[Guest Device Repository]"\nAttributeValueDispName="[Guest Device Repository]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="106,109,101,113,107,110,108,105,121"\nAttributeValueDispName="[RADIUS_DynAuthZ] [ArubaOS Wireless - Terminate Session], [RADIUS_DynAuthZ] [Aerohive - Terminate Session], [RADIUS_DynAuthZ] [Cisco - Terminate Session], [RADIUS_DynAuthZ] [H3C - Terminate Session], [RADIU\nS_DynAuthZ] [Juniper Terminate Session], [RADIUS_DynAuthZ] [Motorola - Terminate Session], [RADIUS_DynAuthZ] [Trapeze - Terminate Session], [RADIUS_DynAuthZ] [ArubaOS Switching - Terminate Session], [RADIUS_DynAuthZ] [AOS-CX - Disconnect]">\n</Result>\n</Rule>\n\n</Policy>	106	WEBAUTH
+3002	[Sample Deny Access Policy]	Sample policy to deny network access	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_Sample_Deny_Access_Policy"\nRuleCombiningAlgId="evaluate-all">\n<Description>Sample policy to deny access to all</Description>\n<Rule RuleId="EnfPolicyRule_Sample_Deny_Access_Policy_1">\n<Condition><Expression >\n<Attribute\nOperator="BELONGS_TO"\nDataType="Day"\nAttributeId="Date:Day-of-Week"\nAttributeValue="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"\nAttributeValueDispName="Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="2"\nAttributeValueDispName="[Deny Access Profile]">\n</Result>\n</Rule>\n\n</Policy>	2	RADIUS
+3001	[Sample Allow Access Policy]	Sample policy to allow network access	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_Sample_Allow_Access_Policy"\nRuleCombiningAlgId="evaluate-all">\n<Description>Sample policy to allow network access</Description>\n<Rule RuleId="EnfPolicyRule_Sample_Allow_Access_Policy_1">\n<Condition><Expression >\n<Attribute\nOperator="BELONGS_TO"\nDataType="Day"\nAttributeId="Date:Day-of-Week"\nAttributeValue="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"\nAttributeValueDispName="Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="1"\nAttributeValueDispName="[Allow Access Profile]">\n</Result>\n</Rule>\n\n</Policy>	1	RADIUS
+3006	test-sso-guest ClearPass Admin SSO Login (SAML SP Service) Enforcement Policy	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1778802674853"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1778802674853_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[User Authenticated]"\nAttributeValueDispName="[User Authenticated]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3005"\nAttributeValueDispName="test-sso-guest ClearPass Admin SSO Login (SAML SP Service) Enforcement Profile">\n</Result>\n</Rule>\n\n</Policy>	31	Application
+3007	test-enforcement-policy		<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1795108002876"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1795108002876_1">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Tips:Posture"\nAttributeValue="0"\nAttributeValueDispName="HEALTHY (0)">\n</Attribute>\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValueDelimiter="|"\nAttributeValue="[AirGroup v1]|[Aruba TACACS+ read-only Admin]"\nAttributeValueDispName="[AirGroup v1]&lt;br&gt;[Aruba TACACS+ read-only Admin]">\n</Attribute>\n<Attribute\nOperator="ENDS_WITH"\nDataType="String"\nAttributeId="Certificate:Issuer-CN"\nAttributeValue="foo.bar"\nAttributeValueDispName="foo.bar">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="IPv4Address"\nAttributeId="Connection:Client-IP-Address"\nAttributeValue="1.2.3.4"\nAttributeValueDispName="1.2.3.4">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Endpoint:Context Server"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3010"\nAttributeValueDispName="[RADIUS] test-filter-id-enforcement">\n</Result>\n</Rule>\n\n</Policy>	2	RADIUS
+3005	kit-lab-wireless 802.1X Wireless Enforcement Policy	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1775580842853"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1775580842854_1">\n<Condition><Expression >\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:memberOf"\nAttributeValue="wirelessOU"\nAttributeValueDispName="wirelessOU">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3004"\nAttributeValueDispName="kit-lab-wireless 802.1X Wireless Profile1">\n</Result>\n</Rule>\n\n</Policy>	3003	RADIUS
+3008	test-mpsk Aruba Wireless with MPSK Enforcement Policy	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1795109202682"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1795109202684_1">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Contractor]"\nAttributeValueDispName="[Contractor]">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Boolean"\nAttributeId="Authorization:[Guest Device Repository]:Device Account Active"\nAttributeValue="true"\nAttributeValueDispName="true">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Authorization:[Guest Device Repository]:Device MPSK"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3019,44,43"\nAttributeValueDispName="Aruba User Role - cont, [Registered Device MPSK], [Return Device Sponsor Name - RADIUS User-Name]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_1795109202686_2">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Guest]"\nAttributeValueDispName="[Guest]">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Boolean"\nAttributeId="Authorization:[Guest Device Repository]:Device Account Active"\nAttributeValue="true"\nAttributeValueDispName="true">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Authorization:[Guest Device Repository]:Device MPSK"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3020,44,43"\nAttributeValueDispName="Aruba User Role - gst, [Registered Device MPSK], [Return Device Sponsor Name - RADIUS User-Name]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_1795109202688_3">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Employee]"\nAttributeValueDispName="[Employee]">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Boolean"\nAttributeId="Authorization:[Guest Device Repository]:Device Account Active"\nAttributeValue="true"\nAttributeValueDispName="true">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Authorization:[Guest Device Repository]:Device MPSK"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3021,44,43"\nAttributeValueDispName="Aruba User Role - emp, [Registered Device MPSK], [Return Device Sponsor Name - RADIUS User-Name]">\n</Result>\n</Rule>\n\n</Policy>	3018	RADIUS
+3004	kit-lab-wired 802.1X Wired Enforcement Policy		<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1775681261785_3004"\nRuleCombiningAlgId="evaluate-all">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1775681261785_3004_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Employee]"\nAttributeValueDispName="[Employee]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="1,3002"\nAttributeValueDispName="[RADIUS] [Allow Access Profile], [RADIUS] kit-lab-wired 802.1X Wired Profile1">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_1775681261785_3004_2">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Contractor]"\nAttributeValueDispName="[Contractor]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="1,51"\nAttributeValueDispName="[Allow Access Profile], [Update Endpoint Known]">\n</Result>\n</Rule>\n\n</Policy>	2	RADIUS
+3009	test-guest-access-mac-caching MAC Authentication Enforcement Policy	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1795110480448"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1795110480448_1">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ALL"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValueDelimiter="|"\nAttributeValue="[MAC Caching]|[Employee]|[User Authenticated]"\nAttributeValueDispName="[MAC Caching]|[Employee]|[User Authenticated]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="1,3022"\nAttributeValueDispName="[Allow Access Profile],test-guest-access-mac-caching Employee Device Profile">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_1795110480448_2">\n<Condition><Expression >\n<Attribute\nOperator="MATCHES_ANY"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValueDelimiter="|"\nAttributeValue="[Guest]|[Contractor]|[Employee]"\nAttributeValueDispName="[Guest]|[Contractor]|[Employee]">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="1,3024"\nAttributeValueDispName="[Allow Access Profile],test-guest-access-mac-caching Captive Portal Profile">\n</Result>\n</Rule>\n\n</Policy>	2	RADIUS
+3010	test-guest-access-mac-caching User Authentication with MAC Caching Enforcement Policy	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="EnfPolicyBean_1795110480451"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="EnfPolicyRule_1795110480453_1">\n<Condition><Expression >\n<Attribute\nOperator="GREATER_THAN"\nDataType="Integer32"\nAttributeId="Authorization:[Endpoints Repository]:Unique-Device-Count"\nAttributeValue="10"\nAttributeValueDispName="10">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="2"\nAttributeValueDispName="[Deny Access Profile]">\n</Result>\n</Rule>\n<Rule RuleId="EnfPolicyRule_1795110480453_2">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="[Employee]"\nAttributeValueDispName="[Employee]">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Day"\nAttributeId="Date:Day-of-Week"\nAttributeValue="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"\nAttributeValueDispName="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Enforcement-Profile"\nAttributeValue="3025,3028,3029,3030,3026,3027,3023"\nAttributeValueDispName="test-guest-access-mac-caching MAC Caching Session Timeout, test-guest-access-mac-caching MAC Caching Bandwidth Limit, test-guest-access-mac-caching MAC Caching Session Limit, test-guest-access-mac-caching Employee MAC Caching, test-guest-access-mac-caching MAC Caching Do Expire, test-guest-access-mac-caching MAC Caching Expire Post Login, test-guest-access-mac-caching Employee Profile">\n</Result>\n</Rule>\n\n</Policy>	1	RADIUS
+\.
+
+COPY public.tips_enf_profile_agent (id, name, template, description, type) FROM stdin;
+3013	test-agent-enforcment	Agent		Agent
+\.
+
+COPY public.tips_enf_profile_agent_params (id, profile_id, attr_name, attr_value, attr_disp_value) FROM stdin;
+3001	3013	BounceClient	false	false
+3002	3013	Message		Enter message here
+\.
+
+COPY public.tips_enf_profile_app (id, name, template, description, app_type, profile_type) FROM stdin;
+31	[Deny Application Access Profile]	Application	System-defined profile to deny access to application	Application	Reject
+32	[Allow Application Access Profile]	Application	System-defined profile to allow access to application	Application	Accept
+33	[Handle AirGroup Time Sharing]	Application	System-defined profile to send time-based sharing policy to the AirGroup notification service	HTTP	Accept
+61	[Operator Login - Local Users]	Application	Enforcement profile for Guest operator logins	Application	Accept
+62	[Operator Login - Admin Users]	Application	Enforcement profile for Guest admin logins	Application	Accept
+3005	test-sso-guest ClearPass Admin SSO Login (SAML SP Service) Enforcement Profile	Application		Application	Accept
+3014	cli-based-enforcement	Application		CLI	Accept
+3015	test-generic-application-enforcment	Application		Application	Accept
+3017	test-http-enforcment	Application		HTTP	Accept
+\.
+
+COPY public.tips_enf_profile_app_nad_group () FROM stdin;
+\.
+
+COPY public.tips_enf_profile_app_params (id, profile_id, attr_name, attr_value, attr_disp_value) FROM stdin;
+3	33	TargetServer	1	localhost
+4	33	Action	2007	Handle AirGroup Time Sharing
+1	61	admin_privileges	%{Authorization:[Local User Repository]:Role_Name}	%{Authorization:[Local User Repository]:Role_Name}
+2	62	admin_privileges	%{Authorization:[Admin User Repository]:Role_Name}	%{Authorization:[Admin User Repository]:Role_Name}
+3001	3005	SSORole	Super Administrator	Super Administrator
+3002	3014	TargetDevice	%{Connection:NAD-IP-Address}	%{Connection:NAD-IP-Address}
+3003	3014	Command	show run	show run<br>
+3004	3015	ClearPass:Device-IMEI	testimei	testimei
+3005	3017	TargetServer	1	localhost
+3006	3017	Action	2018	Nmap Scan
+\.
+
+COPY public.tips_enf_profile_post_auth (id, name, description, template, type) FROM stdin;
+51	[Update Endpoint Known]	System-defined profile to change Endpoint's status to Known	Post_Authentication	EntityUpdate
+3026	test-guest-access-mac-caching MAC Caching Do Expire	Enforcement profile for User do expire functionality	Post_Authentication	SessionRestriction
+3027	test-guest-access-mac-caching MAC Caching Expire Post Login	Enforcement profile for User expire post login functionality	Post_Authentication	EntityUpdate
+3028	test-guest-access-mac-caching MAC Caching Bandwidth Limit	System-defined profile to set User bandwidth limits	Post_Authentication	SessionRestriction
+3029	test-guest-access-mac-caching MAC Caching Session Limit	System-defined profile to set concurrent User session count	Post_Authentication	SessionRestriction
+3030	test-guest-access-mac-caching Employee MAC Caching	Endpoint attribute updates for Employee	Post_Authentication	EntityUpdate
+\.
+
+COPY public.tips_enf_profile_post_auth_params (id, profile_id, attr_id, attr_name, attr_value, attr_disp_value) FROM stdin;
+1	51	100	\N	Known	Known
+3001	3026	116	\N	%{GuestUser:do_expire}	%{GuestUser:do_expire}
+3002	3027	117	\N	%{GuestUser:expire_postlogin}	%{GuestUser:expire_postlogin}
+3003	3028	106	\N	0	0
+3004	3028	107	\N	MB	MB
+3005	3028	108	\N	Today	Today
+3006	3028	112	\N	Disconnect	Disconnect
+3007	3029	111	\N	%{GuestUser:simultaneous_use}	%{GuestUser:simultaneous_use}
+3008	3029	112	\N	Disconnect and Block Access	Disconnect and Block Access
+3009	3030	72	Username	%{Authentication:Username}	%{Authentication:Username}
+3010	3030	72	Guest Role ID	%{GuestUser:Role ID}	%{GuestUser:Role ID}
+3011	3030	72	MAC-Auth Expiry	%{Authorization:[Guest User Repository]:ExpireTime}	%{Authorization:[Guest User Repository]:ExpireTime}
+\.
+
+COPY public.tips_enf_profile_radius (id, name, profile_type, template, description) FROM stdin;
+1	[Allow Access Profile]	Accept	RADIUS	System-defined profile to allow network access
+2	[Deny Access Profile]	Reject	RADIUS	System-defined profile to deny network access
+3	[Drop Access Profile]	Drop	RADIUS	System-defined profile to drop the request
+40	[AirGroup Response]	Accept	RADIUS	System-defined profile for any AirGroup request
+41	[AirGroup Personal Device]	Accept	RADIUS	System-defined profile for an AirGroup personal device request
+42	[AirGroup Shared Device]	Accept	RADIUS	System-defined profile for an AirGroup shared device request
+43	[Return Device Sponsor Name - RADIUS User-Name]	Accept	RADIUS	Returns a device's owner (sponsor name) as the IETF User-Name
+44	[Registered Device MPSK]	Accept	RADIUS	Returns a device's assigned MPSK that was generated automatically during Device Registration
+3001	kit-lab-wired 802.1X Wired Default Profile	Accept	RADIUS	\N
+3003	kit-lab-wireless 802.1X Wireless Default Profile	Accept	RADIUS	\N
+3004	kit-lab-wireless 802.1X Wireless Profile1	Accept	RADIUS	\N
+3002	kit-lab-wired 802.1X Wired Profile1	Accept	RADIUS	
+3006	test-dur-enforcement-profile	Accept	Aruba_DUR	
+3007	test-aruba-radius-enforcement-profile	Accept	RADIUS	
+3008	test-cisco-dacl	Accept	RADIUS	
+3009	test-cisco-web-auth	Accept	RADIUS	
+3010	test-filter-id-enforcement	Accept	RADIUS	
+3012	test-vlan-enforcement	Accept	RADIUS	
+3018	test-mpsk Aruba Wireless with MPSK Default Profile	Accept	RADIUS	\N
+3019	Aruba User Role - cont	Accept	RADIUS	\N
+3020	Aruba User Role - gst	Accept	RADIUS	\N
+3021	Aruba User Role - emp	Accept	RADIUS	\N
+3022	test-guest-access-mac-caching Employee Device Profile	Accept	RADIUS	Role/VLAN enforcement for Employee
+3023	test-guest-access-mac-caching Employee Profile	Accept	RADIUS	Role/VLAN enforcement for Employee
+3024	test-guest-access-mac-caching Captive Portal Profile	Accept	RADIUS	Captive Portal Role/VLAN enforcement
+3025	test-guest-access-mac-caching MAC Caching Session Timeout	Accept	RADIUS	\N
+\.
+
+COPY public.tips_enf_profile_radius_coa (id, name, template, template_id, description, profile_type) FROM stdin;
+101	[Cisco - Terminate Session]	RADIUS_DynAuthZ	1	System-defined profile to disconnect user (Cisco)	Disconnect
+102	[Cisco - Disable Host-Port]	RADIUS_DynAuthZ	2	System-defined profile to disable host port (Cisco)	CoA
+103	[Cisco - Bounce-Host-Port]	RADIUS_DynAuthZ	3	System-defined profile to bounce host port (Cisco)	CoA
+104	[Cisco - Reauthenticate-Session]	RADIUS_DynAuthZ	4	System-defined profile to re-authenticate session (Cisco)	CoA
+105	[ArubaOS Switching - Terminate Session]	RADIUS_DynAuthZ	5	System-defined profile to disconnect the user on ArubaOS Switching, HP ProCurve and HP UWW products.	Disconnect
+112	[ArubaOS Switching - Bounce Switch Port]	RADIUS_DynAuthZ	18	System-defined profile to bounce the switch port on ArubaOS Switching products.	CoA
+106	[ArubaOS Wireless - Terminate Session]	RADIUS_DynAuthZ	8	System-defined profile to disconnect the user on ArubaOS Mobility Controllers, Aruba Instant APs & Mobility Access Switches.	Disconnect
+111	[ArubaOS Wireless - Bounce Switch Port]	RADIUS_DynAuthZ	17	System-defined profile to bounce the switch port on ArubaOS Mobility Controllers, Multi-Port APs & Mobility Access Switches.	Disconnect
+107	[Juniper Terminate Session]	RADIUS_DynAuthZ	10	System-defined profile to disconnect user (Juniper)	Disconnect
+108	[Trapeze - Terminate Session]	RADIUS_DynAuthZ	14	System-defined profile to disconnect user (Trapeze)	Disconnect
+109	[Aerohive - Terminate Session]	RADIUS_DynAuthZ	15	System-defined profile to disconnect user (Aerohive)	Disconnect
+110	[Motorola - Terminate Session]	RADIUS_DynAuthZ	16	System-defined profile to disconnect user (Motorola)	Disconnect
+113	[H3C - Terminate Session]	RADIUS_DynAuthZ	20	System-defined profile to disconnect the user on H3C products (including HPE FlexNetwork / Comware).	Disconnect
+114	[H3C - Bounce Switch Port]	RADIUS_DynAuthZ	21	System-defined profile to bounce the switch port on H3C products (including HPE FlexNetwork / Comware).	CoA
+115	[H3C - Disable Switch Port]	RADIUS_DynAuthZ	22	System-defined profile to disable the switch port on H3C products (including HPE FlexNetwork / Comware).	CoA
+116	[Tellabs - Bounce Host Port]	RADIUS_DynAuthZ	23	System-defined profile to bounce host port (Tellabs)	CoA
+117	[Tellabs - Disable Host Port]	RADIUS_DynAuthZ	24	System-defined profile to disable host port (Tellabs)	CoA
+118	[Tellabs - Reauthenticate Session]	RADIUS_DynAuthZ	25	System-defined profile to re-authenticate session (Tellabs)	CoA
+119	[Tellabs - Terminate Session]	RADIUS_DynAuthZ	26	System-defined profile to disconnect user (Tellabs)	Disconnect
+120	[Cisco ASA - Terminate Session]	RADIUS_DynAuthZ	31	System-defined profile to disconnect user (Cisco ASA)	Disconnect
+121	[AOS-CX - Disconnect]	RADIUS_DynAuthZ	28	System-defined profile to disconnect a device on AOS-CX switches.	Disconnect
+122	[AOS-CX - Bounce Switch Port]	RADIUS_DynAuthZ	29	System-defined profile to bounce the switch port on AOS-CX switches.	CoA
+123	[Meraki - Terminate Session]	RADIUS_DynAuthZ	30	System-defined profile to disconnect user (Meraki)	Disconnect
+124	[Arista Wireless - Terminate Session]	RADIUS_DynAuthZ	33	System-defined profile to disconnect user (Arista Wireless)	Disconnect
+125	[Arista Wired - Terminate Session]	RADIUS_DynAuthZ	34	System-defined profile to disconnect user (Arista Wired)	Disconnect
+3011	test-dynauth-enforcement-profile	RADIUS_DynAuthZ	29		CoA
+\.
+
+COPY public.tips_enf_profile_radius_coa_nad_group () FROM stdin;
+\.
+
+COPY public.tips_enf_profile_radius_coa_params (profile_id, vendor_id, attr_id, attr_value, attr_disp_value, order_no) FROM stdin;
+101	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+101	0	6	1	1	1
+102	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+102	9	1	subscriber:command=disable-host-port	subscriber:command=disable-host-port	1
+103	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+103	9	1	subscriber:command=bounce-host-port	subscriber:command=bounce-host-port	1
+104	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+104	9	1	subscriber:command=reauthenticate	subscriber:command=reauthenticate	1
+105	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+105	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+105	0	5	%{Radius:IETF:NAS-Port}	%{Radius:IETF:NAS-Port}	2
+105	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	3
+105	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	4
+112	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+112	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+112	0	5	%{Radius:IETF:NAS-Port}	%{Radius:IETF:NAS-Port}	2
+112	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	3
+112	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	4
+112	11	23	12	12	5
+106	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+111	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+111	14823	40	12	12	1
+107	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+107	0	44	%{Radius:IETF:Acct-Session-Id}	%{Radius:IETF:Acct-Session-Id}	1
+108	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+108	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+108	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	2
+109	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+109	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+109	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	2
+110	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+110	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+110	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	2
+113	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+113	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+114	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+114	25506	210	subscriber:command=bounce-host-port	subscriber:command=bounce-host-port	0
+115	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+115	25506	210	subscriber:command=disable-host-port	subscriber:command=disable-host-port	0
+116	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+116	1397	1	subscriber:command=bounce-host-port	subscriber:command=bounce-host-port	1
+116	0	49	6	6	2
+117	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+117	1397	1	subscriber:command=disable-host-port	subscriber:command=disable-host-port	1
+117	0	49	6	6	2
+118	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+118	1397	1	subscriber:command=reauthenticate	subscriber:command=reauthenticate	1
+119	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+119	0	49	6	6	1
+120	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+120	0	6	1	1	1
+120	9	1	%{Radius:Cisco:Cisco-AVPair}	%{Radius:Cisco:Cisco-AVPair}	2
+121	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+121	0	5	%{Radius:IETF:NAS-Port}	%{Radius:IETF:NAS-Port}	2
+121	0	32	%{Radius:IETF:NAS-Identifier}	%{Radius:IETF:NAS-Identifier}	3
+121	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	4
+121	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	5
+122	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+122	0	5	%{Radius:IETF:NAS-Port}	%{Radius:IETF:NAS-Port}	2
+122	0	32	%{Radius:IETF:NAS-Identifier}	%{Radius:IETF:NAS-Identifier}	3
+122	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	4
+122	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	5
+122	14823	40	12	12	6
+123	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+123	0	44	%{Radius:IETF:Acct-Session-Id}	%{Radius:IETF:Acct-Session-Id}	1
+123	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	2
+124	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	0
+124	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	1
+125	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+125	0	87	%{Radius:IETF:NAS-Port-Id}	%{Radius:IETF:NAS-Port-Id}	1
+125	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	2
+125	0	44	%{Radius:IETF:Acct-Session-Id}	%{Radius:IETF:Acct-Session-Id}	3
+125	0	4	%{Radius:IETF:NAS-IP-Address}	%{Radius:IETF:NAS-IP-Address}	4
+3011	0	31	%{Radius:IETF:Calling-Station-Id}	%{Radius:IETF:Calling-Station-Id}	0
+3011	0	5	%{Radius:IETF:NAS-Port}	%{Radius:IETF:NAS-Port}	0
+3011	0	32	%{Radius:IETF:NAS-Identifier}	%{Radius:IETF:NAS-Identifier}	0
+3011	0	1	%{Radius:IETF:User-Name}	%{Radius:IETF:User-Name}	0
+3011	0	55	%{Radius:IETF:Event-Timestamp}	%{Radius:IETF:Event-Timestamp}	0
+3011	14823	40		Enter value here	0
+\.
+
+COPY public.tips_enf_profile_radius_nad_group (profile_id, nad_group_id) FROM stdin;
+3006	3001
+3007	3001
+\.
+
+COPY public.tips_enf_profile_radius_params (profile_id, vendor_id, attr_id, attr_value, attr_disp_value, order_no) FROM stdin;
+40	0	30	AirGroup	AirGroup	1
+40	0	31	%{Connection:Client-Mac-Address-NoDelim}	%{Connection:Client-Mac-Address-NoDelim}	2
+40	14823	38	2	AirGroup-v2 (2)	3
+41	14823	27	1	Personal-Device (1)	1
+41	14823	24	%{Authorization:[Guest Device Repository]:SponsorName}	%{Authorization:[Guest Device Repository]:SponsorName}	2
+41	14823	25	%{GuestUser:airgroup_shared_user}	%{GuestUser:airgroup_shared_user}	3
+42	14823	27	2	Shared-Device (2)	1
+42	14823	25	%{GuestUser:airgroup_shared_user}	%{GuestUser:airgroup_shared_user}	2
+42	14823	26	%{GuestUser:airgroup_shared_role}	%{GuestUser:airgroup_shared_role}	3
+42	14823	6	%{GuestUser:airgroup_shared_location}	%{GuestUser:airgroup_shared_location}	4
+42	14823	35	%{GuestUser:airgroup_shared_group}	%{GuestUser:airgroup_shared_group}	5
+43	0	1	%{Authorization:[Guest Device Repository]:SponsorName}	%{Authorization:[Guest Device Repository]:SponsorName}	1
+44	14823	44	%{Authorization:[Guest Device Repository]:Device MPSK}	Device's Assigned MPSK	1
+3001	14823	1	DENY	DENY	1
+3003	14823	1	[Other]	[Other]	1
+3004	14823	1	Wireless-Employee	Wireless-Employee	1
+3002	14823	2	100	100	1
+3008	9	185	#ACSACL#-IP-test_cisco_dacl-3008-1\npermit ip any any	permit ip any any	1
+3006	14823	23	test_dur_enforcement_profile-3006-2\nclass ip test-class\n1 match tcp any any \nexit\naaa authentication port-access captive-portal-profile test-captive-portal\nurl https://test-captiveportal.local\nexit\nport-access policy test-policy\n1 class ip test-class\nexit\nport-access role test-dur-role\nassociate captive-portal-profile test-captive-portal\nassociate policy test-policy\npoe-priority critical\ntrust-mode dscp\ncached-reauth-period 30\nreauth-period 30\nauth-mode multi-domain-mode\ndevice-traffic-class voice\ngateway-zone zone gateway-zone gateway-role test-static-role\n! session-timeout %{Authorization:[Admin User Repository]:Role_Name}\nmtu 9198\nvlan trunk allowed 10,20\nvlan trunk allowed name corporate\nvlan trunk native 10\nclient-inactivity timeout 300\nprivate-vlan port-type promiscuous\n! vlan trunk allowed %{Authorization:[Endpoints Repository]:IsProfiled}\nexit	class ip test-class\n1 match tcp any any \nexit\naaa authentication port-access captive-portal-profile test-captive-portal\nurl https://test-captiveportal.local\nexit\nport-access policy test-policy\n1 class ip test-class\nexit\nport-access role test-dur-role\nassociate captive-portal-profile test-captive-portal\nassociate policy test-policy\npoe-priority critical\ntrust-mode dscp\ncached-reauth-period 30\nreauth-period 30\nauth-mode multi-domain-mode\ndevice-traffic-class voice\ngateway-zone zone gateway-zone gateway-role test-static-role\n! session-timeout %{Authorization:[Admin User Repository]:Role_Name}\nmtu 9198\nvlan trunk allowed 10,20\nvlan trunk allowed name corporate\nvlan trunk native 10\nclient-inactivity timeout 300\nprivate-vlan port-type promiscuous\n! vlan trunk allowed %{Authorization:[Endpoints Repository]:IsProfiled}\nexit	1
+3006	0	27	%{Authorization:[Admin User Repository]:Role_Name}	%{Authorization:[Admin User Repository]:Role_Name}	2
+3006	0	29	1	RADIUS-Request (1)	3
+3006	0	56	%{Authorization:[Endpoints Repository]:IsProfiled}	%{Authorization:[Endpoints Repository]:IsProfiled}	4
+3007	14823	1	test	test	1
+3009	9	1	priv-lvl=15	priv-lvl=15	1
+3009	9	1	proxyacl# 10=permit ip any any	proxyacl# 10=permit ip any any	2
+3010	0	11		Enter Filter Name	1
+3012	0	27	10800	10800	1
+3012	0	29	1	RADIUS-Request (1)	2
+3012	0	64	13	VLAN (13)	3
+3012	0	65	6	IEEE-802 (6)	4
+3012	0	81	10	10	5
+3018	14823	1	mpsk-usr	mpsk-usr	1
+3018	14823	44	(hidden)	(hidden)	2
+3019	14823	1	cont	cont	1
+3020	14823	1	gst	gst	1
+3021	14823	1	emp	emp	1
+3022	14823	1	Employee	Employee	1
+3022	0	1	%{Endpoint:Username}	%{Endpoint:Username}	2
+3023	14823	1	Employee	Employee	1
+3024	14823	1	Yes	Yes	1
+3025	0	27	%{Authorization:[Guest User Repository]:RemainingExpiration}	%{Authorization:[Guest User Repository]:RemainingExpiration}	1
+\.
+
+COPY public.tips_enf_profile_snmp (id, name, template, description) FROM stdin;
+3016	test-snmp-enforcement	SNMP	
+\.
+
+COPY public.tips_enf_profile_snmp_nad_group () FROM stdin;
+\.
+
+COPY public.tips_enf_profile_snmp_params (profile_id, attr_name, attr_value) FROM stdin;
+3016	SessionTimeout	30
+3016	VLAN	30
+3016	ResetConnection	true
+\.
+
+COPY public.tips_enf_profile_tacacs (id, name, template, description, max_priv_level, service_type, autz_status, permit_unmatched_cmd) FROM stdin;
+12	[TACACS+ Deny Profile]	TACACS	System-defined profile to deny network access	0	\N	PASS_ADD	f
+13	[TACACS+ Super Admin]	TACACS	Super admin access for Policy Manager Admin	1	\N	PASS_ADD	f
+15	[TACACS+ Network Admin]	TACACS	Network admin access for Policy Manager Admin	1	\N	PASS_ADD	f
+16	[TACACS+ Help Desk]	TACACS	Help desk access for Policy Manager Admin	1	\N	PASS_ADD	f
+17	[TACACS+ Receptionist]	TACACS	Receptionist access for Policy Manager Admin	1	\N	PASS_ADD	f
+18	[TACACS+ Read-only Admin]	TACACS	Read-only admin access for Policy Manager Admin	1	\N	PASS_ADD	f
+19	[TACACS+ API Admin]	TACACS	API admin access for Policy Manager Admin	1	\N	PASS_ADD	f
+20	[ArubaOS Wireless - TACACS+ Root Access]	TACACS	System-defined profile for TACACS+ root access on ArubaOS Mobility Controllers, Aruba Instant APs & Mobility Access Switches.	15	\N	PASS_ADD	f
+21	[ArubaOS Wireless - TACACS+ Read-Only Access]	TACACS	System-defined profile for TACACS+ read-only access on ArubaOS Mobility Controllers, Aruba Instant APs & Mobility Access Switches.	15	\N	PASS_ADD	f
+\.
+
+COPY public.tips_enf_profile_tacacs_allowed_service (profile_id, tacacs_service_id) FROM stdin;
+13	100
+13	101
+15	100
+16	100
+17	100
+18	100
+19	100
+20	2003
+21	2003
+\.
+
+COPY public.tips_enf_profile_tacacs_nad_group () FROM stdin;
+\.
+
+COPY public.tips_enf_profile_tacacs_params (profile_id, service_id, attr_name, attr_value, attr_disp_value) FROM stdin;
+13	100	AdminPrivilege	Super Administrator	Super Administrator
+13	101	AdminPrivilege	Super Administrator	Super Administrator
+15	100	AdminPrivilege	Network Administrator	Network Administrator
+16	100	AdminPrivilege	Help Desk	Help Desk
+17	100	AdminPrivilege	Receptionist	Receptionist
+18	100	AdminPrivilege	Read-only Administrator	Read-only Administrator
+19	100	AdminPrivilege	API Administrator	API Administrator
+20	2003	Aruba-Admin-Role	root	root
+21	2003	Aruba-Admin-Role	read-only	read-only
+\.
+
+COPY public.tips_nad_group (id, name) FROM stdin;
+3001	test-device-group
+3002	test-eduroam EDUROAM GROUP
+3003	eduroam-test EDUROAM GROUP
+3004	eduroam-test-1 EDUROAM GROUP
+\.
+
+COPY public.tips_proxy_server (id, proxy_name) FROM stdin;
+3001	test-acct-proxy
+3002	eduroam-test-1 EDUROAM RADIUS PROXY
+\.
+
+COPY public.tips_radius_coa_templates (id, name) FROM stdin;
+1	Terminate-Session
+2	Disable-Host-Port
+3	Bounce-Host-Port
+4	Reauthenticate-Session
+5	Terminate-Session-HP
+6	Change-VLAN
+7	Generic-CoA
+18	Port-Bounce-Host-HP
+19	Change-User-Role-HP
+8	Terminate-Session-Aruba
+9	Change-User-Role
+17	Port-Bounce-Host-Aruba
+10	Terminate-Session-Juniper
+11	Terminate-Session-IETF
+12	Change-VPN-User-Role
+13	Generic-CoA-IETF
+14	Terminate-Session-Trapeze
+15	Terminate-Session-Aerohive
+16	Terminate-Session-Motorola
+20	Terminate-Session-H3C
+21	Bounce-Host-Port-H3C
+22	Disable-Host-Port-H3C
+23	CoA-Port-Bounce
+24	CoA-Port-Shutdown
+25	CoA-Reauthenticate
+26	CoA-Disconnect
+30	Meraki-Terminate-Session
+31	ASA-Terminate-Session
+28	ArubaCX-Disconnect
+29	ArubaCX-Bounce-Switch-Port
+27	ArubaCX-Change-User-Role
+32	AristaWireless-Change-User-Role
+33	AristaWireless-Terminate-Session
+34	AristaWired-Terminate-Session
+35	AristaWired-Switch-Port-Flap
+36	AristaWired-Switch-Block-MAC
+37	AristaWired-Switch-Unblock-MAC
+\.
+
+COPY public.tips_role (id, name, description) FROM stdin;
+1	[Machine Authenticated]	Default role for authenticated machines
+2	[User Authenticated]	Default role for authenticated users
+3	[Guest]	Default role for a Guest
+12	[TACACS+ Read-only Admin]	Read-only administrator role for Policy Manager Admin
+13	[TACACS+ API Admin]	API administrator role for Policy Manager Admin
+14	[TACACS+ Help Desk]	Help desk role for Policy Manager Admin
+15	[TACACS+ Receptionist]	Receptionist role for Policy Manager Admin
+16	[TACACS+ Network Admin]	Network administrator role for Policy Manager Admin
+18	[TACACS+ Super Admin]	Super administrator role for Policy Manager Admin
+20	[Contractor]	Default role for a contractor
+21	[Other]	Default role for another user or device
+22	[Employee]	Default role for an employee
+32	[Device Registration]	Operators with this profile can self-provision their devices, for use with MAC authentication and AirGroup sharing.
+25	[MAC Caching]	Default role applied during MAC caching
+26	[Onboard Android]	Role for an Android device being provisioned
+27	[Onboard Windows]	Role for a Windows device being provisioned
+28	[Onboard macOS]	 Role for a macOS device being provisioned
+29	[Onboard iOS]	Role for an iOS device being provisioned
+38	[Onboard iPadOS]	Role for an iPadOS device being provisioned
+33	[BYOD Operator]	Operators with this profile can view and manage their own provisioned devices
+34	[AirGroup v1]	Role for an AirGroup protocol version 1 request
+35	[AirGroup v2]	Role for an AirGroup protocol version 2 request
+30	[Aruba TACACS+ root Admin]	Default role for root access to Aruba device
+31	[Aruba TACACS+ read-only Admin]	Default role for read-only access to Aruba device
+36	[Onboard Chromebook]	Role for Chromebook device being provisioned
+37	[Onboard Linux]	Role for Linux device being provisioned
+\.
+
+COPY public.tips_role_mapping_policy (id, name, description, policy_xml, dft_role_id) FROM stdin;
+2002	[AirGroup Version Match]	System-defined mapping to identify the protocol version of an AirGroup request	<?xml version="1.0" encoding="UTF-8"?><Policy\n  xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_AirGroup_Version_Match"\n RuleCombiningAlgId="first-applicable">\n <Description>System-defined mapping to identify the protocol version of an AirGroup request</Description>\n <Rule RuleId="RoleMappingRule_AirGroup_Version_Match_1">\n <Condition><Expression >\n <Attribute\n Operator="EQUALS"\n DataType="Integer32"\n AttributeId="Radius:Aruba:Aruba-AirGroup-Version"\n AttributeValue="2"\n AttributeValueDispName="AirGroup-v2 (2)">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="List"\n AttributeId="Tips:Role"\n AttributeValue="35"\n AttributeValueDispName="[AirGroup v2]">\n </Result>\n </Rule>\n</Policy>	34
+3001	wired-wireless-role-mapping		<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1775542800214"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1775542800214_1">\n<Condition><Expression >\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:memberOf"\nAttributeValue="testOU"\nAttributeValueDispName="testOU">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="22"\nAttributeValueDispName="[Employee]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1775542800214_2">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:memberOf"\nAttributeValue="guestOU"\nAttributeValueDispName="guestOU">\n</Attribute>\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:memberOf"\nAttributeValue="contractorOU"\nAttributeValueDispName="contractorOU">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n\n</Policy>	21
+3002	sso-guest-login		<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1778802827318"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1778802827318_1">\n<Condition><Expression >\n<Attribute\nOperator="EXISTS"\nDataType="Day"\nAttributeId="Date:Day-of-Week"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="18"\nAttributeValueDispName="[TACACS+ Super Admin]">\n</Result>\n</Rule>\n\n</Policy>	18
+3003	test-role-mapping		<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1795107776677_3003"\nRuleCombiningAlgId="evaluate-all">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1795107776677_3003_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authentication:Source"\nAttributeValue="lab-ad"\nAttributeValueDispName="lab-ad">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="34"\nAttributeValueDispName="[AirGroup v1]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795107776677_3003_2">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EQUALS_IGNORE_CASE"\nDataType="String"\nAttributeId="Application:SSO-SP"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n<Attribute\nOperator="ENDS_WITH"\nDataType="String"\nAttributeId="Application:ClearPass:Device-UDID"\nAttributeValue="1234"\nAttributeValueDispName="1234">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="31"\nAttributeValueDispName="[Aruba TACACS+ read-only Admin]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795107776677_3003_3">\n<Condition><Expression >\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Authorization:[Endpoints Repository]:Hostname"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n\n</Policy>	34
+3004	test-cppm-admin-ad ClearPass Admin Access (Active Directory) Role Mapping	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1795109061427"\nRuleCombiningAlgId="first-applicable">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1795109061429_1">\n<Condition><Expression >\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:Department"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="18"\nAttributeValueDispName="[TACACS+ Super Admin]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795109061430_2">\n<Condition><Expression >\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:HostName"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="12"\nAttributeValueDispName="[TACACS+ Read-only Admin]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795109061431_3">\n<Condition><Expression >\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Authorization:lab-ad:Groups"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="14"\nAttributeValueDispName="[TACACS+ Help Desk]">\n</Result>\n</Rule>\n\n</Policy>	21
+2001	[Guest Roles]	The roles used by Guest.	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy__Guest_Roles__1"\nRuleCombiningAlgId="first-applicable">\n<Description>The roles used by Guest.</Description>\n<Rule RuleId="RoleMappingRule__Guest_Roles__1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="1"\nAttributeValueDispName="1">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule__Guest_Roles__2">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="2"\nAttributeValueDispName="2">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="3"\nAttributeValueDispName="[Guest]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule__Guest_Roles__3">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="3"\nAttributeValueDispName="3">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="22"\nAttributeValueDispName="[Employee]">\n</Result>\n</Rule>\n\n</Policy>	22
+3005	test-mpsk Aruba Wireless with MPSK Role Map	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1795109202718"\nRuleCombiningAlgId="evaluate-all">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1795109202719_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Authorization:[Guest Device Repository]:Device Role ID"\nAttributeValue="1"\nAttributeValueDispName="1">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795109202720_2">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Authorization:[Guest Device Repository]:Device Role ID"\nAttributeValue="2"\nAttributeValueDispName="2">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="3"\nAttributeValueDispName="[Guest]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795109202721_3">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Authorization:[Guest Device Repository]:Device Role ID"\nAttributeValue="3"\nAttributeValueDispName="3">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="22"\nAttributeValueDispName="[Employee]">\n</Result>\n</Rule>\n\n</Policy>	21
+3006	test-guest-access-mac-caching MAC Authentication Role Mapping	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1795110480488"\nRuleCombiningAlgId="evaluate-all">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1795110480493_1">\n<Condition><Expression Operator="and">\n<Attribute\nOperator="EXISTS"\nDataType="Integer32"\nAttributeId="Authorization:[Endpoints Repository]:Unique-Device-Count"\nAttributeValue=""\nAttributeValueDispName="">\n</Attribute>\n<Attribute\nOperator="LESS_THAN"\nDataType="Time"\nAttributeId="Authorization:[Time Source]:Now DT"\nAttributeValue="%{Endpoint:MAC-Auth Expiry}"\nAttributeValueDispName="%{Endpoint:MAC-Auth Expiry}">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Boolean"\nAttributeId="Authorization:[Guest User Repository]:AccountExpired"\nAttributeValue="false"\nAttributeValueDispName="false">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Boolean"\nAttributeId="Authorization:[Guest User Repository]:AccountEnabled"\nAttributeValue="true"\nAttributeValueDispName="true">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="25"\nAttributeValueDispName="[MAC Caching]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795110480494_2">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Endpoint:Guest Role ID"\nAttributeValue="1"\nAttributeValueDispName="1">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795110480495_3">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Endpoint:Guest Role ID"\nAttributeValue="2"\nAttributeValueDispName="2">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="3"\nAttributeValueDispName="[Guest]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795110480497_4">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Endpoint:Guest Role ID"\nAttributeValue="3"\nAttributeValueDispName="3">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="22"\nAttributeValueDispName="[Employee]">\n</Result>\n</Rule>\n\n</Policy>	21
+3007	test-guest-access-mac-caching User Authentication with MAC Caching Role Mapping	\N	<?xml version="1.0" encoding="UTF-8"?><Policy \n xmlns:avenda="http://www.avendasys.com/2006/Rules-Engine-Schema" version="1.0" PolicyId="RoleMappingPolicy_1795110480484"\nRuleCombiningAlgId="evaluate-all">\n<Description></Description>\n<Rule RuleId="RoleMappingRule_1795110480485_1">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="1"\nAttributeValueDispName="1">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="20"\nAttributeValueDispName="[Contractor]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795110480486_2">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="2"\nAttributeValueDispName="2">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="3"\nAttributeValueDispName="[Guest]">\n</Result>\n</Rule>\n<Rule RuleId="RoleMappingRule_1795110480487_3">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="GuestUser:Role ID"\nAttributeValue="3"\nAttributeValueDispName="3">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="List"\nAttributeId="Tips:Role"\nAttributeValue="22"\nAttributeValueDispName="[Employee]">\n</Result>\n</Rule>\n\n</Policy>	21
+\.
+
+COPY public.tips_service (id, name, description, rule_xml, order_no, enabled, monitor_mode, service_type, service_template, posture_enabled, audit_enabled, profiler_enabled, has_proxy, has_acct_proxy, proxy_load_balance_type, proxy_acct_requests, strip_username, strip_rules_csv, use_cached_results) FROM stdin;
+1	[Policy Manager Admin Network Login Service]	Service for access to Policy Manager Admin for network users	<Rule RuleId="Rule_Admin_TACACS_Service">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:NAD-IP-Address"\nAttributeValue="127.0.0.1"\nAttributeValueDispName="127.0.0.1">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="TACACS"\nAttributeValueDispName="TACACS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="[Policy Manager Admin Network Login Service]"\nAttributeValueDispName="[Policy Manager Admin Network Login Service]">\n</Result>\n</Rule> \n	1	f	f	TACACS	TACACS_ENFORCEMENT	f	f	f	f	f	-	t	f	\N	f
+3003	test-sso-guest ClearPass Admin SSO Login (SAML SP Service)	SAML-based Single Sign-On (SSO) access to ClearPass Policy Manager, Insight, Guest and Operator screens via external Identity Provider.	<Rule RuleId="Rule_1778802853040">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Authentication:Type"\nAttributeValue="SSO"\nAttributeValueDispName="SSO">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="String"\nAttributeId="Application:Name"\nAttributeValue="Guest,GuestOperators"\nAttributeValueDispName="Guest,GuestOperators">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="Application"\nAttributeValueDispName="Application">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-sso-guest ClearPass Admin SSO Login (SAML SP Service)"\nAttributeValueDispName="test-sso-guest ClearPass Admin SSO Login (SAML SP Service)">\n</Result>\n</Rule>\n	3	t	f	Application	CPPM_APP_AUTZ	f	f	f	f	f	\N	t	f		f
+10	[Aruba Device Access Service]	Service for access to Aruba device	<Rule RuleId="Rule_Aruba_Device_Access_Service">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="TACACS"\nAttributeValueDispName="TACACS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="[Aruba Device Access Service]"\nAttributeValueDispName="[Aruba Device Access Service]">\n</Result>\n</Rule> \n	4	t	f	TACACS	TACACS_ENFORCEMENT	f	f	f	f	f	-	t	f	\N	f
+11	[Guest Operator Logins]	Authentication service for Guest application	<Rule RuleId="Rule_Admin_ClearPass_Guest_Service">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Application:Name"\nAttributeValue="Guest"\nAttributeValueDispName="Guest">\n</Attribute>\n<Attribute\nOperator="NOT_EQUALS"\nDataType="String"\nAttributeId="Authentication:Type"\nAttributeValue="SSO"\nAttributeValueDispName="SSO">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="Application"\nAttributeValueDispName="Application">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="[Guest Operator Logins]"\nAttributeValueDispName="[Guest Operator Logins]"> \n</Result> \n</Rule> \n	5	t	f	Application	AVENDA_APP_AUTH	f	f	f	f	f	-	t	f	\N	f
+2	[AirGroup Authorization Service]	Authorization service for AirGroup device access	<Rule RuleId="Rule_AirGroup_Authorization_Service_1349852669392">\n <Condition><Expression Operator="and">\n <Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Radius:IETF:Called-Station-Id"\n AttributeValue="AirGroup"\n AttributeValueDispName="AirGroup">\n </Attribute>\n <Attribute\n Operator="EQUALS"\n DataType="Integer32"\n AttributeId="Radius:IETF:Service-Type"\n AttributeValue="17"\n AttributeValueDispName="Authorize-Only (17)">\n </Attribute>\n </Expression>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Connection:Protocol"\n AttributeValue="RADIUS"\n AttributeValueDispName="RADIUS">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="String"\n AttributeId="Tips:Service"\n AttributeValue="[AirGroup Authorization Service]"\n AttributeValueDispName="[AirGroup Authorization Service]">\n </Result>\n </Rule>	2	t	f	RADIUS	RADIUS_ENFORCEMENT	f	f	f	f	f	-	t	f	\N	f
+12	[Insight Operator Logins]	Authentication service for Insight application	<Rule RuleId="Rule_Admin_ClearPass_Insight_Service">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Application:Name"\nAttributeValue="Insight"\nAttributeValueDispName="Insight">\n</Attribute>\n<Attribute\nOperator="NOT_EQUALS"\nDataType="String"\nAttributeId="Authentication:Type"\nAttributeValue="SSO"\nAttributeValueDispName="SSO">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="Application"\nAttributeValueDispName="Application">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="[Insight Operator Logins]"\nAttributeValueDispName="[Insight Operator Logins]">\n</Result>\n</Rule>\n	6	t	f	Application	AVENDA_APP_AUTH	f	f	f	f	f	-	t	f	\N	f
+13	[Device Registration Disconnect]	Service to disconnect all headless devices after they have registered	<Rule RuleId="Rule_Device_Registration_Disconnect_1349852669392">\n <Condition><Expression Operator="and">\n <Expression Operator="and">\n <Attribute\n Operator="EQUALS"\n DataType="List"\n AttributeId="Host:CheckType"\n AttributeValue="Authentication"\n AttributeValueDispName="Authentication">\n </Attribute>\n <Attribute\n Operator="BELONGS_TO"\n DataType="String"\n AttributeId="Application:ClearPass:Page-Name"\n AttributeValue="mac_create,mactrac_create"\n AttributeValueDispName="mac_create,mactrac_create">\n </Attribute>\n </Expression>\n <Attribute\n Operator="EQUALS"\n DataType="String"\n AttributeId="Connection:Protocol"\n AttributeValue="WEBAUTH"\n AttributeValueDispName="WEBAUTH">\n </Attribute>\n </Expression>\n </Condition>\n <Result\n DataType="String"\n AttributeId="Tips:Service"\n AttributeValue="[Device Registration Disconnect]"\n AttributeValueDispName="[Device Registration Disconnect]">\n </Result>\n </Rule>	7	t	f	WEBAUTH	AVENDA_WEB_AUTH	f	f	f	f	f	-	t	f	\N	f
+3001	kit-lab-wired 802.1X Wired	To authenticate users to any wired network via 802.1X.	<Rule RuleId="Rule_1775581003017">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="15"\nAttributeValueDispName="Ethernet (15)">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="1,2,8"\nAttributeValueDispName="Login-User (1), Framed-User (2), Authenticate-Only (8)">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="kit-lab-wired 802.1X Wired"\nAttributeValueDispName="kit-lab-wired 802.1X Wired">\n</Result>\n</Rule>\n	8	t	f	RADIUS	IBNS_WIRED	f	f	f	f	f	\N	t	f		f
+3014	-----------WIRELESS--------------	802.1X Wired Access Service	<Rule RuleId="Rule_1795108830141">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="-----------WIRELESS--------------"\nAttributeValueDispName="-----------WIRELESS--------------">\n</Result>\n</Rule>\n	15	t	f	RADIUS	IBNS_WIRED	f	f	f	f	f	\N	t	f		f
+3008	test-radius-authroization	Authorization Service using RADIUS	<Rule RuleId="Rule_1795108333931">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="17"\nAttributeValueDispName="Authorize-Only (17)">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-radius-authroization"\nAttributeValueDispName="test-radius-authroization">\n</Result>\n</Rule>\n	16	t	f	RADIUS	RADIUS_AUTZ	f	f	f	f	f	\N	t	t	user:@	f
+3002	kit-lab-wireless 802.1X Wireless	To authenticate users to any wireless network via 802.1X.	<Rule RuleId="Rule_1775580946306">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="19"\nAttributeValueDispName="Wireless-802.11 (19)">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="1,2,8"\nAttributeValueDispName="Login-User (1), Framed-User (2), Authenticate-Only (8)">\n</Attribute>\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue="CORP"\nAttributeValueDispName="CORP">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="kit-lab-wireless 802.1X Wireless"\nAttributeValueDispName="kit-lab-wireless 802.1X Wireless">\n</Result>\n</Rule>\n	9	t	f	RADIUS	IBNS_WIRELESS	f	f	f	f	f	\N	t	f		f
+3004	test-wired-id-only	802.1X Wired Access Service - Identity Only	<Rule RuleId="Rule_1795108146762">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="15"\nAttributeValueDispName="Ethernet (15)">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="1,2,8"\nAttributeValueDispName="Login-User (1), Framed-User (2), Authenticate-Only (8)">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-wired-id-only"\nAttributeValueDispName="test-wired-id-only">\n</Result>\n</Rule>\n	10	t	f	RADIUS	IBNS_WIRED_IDENTITY	f	f	t	f	t	\N	t	f		t
+3013	-----------WIRED--------------	802.1X Wired Access Service	<Rule RuleId="Rule_1795108794662">\n<Condition><Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="-----------WIRED--------------"\nAttributeValueDispName="-----------WIRED--------------">\n</Result>\n</Rule>\n	11	t	f	RADIUS	IBNS_WIRED	f	f	f	f	f	\N	t	f		f
+3005	test-aruba-wireless	Aruba 802.1X Wireless Access Service	<Rule RuleId="Rule_1795108201200">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="19"\nAttributeValueDispName="Wireless-802.11 (19)">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="1,2,8"\nAttributeValueDispName="Login-User (1), Framed-User (2), Authenticate-Only (8)">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-aruba-wireless"\nAttributeValueDispName="test-aruba-wireless">\n</Result>\n</Rule>\n	12	t	f	RADIUS	ARUBA_IBNS_WIRELESS	f	f	f	f	f	\N	t	f		f
+3006	test-web-auth-proxy-cisoc		<Rule RuleId="Rule_1795108257750">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="0,19"\nAttributeValueDispName="Async (0), Wireless-802.11 (19)">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="5"\nAttributeValueDispName="Outbound-User (5)">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-web-auth-proxy-cisoc"\nAttributeValueDispName="test-web-auth-proxy-cisoc">\n</Result>\n</Rule>\n	13	t	t	RADIUS	CISCO_WEB_AUTH	f	f	f	f	f	\N	t	f		f
+3007	test-mac-auth	MAC-based Authentication Service	<Rule RuleId="Rule_1795108293732">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="15,19"\nAttributeValueDispName="Ethernet (15), Wireless-802.11 (19)">\n</Attribute>\n<Attribute\nOperator="BELONGS_TO"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="1,10"\nAttributeValueDispName="Login-User (1), Call-Check (10)">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="MACAddress"\nAttributeId="Connection:Client-Mac-Address"\nAttributeValue="%{Radius:IETF:User-Name}"\nAttributeValueDispName="%{Radius:IETF:User-Name}">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-mac-auth"\nAttributeValueDispName="test-mac-auth">\n</Result>\n</Rule>\n	14	t	f	RADIUS	MAC_AUTH_BYPASS	f	f	f	f	f	\N	t	f		f
+3009	test-gen-radius-enforcemnt		<Rule RuleId="Rule_1795108410069">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:Acct-Status-Type"\nAttributeValue="1"\nAttributeValueDispName="Start (1)">\n</Attribute>\n<Attribute\nOperator="EXISTS"\nDataType="Integer32"\nAttributeId="Authentication:ErrorCode"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-gen-radius-enforcemnt"\nAttributeValueDispName="test-gen-radius-enforcemnt">\n</Result>\n</Rule>\n	17	t	f	RADIUS	RADIUS_ENFORCEMENT	f	f	f	f	f	\N	t	f		f
+3010	test-radius-proxy		<Rule RuleId="Rule_1795108508028">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Device:Device Type"\nAttributeValue="aruba"\nAttributeValueDispName="aruba">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-radius-proxy"\nAttributeValueDispName="test-radius-proxy">\n</Result>\n</Rule>\n	18	t	f	RADIUS	RADIUS_PROXY	f	f	f	t	f	ROUND_ROBIN	f	f		f
+3011	test-app-auth	Authentication Service for Applications	<Rule RuleId="Rule_1795108582597">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Application:Name"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="Application"\nAttributeValueDispName="Application">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-app-auth"\nAttributeValueDispName="test-app-auth">\n</Result>\n</Rule>\n	19	t	f	Application	AVENDA_APP_AUTH	f	f	f	f	f	\N	t	f		f
+3012	test-aruba-app-authz	Authorization Service for Applications	<Rule RuleId="Rule_1795108627324">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Application:Name"\nAttributeValue="test"\nAttributeValueDispName="test">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="Application"\nAttributeValueDispName="Application">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-aruba-app-authz"\nAttributeValueDispName="test-aruba-app-authz">\n</Result>\n</Rule>\n	20	t	f	Application	CPPM_APP_AUTZ	f	f	f	f	f	\N	t	f		f
+3015	test-cppm-admin-ad ClearPass Admin Access (Active Directory)	Service template for access to ClearPass Policy Manager administration console (Active Directory users).	<Rule RuleId="Rule_1795109061451">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:NAD-IP-Address"\nAttributeValue="127.0.0.1"\nAttributeValueDispName="127.0.0.1">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="TACACS"\nAttributeValueDispName="TACACS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-cppm-admin-ad ClearPass Admin Access (Active Directory)"\nAttributeValueDispName="test-cppm-admin-ad ClearPass Admin Access (Active Directory)">\n</Result>\n</Rule>\n	21	t	f	TACACS	TACACS_ENFORCEMENT	f	f	f	f	f	\N	t	f	\N	f
+3016	test-mpsk Aruba Wireless with MPSK	To authenticate devices using an Aruba MPSK.	<Rule RuleId="Rule_1795109202750">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:NAS-Port-Type"\nAttributeValue="19"\nAttributeValueDispName="Wireless-802.11 (19)">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="Integer32"\nAttributeId="Radius:IETF:Service-Type"\nAttributeValue="10"\nAttributeValueDispName="Call-Check (10)">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="MACAddress"\nAttributeId="Connection:Client-Mac-Address"\nAttributeValue="%{Radius:IETF:User-Name}"\nAttributeValueDispName="%{Radius:IETF:User-Name}">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:SSID"\nAttributeValue="test-mpsk-ssid"\nAttributeValueDispName="test-mpsk-ssid">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-mpsk Aruba Wireless with MPSK"\nAttributeValueDispName="test-mpsk Aruba Wireless with MPSK">\n</Result>\n</Rule>\n	22	t	f	RADIUS	MAC_AUTH_BYPASS	f	f	f	f	f	\N	t	f	\N	f
+3017	eduroam-test-1 EDUROAM HOME USERS	\N	<Rule RuleId="Rule_1795110168147">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue="eduroam"\nAttributeValueDispName="eduroam">\n</Attribute>\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Radius:Aruba:User-Name"\nAttributeValue="test.edu.net"\nAttributeValueDispName="test.edu.net">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="eduroam-test-1 EDUROAM HOME USERS"\nAttributeValueDispName="eduroam-test-1 EDUROAM HOME USERS">\n</Result>\n</Rule>\n	23	t	f	RADIUS	IBNS_WIRELESS	f	f	f	f	f	\N	t	t	user:@	f
+3018	eduroam-test-1 EDUROAM ROAMING HOME USERS	\N	<Rule RuleId="Rule_1795110168154">\n<Condition><Expression Operator="and">\n<Expression >\n<Attribute\nOperator="BELONGS_TO_GROUP"\nDataType="String"\nAttributeId="Connection:Src-IP-Address"\nAttributeValue="NadGroup:3004"\nAttributeValueDispName="eduroam-test-1 EDUROAM GROUP">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="eduroam-test-1 EDUROAM ROAMING HOME USERS"\nAttributeValueDispName="eduroam-test-1 EDUROAM ROAMING HOME USERS">\n</Result>\n</Rule>\n	24	t	f	RADIUS	RADIUS_ENFORCEMENT	f	f	f	f	f	\N	t	t	user:@	f
+3019	eduroam-test-1 EDUROAM RADIUS PROXY	\N	<Rule RuleId="Rule_1795110168162">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue="eduroam"\nAttributeValueDispName="eduroam">\n</Attribute>\n<Attribute\nOperator="CONTAINS"\nDataType="String"\nAttributeId="Radius:Aruba:User-Name"\nAttributeValue="@"\nAttributeValueDispName="@">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="eduroam-test-1 EDUROAM RADIUS PROXY"\nAttributeValueDispName="eduroam-test-1 EDUROAM RADIUS PROXY">\n</Result>\n</Rule>\n	25	t	f	RADIUS	RADIUS_PROXY	f	f	f	t	f	ROUND_ROBIN	f	f	\N	f
+3020	test-guest-access-mac-caching MAC Authentication	MAC Authentication bypass for captive portal users	<Rule RuleId="Rule_1795110480525">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EQUALS"\nDataType="MACAddress"\nAttributeId="Connection:Client-Mac-Address"\nAttributeValue="%{Radius:IETF:User-Name}"\nAttributeValueDispName="%{Radius:IETF:User-Name}">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue="test-guest"\nAttributeValueDispName="test-guest">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-guest-access-mac-caching MAC Authentication"\nAttributeValueDispName="test-guest-access-mac-caching MAC Authentication">\n</Result>\n</Rule>\n	26	t	f	RADIUS	MAC_AUTH_BYPASS	f	f	f	f	f	\N	t	f	\N	f
+3021	test-guest-access-mac-caching User Authentication with MAC Caching	Captive Portal authentication with MAC Caching	<Rule RuleId="Rule_1795110480573">\n<Condition><Expression Operator="and">\n<Expression Operator="and">\n<Attribute\nOperator="EXISTS"\nDataType="String"\nAttributeId="Radius:IETF:Calling-Station-Id"\nAttributeValue=""\nAttributeValueDispName="&amp;nbsp;">\n</Attribute>\n<Attribute\nOperator="NOT_EQUALS"\nDataType="MACAddress"\nAttributeId="Connection:Client-Mac-Address"\nAttributeValue="%{Radius:IETF:User-Name}"\nAttributeValueDispName="%{Radius:IETF:User-Name}">\n</Attribute>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Radius:Aruba:Aruba-Essid-Name"\nAttributeValue="test-guest"\nAttributeValueDispName="test-guest">\n</Attribute>\n</Expression>\n<Attribute\nOperator="EQUALS"\nDataType="String"\nAttributeId="Connection:Protocol"\nAttributeValue="RADIUS"\nAttributeValueDispName="RADIUS">\n</Attribute>\n</Expression>\n</Condition>\n<Result\nDataType="String"\nAttributeId="Tips:Service"\nAttributeValue="test-guest-access-mac-caching User Authentication with MAC Caching"\nAttributeValueDispName="test-guest-access-mac-caching User Authentication with MAC Caching">\n</Result>\n</Rule>\n	27	t	f	RADIUS	RADIUS_ENFORCEMENT	f	f	f	f	f	\N	t	f	\N	f
+\.
+
+COPY public.tips_service_acct_proxy_servers (service_id, proxy_server_id) FROM stdin;
+3004	3001
+\.
+
+COPY public.tips_service_auth_methods (service_id, order_no, method_id) FROM stdin;
+2	1	12
+3004	1	5
+3004	2	10
+3004	3	25
+3004	4	4
+3004	5	8
+3005	1	5
+3005	2	10
+3005	3	25
+3005	4	4
+3006	1	1
+3007	1	12
+3008	1	15
+3009	1	10
+3013	1	5
+3002	1	5
+3002	2	10
+3002	3	25
+3002	4	4
+3001	1	5
+3001	2	10
+3001	3	25
+3001	4	4
+3001	5	8
+3013	2	10
+3013	3	25
+3013	4	4
+3013	5	8
+3014	1	5
+3014	2	10
+3014	3	25
+3014	4	4
+3014	5	8
+3016	1	12
+3017	1	5
+3018	1	1
+3018	2	2
+3018	3	5
+3018	4	6
+3018	5	7
+3018	6	8
+3020	1	12
+3021	1	1
+3021	2	2
+3021	3	6
+\.
+
+COPY public.tips_service_auth_source (service_id, order_no, source_id) FROM stdin;
+1	1	1
+1	2	6
+2	1	3
+10	1	1
+11	1	1
+11	2	6
+12	1	1
+13	1	3
+3004	1	3001
+3003	1	1
+3005	1	3001
+3002	1	3001
+3001	1	3001
+3006	1	3001
+3007	1	4
+3009	1	3001
+3011	1	3001
+3013	1	3001
+3014	1	3001
+3015	1	3001
+3016	1	3
+3017	1	3001
+3018	1	3001
+3020	1	4
+3021	1	2
+\.
+
+COPY public.tips_service_autz_source (service_id, order_no, source_id) FROM stdin;
+3002	1	1
+3004	1	6
+3008	1	6
+3012	1	6
+3020	1	9
+3020	2	2
+3021	1	4
+3021	2	9
+\.
+
+COPY public.tips_service_coa (service_id, device_category, coa_profile_id) FROM stdin;
+3004	Access Points	3011
+\.
+
+COPY public.tips_service_policy (service_id, order_no, policy_id) FROM stdin;
+1	1	5
+2	1	7
+10	1	17
+11	1	18
+12	1	19
+13	1	20
+3004	1	3007
+3003	1	3006
+3005	1	3007
+3002	1	3005
+3001	1	3004
+3006	1	3001
+3007	1	3001
+3008	1	3001
+3009	1	3001
+3010	1	3001
+3011	1	18
+3012	1	18
+3013	1	3001
+3014	1	3001
+3015	1	5
+3016	1	3008
+3017	1	3001
+3018	1	3001
+3019	1	3001
+3020	1	3009
+3021	1	3010
+\.
+
+COPY public.tips_service_proxies (service_id, order_no, proxy_server_id) FROM stdin;
+3010	1	3001
+3019	1	3002
+\.
+
+COPY public.tips_service_role_mapping (service_id, order_no, role_mapping_id) FROM stdin;
+2	1	2002
+3003	1	3002
+3002	1	3001
+3001	1	3001
+3004	1	3003
+3005	1	3003
+3006	1	3003
+3012	1	3002
+3015	1	3004
+3016	1	3005
+3020	1	3006
+3021	1	3007
+\.

@@ -96,6 +96,8 @@ export interface ServiceContext {
   /** Profiler: CoA profile sent when an endpoint's category changes, and the trigger categories. */
   profiler_coa_profile: string;
   profiler_categories: string[];
+  /** Evaluation order in ClearPass (DB backups only). */
+  precedence: number | null;
   role_mapping_policy_name: string;
   enforcement_policy_name: string;
   extras: ExtraSetting[];
@@ -133,6 +135,8 @@ export interface ServiceSummary {
   is_category: boolean;
   /** Position in the uploaded file (not ClearPass evaluation precedence). */
   export_order: number | null;
+  /** True ClearPass evaluation order — only DB backups (.pgdump) carry it. */
+  precedence: number | null;
 }
 
 export interface ServiceListResponse {

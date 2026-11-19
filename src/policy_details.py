@@ -203,6 +203,7 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "acct_proxy_targets": list(service.acct_proxy_targets),
         "profiler_coa_profile": service.profiler_coa_profile,
         "profiler_categories": list(service.profiler_categories),
+        "precedence": service.precedence,
         "role_mapping_policy_name": service.role_mapping_policy_name,
         "enforcement_policy_name": service.enforcement_policy_name,
         "extras": _extras_detail(service.extras),

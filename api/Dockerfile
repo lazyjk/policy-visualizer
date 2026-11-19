@@ -2,8 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System dependency for graphviz
-RUN apt-get update && apt-get install -y --no-install-recommends graphviz && rm -rf /var/lib/apt/lists/*
+# System dependencies: graphviz (CLI SVG renderer) and the PostgreSQL client,
+# whose pg_restore reads ClearPass DB backups (.pgdump) without a database server.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends graphviz postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
