@@ -310,3 +310,53 @@ def test_flow_details_radius_proxy():
     )
     assert res.status_code == 200
     assert res.json()["details"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: service metadata + profile details over the wire
+# ---------------------------------------------------------------------------
+
+ATTR_FIXTURE = Path(__file__).parent / "fixtures" / "ProfileAttributes.xml"
+ATTR_XML = ATTR_FIXTURE.read_bytes()
+
+
+def test_services_include_metadata():
+    res = _post("/api/services", "ProfileAttributes.xml", ATTR_XML)
+    assert res.status_code == 200
+    by_name = {s["name"]: s for s in res.json()["services"]}
+    cat = by_name["--------Wireless Services--------"]
+    assert cat["is_category"] is True
+    assert cat["export_order"] == 0
+    corp = by_name["corp-wireless"]
+    assert corp["enabled"] is True
+    assert corp["template"] == "IBNS_WIRELESS"
+    assert corp["is_category"] is False
+    assert by_name["lab-wired-monitor"]["enabled"] is False
+
+
+def test_services_ise_include_enabled_and_order():
+    res = _post("/api/services", "ISEPolicyConfig.xml", ISE_XML)
+    services = res.json()["services"]
+    assert all(isinstance(s["enabled"], bool) for s in services)
+    assert [s["export_order"] for s in services] == list(range(len(services)))
+
+
+def test_flow_details_include_profiles_and_default():
+    svc_id = next(
+        s["id"] for s in _post("/api/services", "ProfileAttributes.xml", ATTR_XML).json()["services"]
+        if s["name"] == "corp-wireless"
+    )
+    res = client.post(
+        f"/api/flow?include_details=true&service={svc_id}",
+        files={"file": ("ProfileAttributes.xml", io.BytesIO(ATTR_XML), "application/xml")},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    details = body["details"]
+    attrs = details["enforcement_rules"][0]["profiles"][0]["attributes"]
+    assert {"name": "Tunnel-Private-Group-Id", "type": "Radius:IETF",
+            "value": "20", "display_value": "20"} in attrs
+    assert details["enforcement_default"]["profiles"][0]["name"] == "corp-guest-default"
+    assert details["service_context"]["use_cached_results"] is True
+    trace_ids = {n["trace_rule_id"] for n in body["nodes"] if n["trace_rule_id"]}
+    assert set(details["rule_index"]).issubset(trace_ids)

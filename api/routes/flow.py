@@ -26,7 +26,7 @@ from src.ise_parser import ise_parse
 from src.ise_policy_ir import ise_build
 from src.normalizer import And, Op, Or, Predicate
 from src.parser import parse
-from src.policy_details import build_clearpass_details, build_ise_details
+from src.policy_details import build_clearpass_details, build_ise_details, uninterpreted_notes
 from src.policy_ir import (
     ApplyProfiles,
     AuthMethod,
@@ -158,13 +158,21 @@ async def list_services(file: UploadFile = File(...)):
     if fmt == "ise":
         _, ir = _parse_and_build_ise(data, file.filename or "")
         services = [
-            ServiceSummary(id=ps.id, name=ps.name, description=ps.description, service_type=ps.set_type)
-            for ps in ir.policy_sets
+            ServiceSummary(
+                id=ps.id, name=ps.name, description=ps.description,
+                service_type=ps.set_type, enabled=ps.enabled, export_order=i,
+            )
+            for i, ps in enumerate(ir.policy_sets)
         ]
     else:
         _, ir = _parse_and_build_clearpass(data, file.filename or "")
         services = [
-            ServiceSummary(id=s.id, name=s.name, description=s.description, service_type=s.service_type)
+            ServiceSummary(
+                id=s.id, name=s.name, description=s.description,
+                service_type=s.service_type, enabled=s.enabled,
+                template=s.template, is_category=s.is_category,
+                export_order=s.export_order,
+            )
             for s in ir.services.values()
         ]
 
@@ -218,7 +226,7 @@ async def get_flow(
             svc = next(iter(ir.services.values()))
         flow = compile_service(svc, ir)
         details = PolicyDetailsSchema.model_validate(build_clearpass_details(svc, ir)) if include_details else None
-        return _flow_ir_to_schema(flow, ir.warnings, details)
+        return _flow_ir_to_schema(flow, ir.warnings + uninterpreted_notes(svc, ir), details)
 
 
 # ---------------------------------------------------------------------------

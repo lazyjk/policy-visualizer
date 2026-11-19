@@ -225,3 +225,72 @@ def test_eval_all_end_nodes_have_no_outgoing_edges(eval_all_flow):
     for eid in end_ids:
         outgoing = [e for e in eval_all_flow.edges if e.from_id == eid]
         assert outgoing == [], f"End node {eid!r} has outgoing edges"
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: key profile attributes on action nodes
+# ---------------------------------------------------------------------------
+
+from src.flow_ir import _key_attr_lines  # noqa: E402
+from src.policy_ir import EnforcementProfile, ProfileAttribute  # noqa: E402
+
+ATTR_FIXTURE = Path(__file__).parent / "fixtures" / "ProfileAttributes.xml"
+
+
+def _attr_flow():
+    ir = build(parse(ATTR_FIXTURE), source_file=str(ATTR_FIXTURE))
+    svc = next(s for s in ir.services.values() if s.name == "corp-wireless")
+    return compile_service(svc, ir)
+
+
+def _node(flow, suffix):
+    return next(n for n in flow.nodes if n.id.endswith(suffix))
+
+
+def test_action_node_sub_label_shows_role_and_vlan():
+    flow = _attr_flow()
+    # corp-staff-access has Role, VLAN and Filter → capped at two lines
+    assert _node(flow, "__enf_action_0").sub_label == "Role: staff-role\nVLAN: 20"
+
+
+def test_action_node_sub_label_merges_multiple_profiles():
+    flow = _attr_flow()
+    # contractor-vlan (VLAN) + contractor-role (Role); label order follows first appearance
+    assert _node(flow, "__enf_action_1").sub_label == "VLAN: 30\nRole: contractor"
+
+
+def test_default_action_node_sub_label_and_trace():
+    flow = _attr_flow()
+    node = _node(flow, "__enf_default_action")
+    assert node.sub_label == "Role: guest-logon"
+    assert node.trace_rule_id.endswith("__default")
+
+
+def test_action_sub_label_empty_without_key_attributes():
+    raw = parse(FIXTURE)
+    ir = build(raw)
+    flow = compile_service(next(iter(ir.services.values())), ir)
+    actions = [n for n in flow.nodes if n.type == "action"]
+    assert actions and all(n.sub_label == "" for n in actions)
+
+
+def test_action_sub_label_deterministic():
+    a = [(n.id, n.sub_label) for n in _attr_flow().nodes]
+    b = [(n.id, n.sub_label) for n in _attr_flow().nodes]
+    assert a == b
+
+
+def test_key_attr_lines_truncates_long_values():
+    prof = EnforcementProfile(
+        id="p", name="p", profile_type="radius_accept",
+        attributes=[ProfileAttribute(name="Aruba-User-Role", display_value="x" * 40)],
+    )
+    line = _key_attr_lines(["p"], {"p": prof})
+    assert line.startswith("Role: ")
+    assert line.endswith("…")
+    assert len(line) == len("Role: ") + 24
+
+
+def test_dur_profile_sub_label_shows_dur_role_and_vlan():
+    flow = _attr_flow()
+    assert _node(flow, "__enf_action_2").sub_label == "DUR: workstation\nVLAN: 2091"

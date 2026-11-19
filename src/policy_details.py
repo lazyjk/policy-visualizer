@@ -20,7 +20,7 @@ from .normalizer import BooleanExpr, expr_to_node_label
 
 if TYPE_CHECKING:
     from .ise_policy_ir import ISEPolicyIR, ISEPolicySet
-    from .policy_ir import PolicyIR, Service
+    from .policy_ir import EnforcementProfile, PolicyIR, Service
 
 
 def condition_to_text(expr: BooleanExpr | None) -> str:
@@ -48,6 +48,7 @@ def _rule_detail(
     action_text: str,
     on_match: str,
     linked_names: list[str],
+    profiles: list[dict] | None = None,
 ) -> dict:
     return {
         "rule_id": rule_id,
@@ -58,7 +59,101 @@ def _rule_detail(
         "action_text": action_text,
         "on_match": on_match,
         "linked_names": linked_names,
+        "profiles": profiles or [],
     }
+
+
+def _profile_detail(profile: "EnforcementProfile") -> dict:
+    return {
+        "name": profile.name,
+        "profile_type": profile.profile_type,
+        "action": profile.action,
+        "template": profile.template,
+        "product": profile.product,
+        "nad_groups": list(profile.nad_groups),
+        "element_type": profile.element_type,
+        "extras": _extras_detail(profile.extras),
+        "attributes": [
+            {
+                "name": a.name,
+                "type": a.type,
+                "value": a.value,
+                "display_value": a.display_value,
+            }
+            for a in profile.attributes
+        ],
+    }
+
+
+def describe_strip_rule(rule: str) -> str:
+    """Plain-English reading of a ClearPass strip-username rule.
+
+    Rules use the keyword `user` for the part that is kept and the other side
+    of the colon as the delimiter: "user:@" keeps what precedes "@"
+    (user@example.com -> user); "\\:user" keeps what follows "\\"
+    (EXAMPLE\\user -> user). Unrecognised shapes return "".
+    """
+    if rule.startswith("user:") and len(rule) > len("user:"):
+        delim = rule[len("user:"):]
+        return f"Keep text before '{delim}' (user{delim}example → user)"
+    if rule.endswith(":user") and len(rule) > len(":user"):
+        delim = rule[: -len(":user")]
+        return f"Keep text after '{delim}' (EXAMPLE{delim}user → user)"
+    return ""
+
+
+def _extras_detail(extras) -> list[dict]:
+    return [{"path": e.path, "value": e.value} for e in extras]
+
+
+def uninterpreted_notes(service: "Service", ir: "PolicyIR") -> list[str]:
+    """Service-scoped warnings for settings shown raw ("Other settings").
+
+    Covers the service itself and every enforcement profile its enforcement
+    policy can apply (rules + default), in rule order, de-duplicated.
+    """
+    from .policy_ir import ApplyProfiles
+
+    notes: list[str] = []
+    if service.extras:
+        notes.append(
+            f"Service '{service.name}' has {len(service.extras)} setting(s) this version "
+            "does not interpret — shown under 'Other settings' in the inspector."
+        )
+    ep = ir.enforcement_policies.get(service.enforcement_policy_id)
+    if ep is None:
+        return notes
+    thens = [r.then for r in ep.rules] + ([ep.default] if ep.default is not None else [])
+    seen: set[str] = set()
+    for then in thens:
+        if not isinstance(then, ApplyProfiles):
+            continue
+        for pid in then.profile_ids:
+            prof = ir.enforcement_profiles.get(pid)
+            if prof is None or pid in seen:
+                continue
+            seen.add(pid)
+            if prof.profile_type == "other":
+                notes.append(
+                    f"Enforcement profile '{prof.name}' is a {prof.element_type or 'profile'} type this "
+                    "version does not model — its raw settings are shown in the inspector."
+                )
+            elif prof.extras:
+                notes.append(
+                    f"Enforcement profile '{prof.name}' has {len(prof.extras)} setting(s) this version "
+                    "does not interpret — shown under 'Other settings' in the inspector."
+                )
+    return notes
+
+
+def _profile_details(profile_ids: list[str], ir: "PolicyIR") -> list[dict]:
+    """Resolve profile IDs to detail dicts, preserving rule order."""
+    out = []
+    for pid in profile_ids:
+        prof = ir.enforcement_profiles.get(pid)
+        if prof is not None:
+            out.append(_profile_detail(prof))
+    return out
 
 
 def _build_rule_index(
@@ -89,6 +184,20 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "auth_method_names": list(service.authentication.method_names),
         "auth_source_names": list(service.authentication.source_names),
         "condition_text": condition_to_text(service.match),
+        "enabled": service.enabled,
+        "template": service.template,
+        "monitor_mode": service.monitor_mode,
+        "use_cached_results": service.use_cached_results,
+        "strip_username": service.strip_username,
+        "strip_rules": [
+            {"rule": r, "description": describe_strip_rule(r)} for r in service.strip_rules
+        ],
+        "posture_enabled": service.posture_enabled,
+        "profiler_enabled": service.profiler_enabled,
+        "audit_enabled": service.audit_enabled,
+        "role_mapping_policy_name": service.role_mapping_policy_name,
+        "enforcement_policy_name": service.enforcement_policy_name,
+        "extras": _extras_detail(service.extras),
     }
 
     # Role mapping rules (ordered by index)
@@ -126,10 +235,12 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         for rule in sorted(enf_policy.rules, key=lambda r: r.index):
             from .policy_ir import ApplyProfiles
             then = rule.then
+            profiles: list[dict] = []
             if isinstance(then, ApplyProfiles):
                 names = then.profile_names if then.profile_names else then.profile_ids
                 action_text = ", ".join(names)
                 linked = list(names)
+                profiles = _profile_details(then.profile_ids, ir)
             else:
                 action_text = str(then)
                 linked = []
@@ -143,10 +254,34 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
                     action_text=action_text,
                     on_match=rule.flow.on_match,
                     linked_names=linked,
+                    profiles=profiles,
                 )
             )
 
+    # Enforcement default (keyed by the default action node's trace_rule_id)
+    enforcement_default: dict | None = None
+    if enf_policy and enf_policy.rules and enf_policy.default is not None:
+        from .flow_ir import default_trace_id
+        from .policy_ir import ApplyProfiles
+        if isinstance(enf_policy.default, ApplyProfiles):
+            d = enf_policy.default
+            names = d.profile_names if d.profile_names else d.profile_ids
+            dtid = default_trace_id(enf_policy.id)
+            enforcement_default = _rule_detail(
+                rule_id=dtid,
+                node_trace_id=dtid,
+                index=len(enf_policy.rules),
+                name="Default",
+                condition_text="(no rule matched)",
+                action_text=", ".join(names),
+                on_match="stop",
+                linked_names=list(names),
+                profiles=_profile_details(d.profile_ids, ir),
+            )
+
     rule_index = _build_rule_index([], role_mapping_rules, enforcement_rules)
+    if enforcement_default is not None:
+        rule_index[enforcement_default["node_trace_id"]] = enforcement_default
 
     svc_match_key = f"{service.id}__match"
     rule_index[svc_match_key] = _rule_detail(
@@ -165,7 +300,8 @@ def build_clearpass_details(service: "Service", ir: "PolicyIR") -> dict:
         "authen_rules": [],
         "role_mapping_rules": role_mapping_rules,
         "enforcement_rules": enforcement_rules,
-        "warnings": list(ir.warnings),
+        "enforcement_default": enforcement_default,
+        "warnings": list(ir.warnings) + uninterpreted_notes(service, ir),
         "rule_index": rule_index,
     }
 

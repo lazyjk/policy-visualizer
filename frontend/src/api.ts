@@ -20,6 +20,34 @@ export interface FlowEdge {
   reason: string;
 }
 
+export interface ProfileAttribute {
+  name: string;
+  type: string;
+  value: string;
+  display_value: string;
+}
+
+/** A raw setting from the export that this version does not interpret. */
+export interface ExtraSetting {
+  path: string;
+  value: string;
+}
+
+export interface ProfileDetail {
+  name: string;
+  profile_type: string;
+  action: string;
+  template: string;
+  /** e.g. "durPluginA" for an Aruba Downloadable User Role profile. */
+  product: string;
+  /** NAD groups this profile is restricted to (empty = all). */
+  nad_groups: string[];
+  /** XML element for profile types not modelled (profile_type "other"). */
+  element_type: string;
+  attributes: ProfileAttribute[];
+  extras: ExtraSetting[];
+}
+
 export interface RuleDetail {
   rule_id: string;
   node_trace_id: string;
@@ -29,6 +57,14 @@ export interface RuleDetail {
   action_text: string;
   on_match: string;
   linked_names: string[];
+  /** Enforcement profiles applied by this rule (empty for non-enforcement rules / ISE). */
+  profiles: ProfileDetail[];
+}
+
+/** ClearPass strip-username rule, e.g. "user:@" with a plain-English reading. */
+export interface StripRule {
+  rule: string;
+  description: string;
 }
 
 export interface ServiceContext {
@@ -38,6 +74,18 @@ export interface ServiceContext {
   auth_method_names: string[];
   auth_source_names: string[];
   condition_text: string;
+  enabled: boolean;
+  template: string;
+  monitor_mode: boolean;
+  use_cached_results: boolean;
+  strip_username: boolean;
+  strip_rules: StripRule[];
+  posture_enabled: boolean;
+  profiler_enabled: boolean;
+  audit_enabled: boolean;
+  role_mapping_policy_name: string;
+  enforcement_policy_name: string;
+  extras: ExtraSetting[];
 }
 
 export interface PolicyDetails {
@@ -45,6 +93,8 @@ export interface PolicyDetails {
   authen_rules: RuleDetail[];
   role_mapping_rules: RuleDetail[];
   enforcement_rules: RuleDetail[];
+  /** Default enforcement outcome (also present in rule_index). */
+  enforcement_default: RuleDetail | null;
   warnings: string[];
   rule_index: Record<string, RuleDetail>;
 }
@@ -64,6 +114,12 @@ export interface ServiceSummary {
   name: string;
   description: string;
   service_type: string;
+  enabled: boolean;
+  template: string;
+  /** ClearPass "------Name------" divider service; not a real service. */
+  is_category: boolean;
+  /** Position in the uploaded file (not ClearPass evaluation precedence). */
+  export_order: number | null;
 }
 
 export interface ServiceListResponse {

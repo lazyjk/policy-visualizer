@@ -219,7 +219,14 @@ export function ActionNode({ data }: NodeProps) {
       }}
     >
       <Handle type="target" position={Position.Left} />
-      <div>{multilineLabel(d.label)}</div>
+      <div>
+        {multilineLabel(d.label)}
+        {d.sub_label && (
+          <div style={{ fontSize: 9, opacity: 0.8, marginTop: 3, fontStyle: "italic" }}>
+            {multilineLabel(d.sub_label)}
+          </div>
+        )}
+      </div>
       <Handle type="source" position={Position.Right} />
     </div>
   );

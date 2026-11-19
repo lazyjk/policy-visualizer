@@ -3,6 +3,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceSummary } from "../api";
+import { templateLabel } from "../serviceLabels";
 
 interface Props {
   services: ServiceSummary[];
@@ -36,8 +37,20 @@ export default function UploadPanel({
     setSortOrder("none");
   }, [services]);
 
+  // Real services exclude ClearPass "------Name------" divider entries.
+  const realServiceCount = useMemo(() => services.filter((s) => !s.is_category).length, [services]);
+
   const displayedServices = useMemo(() => {
-    let list = [...services];
+    // File order (as ClearPass wrote the export — NOT ClearPass service
+    // precedence, which the XML doesn't carry). Stable for missing export_order.
+    let list = services
+      .map((s, i) => ({ s, i }))
+      .sort((a, b) => (a.s.export_order ?? a.i) - (b.s.export_order ?? b.i))
+      .map(({ s }) => s);
+    // ClearPass "------Name------" divider services are hidden: they carry no
+    // policy, and the XML export doesn't preserve ClearPass service order, so
+    // they can't be used as reliable section headers.
+    list = list.filter((s) => !s.is_category);
     if (filterType) list = list.filter((s) => s.service_type === filterType);
     if (nameFilter.trim()) {
       const raw = nameFilter.trim();
@@ -134,7 +147,7 @@ export default function UploadPanel({
           </p>
 
           {/* Filter + sort controls — only shown when there are multiple services */}
-          {services.length > 1 && (
+          {realServiceCount > 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
               {/* Name filter + sort icon */}
               <div style={{ display: "flex", gap: 6 }}>
@@ -197,15 +210,24 @@ export default function UploadPanel({
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {displayedServices.map((svc) => {
                 const isActive = svc.id === selectedService;
+                const enabled = svc.enabled !== false;
+                const tmpl = templateLabel(svc.template ?? "");
                 return (
                   <li key={svc.id} style={{ marginBottom: 6 }}>
                     <button
-                      style={isActive ? activeServiceButtonStyle : serviceButtonStyle}
+                      style={{
+                        ...(isActive ? activeServiceButtonStyle : serviceButtonStyle),
+                        ...(enabled ? {} : { opacity: isActive ? 0.8 : 0.55 }),
+                      }}
                       onClick={() => onServiceSelect(svc.id)}
-                      title={svc.description || undefined}
+                      title={[svc.description, enabled ? "" : "Disabled in ClearPass"].filter(Boolean).join("\n") || undefined}
                     >
                       <span>{svc.name}</span>
                       <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
+                      {tmpl && tmpl !== svc.service_type && (
+                        <span style={serviceTypeBadgeStyle}>{tmpl}</span>
+                      )}
+                      {!enabled && <span style={disabledBadgeStyle}>Disabled</span>}
                     </button>
                   </li>
                 );
@@ -301,6 +323,12 @@ const serviceTypeBadgeStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "1px 5px",
   verticalAlign: "middle",
+};
+
+const disabledBadgeStyle: React.CSSProperties = {
+  ...serviceTypeBadgeStyle,
+  color: "#991b1b",
+  background: "#fee2e2",
 };
 
 const nameFilterStyle: React.CSSProperties = {

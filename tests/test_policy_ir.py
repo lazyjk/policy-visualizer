@@ -259,3 +259,83 @@ def test_tacacs_profile_type_classification(action, autz, priv, expected_type):
     ir = build(raw)
     profiles = {p.name: p for p in ir.enforcement_profiles.values()}
     assert profiles["TestTACACS"].profile_type == expected_type
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: profile attributes, service settings, categories
+# ---------------------------------------------------------------------------
+
+from src.policy_ir import ProfileAttribute, is_category_name  # noqa: E402
+
+ATTR_FIXTURE = Path(__file__).parent / "fixtures" / "ProfileAttributes.xml"
+
+
+@pytest.fixture(scope="module")
+def attr_ir():
+    return build(parse(ATTR_FIXTURE), source_file=str(ATTR_FIXTURE))
+
+
+def _svc(ir, name):
+    return next(s for s in ir.services.values() if s.name == name)
+
+
+def _profile(ir, name):
+    return next(p for p in ir.enforcement_profiles.values() if p.name == name)
+
+
+def test_profile_attributes_carried_into_ir(attr_ir):
+    prof = _profile(attr_ir, "corp-staff-access")
+    assert prof.attributes[0] == ProfileAttribute(
+        name="Aruba-User-Role", type="Radius:Aruba",
+        value="staff-role", display_value="staff-role",
+    )
+    assert len(prof.attributes) == 3
+
+
+def test_coa_profile_template_in_ir(attr_ir):
+    coa = _profile(attr_ir, "corp-bounce")
+    assert coa.profile_type == "radius_coa"
+    assert coa.template == "Aruba-Terminate-Session"
+
+
+def test_post_auth_attributes_carried_into_ir(ir):
+    post = [p for p in ir.enforcement_profiles.values() if p.profile_type == "post_auth"]
+    assert post and all(p.attributes for p in post)
+
+
+def test_service_settings_in_ir(attr_ir):
+    corp = _svc(attr_ir, "corp-wireless")
+    assert corp.enabled is True
+    assert corp.template == "IBNS_WIRELESS"
+    assert corp.use_cached_results is True
+    assert corp.monitor_mode is False
+    assert corp.export_order == 1
+    lab = _svc(attr_ir, "lab-wired-monitor")
+    assert lab.enabled is False
+    assert lab.monitor_mode is True
+    assert lab.posture_enabled is True
+
+
+def test_category_service_flagged(attr_ir):
+    assert _svc(attr_ir, "--------Wireless Services--------").is_category is True
+    assert _svc(attr_ir, "corp-wireless").is_category is False
+
+
+@pytest.mark.parametrize("name,expected", [
+    ("---Wireless---", True),
+    ("  -----Guest", True),
+    ("--two-dashes", False),
+    ("corp-wireless---", False),
+    ("", False),
+])
+def test_is_category_name(name, expected):
+    assert is_category_name(name) is expected
+
+
+def test_unresolved_auth_method_placeholder_does_not_raise():
+    raw = parse(ATTR_FIXTURE)
+    raw["authMethods"] = []  # force the unresolved-reference placeholder path
+    ir2 = build(raw)
+    placeholder = next(m for m in ir2.auth_methods.values() if m.name == "[PAP]")
+    assert placeholder.method_type == "builtin"
+    assert any("AuthMethod '[PAP]' not found" in w for w in ir2.warnings)

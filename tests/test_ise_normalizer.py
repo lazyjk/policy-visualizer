@@ -216,9 +216,17 @@ def test_ise_op_mapping(ise_op, expected):
     assert _ise_op(ise_op) == expected
 
 
-def test_unknown_operator_raises():
-    with pytest.raises(ValueError, match="Unknown ISE operator"):
-        _ise_op("TOTALLY_UNKNOWN_OP")
+def test_unknown_operator_soft_fails():
+    assert _ise_op("TOTALLY_UNKNOWN_OP") == Op.unknown
+
+
+def test_unknown_operator_predicate_kept_with_warning():
+    warnings: list[str] = []
+    cond = _single("NAS-IP-Address", "Radius", "totallyNewOp", "10.0.0.1")
+    result = normalize_ise_condition(cond, {}, warnings)
+    assert result.op == Op.unknown
+    assert result.raw_operator == "totallyNewOp"
+    assert len(warnings) == 1 and "totallyNewOp" in warnings[0]
 
 
 # ---------------------------------------------------------------------------

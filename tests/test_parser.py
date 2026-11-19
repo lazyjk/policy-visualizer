@@ -257,3 +257,114 @@ def test_webauth_app_enforcement_policies_parsed(webauth_app_raw):
     names = {ep["name"] for ep in webauth_app_raw["enforcementPolicies"]}
     assert "[Device Registration Disconnect]" in names
     assert "[Insight Operator Logins]" in names
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: profile attributes + service flags (ProfileAttributes.xml)
+# ---------------------------------------------------------------------------
+
+ATTR_FIXTURE = Path(__file__).parent / "fixtures" / "ProfileAttributes.xml"
+EVAL_ALL_FIXTURE = Path(__file__).parent / "fixtures" / "EvaluateAll.xml"
+WEBAUTH_FIXTURE = Path(__file__).parent / "fixtures" / "clearpass-webauth-application-service-example.xml"
+
+
+@pytest.fixture(scope="module")
+def attr_raw():
+    return parse(ATTR_FIXTURE)
+
+
+def _by_name(items, name):
+    return next(i for i in items if i["name"] == name)
+
+
+def test_radius_profile_attributes_parsed(attr_raw):
+    prof = _by_name(attr_raw["radiusEnfProfiles"], "corp-staff-access")
+    names = [a["name"] for a in prof["attributes"]]
+    assert names == ["Aruba-User-Role", "Tunnel-Private-Group-Id", "Filter-Id"]
+    assert prof["attributes"][0] == {
+        "name": "Aruba-User-Role", "type": "Radius:Aruba",
+        "value": "staff-role", "displayValue": "staff-role",
+    }
+
+
+def test_radius_profile_without_attributes_is_empty_list():
+    raw = parse(EVAL_ALL_FIXTURE)
+    allow = _by_name(raw["radiusEnfProfiles"], "[Allow Access Profile]")
+    assert allow["attributes"] == []
+    sponsor = _by_name(raw["radiusEnfProfiles"], "[Return Device Sponsor Name - RADIUS User-Name]")
+    assert [a["name"] for a in sponsor["attributes"]] == ["User-Name"]
+
+
+def test_coa_profile_template_and_scoped_attributes(attr_raw):
+    coa = _by_name(attr_raw["radiusCoaEnfProfiles"], "corp-bounce")
+    assert coa["template"] == "Aruba-Terminate-Session"
+    # Only the profile's own attribute — not the two from <RadiusCOATemplates>
+    assert [a["name"] for a in coa["attributes"]] == ["Calling-Station-Id"]
+
+
+def test_generic_profile_params_parsed():
+    raw = parse(WEBAUTH_FIXTURE)
+    gp = raw["genericEnfProfiles"][0]
+    assert gp["type"] == "Application"
+    assert gp["attributes"][0]["name"] == "admin_privileges"
+    assert gp["attributes"][0]["type"] == ""
+
+
+def test_service_flags_parsed(attr_raw):
+    corp = _by_name(attr_raw["services"], "corp-wireless")
+    assert corp["useCachedResults"] is True
+    assert corp["stripUsername"] is True
+    assert corp["profilerEnabled"] is True
+    assert corp["monitorMode"] is False
+    lab = _by_name(attr_raw["services"], "lab-wired-monitor")
+    assert lab["monitorMode"] is True
+    assert lab["postureEnabled"] is True
+    assert lab["enabled"] == "false"
+    assert lab["serviceTemplate"] == "IBNS_WIRED"
+
+
+def test_service_flags_default_false_when_absent():
+    raw = parse(Path(__file__).parent / "fixtures" / "TacacsService.xml")
+    svc = raw["services"][0]
+    for key in ("monitorMode", "useCachedResults", "stripUsername",
+                "profilerEnabled", "postureEnabled", "auditEnabled"):
+        assert svc[key] is False
+
+
+def test_service_export_order_follows_document_order(attr_raw):
+    orders = [(s["name"], s["exportOrder"]) for s in attr_raw["services"]]
+    assert orders == [
+        ("--------Wireless Services--------", 0),
+        ("corp-wireless", 1),
+        ("lab-wired-monitor", 2),
+    ]
+
+
+def test_export_order_spans_service_types():
+    raw = parse(WEBAUTH_FIXTURE)
+    assert sorted(s["exportOrder"] for s in raw["services"]) == [0, 1]
+
+
+def test_dur_profile_settings_parsed(attr_raw):
+    prof = _by_name(attr_raw["radiusEnfProfiles"], "workstation-dur-vlan2091")
+    assert prof["product"] == "durPluginA"
+    assert prof["nadGroups"] == ["All-Access-Switches"]
+    by_name = {a["name"]: a for a in prof["attributes"]}
+    assert by_name["roleName"]["value"] == "workstation"
+    assert by_name["roleName"]["type"] == "DUR:durPluginA"
+    assert by_name["vlanAccessId"]["displayValue"] == "2091"
+    assert len(prof["attributes"]) == 6
+
+
+def test_non_dur_profile_has_no_product_or_nad_groups(attr_raw):
+    prof = _by_name(attr_raw["radiusEnfProfiles"], "corp-staff-access")
+    assert prof["product"] == ""
+    assert prof["nadGroups"] == []
+
+
+def test_strip_rules_parsed_from_csv():
+    raw = parse(Path(__file__).parent / "fixtures" / "Service.xml")
+    svc = raw["services"][0]
+    assert svc["stripUsername"] is True
+    assert svc["stripRules"] == ["user:@", "\\:user"]
+    assert all("stripRulesCsv" not in e["path"] for e in svc["extras"])

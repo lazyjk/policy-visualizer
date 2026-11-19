@@ -46,6 +46,9 @@ class Op(str, Enum):
     ip_greater_than = "ip_greater_than"
     ip_less_than = "ip_less_than"
     not_in = "not_in"
+    # Operator not recognised by this version. The predicate keeps its
+    # raw_operator so it is displayed as-is; a warning is raised upstream.
+    unknown = "unknown"
 
     @classmethod
     def from_raw(cls, raw: str) -> "Op":
@@ -85,10 +88,7 @@ class Op(str, Enum):
             "NOT_MATCHES_ANY": cls.not_matches_any,
             "IN_RANGE": cls.in_range,
         }
-        upper = raw.upper()
-        if upper not in mapping:
-            raise ValueError(f"Unknown ClearPass operator: {raw!r}")
-        return mapping[upper]
+        return mapping.get(raw.upper(), cls.unknown)
 
 
 @dataclass
@@ -174,6 +174,34 @@ def normalize(raw_expression: dict | None) -> BooleanExpr | None:
     return And(operands=predicates)
 
 
+def unknown_operators(expr: BooleanExpr | None) -> list[str]:
+    """Raw operator strings of predicates whose operator wasn't recognised
+    (first-seen order, de-duplicated)."""
+    found: list[str] = []
+
+    def _walk(e: BooleanExpr | None) -> None:
+        if e is None:
+            return
+        if isinstance(e, Predicate):
+            if e.op is Op.unknown and e.raw_operator not in found:
+                found.append(e.raw_operator)
+        elif isinstance(e, (And, Or)):
+            for o in e.operands:
+                _walk(o)
+        elif isinstance(e, Not):
+            _walk(e.operand)
+
+    _walk(expr)
+    return found
+
+
+def unknown_operator_warning(ops: list[str], context: str) -> str:
+    quoted = ", ".join(f"'{o}'" for o in ops)
+    noun = "operator" if len(ops) == 1 else "operators"
+    return (f"Unrecognised condition {noun} {quoted} in {context} — "
+            "shown as-is; the diagram may not reflect how ClearPass evaluates it.")
+
+
 def expr_to_label(expr: BooleanExpr | None, max_len: int = 60) -> str:
     """
     Produce a short human-readable label for a BooleanExpr, suitable for
@@ -186,7 +214,8 @@ def expr_to_label(expr: BooleanExpr | None, max_len: int = 60) -> str:
         if isinstance(e, Predicate):
             attr_short = e.attribute.split(":")[-1]
             rhs = e.rhs_display or e.rhs_raw
-            return f"{attr_short} {e.op.value} {rhs!r}"
+            op = e.raw_operator if e.op is Op.unknown and e.raw_operator else e.op.value
+            return f"{attr_short} {op} {rhs!r}"
         if isinstance(e, And):
             parts = [_render(o) for o in e.operands]
             return " AND ".join(parts)

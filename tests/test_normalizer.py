@@ -26,9 +26,10 @@ def test_op_from_raw_contains():
     assert Op.from_raw("CONTAINS") == Op.contains
 
 
-def test_op_from_raw_unknown():
-    with pytest.raises(ValueError):
-        Op.from_raw("UNKNOWN_OP")
+def test_op_from_raw_unknown_soft_fails():
+    # Unrecognised operators no longer abort the upload; they map to
+    # Op.unknown and the predicate keeps raw_operator for display.
+    assert Op.from_raw("UNKNOWN_OP") == Op.unknown
 
 
 def test_op_belongs_to_group():

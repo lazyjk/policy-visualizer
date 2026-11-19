@@ -57,6 +57,7 @@ class ISEPolicySet:
     match: BooleanExpr | None     # None = match-all
     authen_rules: list[ISEAuthenRule]   # ENABLED only, sorted by rank
     author_rules: list[ISEAuthorRule]   # ENABLED only, sorted by rank
+    enabled: bool = True                # policy-set status != DISABLED
 
 
 @dataclass
@@ -130,6 +131,7 @@ def _build_policy_set(ps_raw: dict, library: dict, ir: ISEPolicyIR) -> ISEPolicy
         match=match,
         authen_rules=authen_rules,
         author_rules=author_rules,
+        enabled=str(ps_raw.get("status", "ENABLED")).upper() != "DISABLED",
     )
 
 

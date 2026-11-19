@@ -35,6 +35,7 @@ import "@xyflow/react/dist/style.css";
 import { fetchFlow } from "../api";
 import type { FlowIR, FlowNode, PolicyDetails, ServiceSummary } from "../api";
 import { nodeTypes, DEFAULT_NODE_COLORS, type NodeColors } from "./nodes/nodeTypes";
+import SearchPanel from "./SearchPanel";
 import {
   useDiagramSession,
   type DiagramEditState,
@@ -559,7 +560,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     pdf.setFont("helvetica", "normal");
     const lines = pdf.splitTextToSize(value, APPX_CONTENT_W - indent - 40);
     const labelW = pdf.getTextWidth(label) + 4;
-    pdf.text(lines[0], APPX_MARGIN + indent + labelW, y);
+    pdf.text(lines[0] ?? "", APPX_MARGIN + indent + labelW, y);
     y += APPX_LINE_H;
     for (let i = 1; i < lines.length; i++) {
       checkPageBreak();
@@ -597,14 +598,17 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     checkPageBreak(APPX_LINE_H * 5);
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "bold");
-    const header = rule.name
-      ? `[${rule.index}] ${rule.name}`
-      : `[${rule.index}] Rule`;
+    const isDefault = rule.node_trace_id.endsWith("__default");
+    const header = isDefault
+      ? "Default (no rule matched)"
+      : rule.name
+        ? `[${rule.index}] ${rule.name}`
+        : `[${rule.index}] Rule`;
     pdf.text(header, APPX_MARGIN + 4, y);
     y += APPX_LINE_H;
     pdf.setFont("helvetica", "normal");
 
-    if (rule.condition_text && rule.condition_text !== "(no condition)") {
+    if (!isDefault && rule.condition_text && rule.condition_text !== "(no condition)") {
       checkPageBreak(APPX_LINE_H * 2);
       pdf.setFontSize(9);
       pdf.setFont("helvetica", "bold");
@@ -615,7 +619,23 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
     }
 
     printLabel("Action:", rule.action_text || "(none)", 4);
-    printLabel("On match:", rule.on_match, 4);
+
+    // Enforcement profile contents (attributes) — ClearPass only
+    for (const prof of rule.profiles ?? []) {
+      const meta = [prof.profile_type.replace(/_/g, " "), prof.template && `template ${prof.template}`]
+        .filter(Boolean).join(", ");
+      printLabel("Profile:", `${prof.name} (${meta})`, 8);
+      if ((prof.nad_groups ?? []).length > 0) printLabel("NAD groups:", prof.nad_groups.join(", "), 20);
+      for (const a of prof.attributes) {
+        printLabel(`${a.name}:`, a.display_value || a.value || "(empty)", 20);
+      }
+      if ((prof.extras ?? []).length > 0) {
+        printLabel("Other settings (not interpreted):", "", 20);
+        for (const e of prof.extras) printLabel(`${e.path}:`, e.value, 28);
+      }
+    }
+
+    if (!isDefault) printLabel("On match:", rule.on_match, 4);
 
     if (rule.linked_names.length > 0) {
       printLabel("Linked:", rule.linked_names.join(", "), 4);
@@ -645,8 +665,36 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   const ctx = details.service_context;
   printLabel("Service:", `${ctx.service_name} (${ctx.service_type})`);
   if (ctx.description) printLabel("Description:", ctx.description);
+  if (ctx.template) printLabel("Template:", ctx.template);
+  if (ctx.enabled !== undefined) {
+    const status = [ctx.enabled ? "Enabled" : "Disabled", ctx.monitor_mode ? "Monitor mode" : ""]
+      .filter(Boolean).join(", ");
+    printLabel("Status:", status);
+  }
+  {
+    const opts = [
+      ctx.use_cached_results && "Use cached results",
+      ctx.posture_enabled && "Posture",
+      ctx.profiler_enabled && "Profiler",
+      ctx.audit_enabled && "Audit",
+    ].filter(Boolean);
+    if (opts.length > 0) printLabel("Options:", opts.join(", "));
+  }
+  if (ctx.role_mapping_policy_name) printLabel("Role Mapping:", ctx.role_mapping_policy_name);
+  if (ctx.enforcement_policy_name) printLabel("Enforcement:", ctx.enforcement_policy_name);
+  if ((ctx.extras ?? []).length > 0) {
+    printLabel("Other settings (not interpreted):", "");
+    for (const e of ctx.extras) printLabel(`${e.path}:`, e.value, 12);
+  }
   if (ctx.auth_method_names.length > 0) printLabel("Auth Methods:", ctx.auth_method_names.join(", "));
   if (ctx.auth_source_names.length > 0) printLabel("Auth Sources:", ctx.auth_source_names.join(", "));
+  if (ctx.strip_username || (ctx.strip_rules ?? []).length > 0) {
+    const rules = (ctx.strip_rules ?? [])
+      // jsPDF's built-in fonts can't render "→"
+      .map((r) => (r.description ? `${r.rule} (${r.description.replace(/→/g, "->")})` : r.rule))
+      .join("; ");
+    printLabel("Strip username:", [ctx.strip_username ? "Enabled" : "Disabled", rules].filter(Boolean).join(" — "));
+  }
   if (ctx.condition_text && ctx.condition_text !== "(no condition)") {
     checkPageBreak(APPX_LINE_H * 2);
     pdf.setFontSize(9);
@@ -676,6 +724,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   if (details.enforcement_rules.length > 0) {
     printSectionHeader("Enforcement Rules");
     for (const rule of details.enforcement_rules) printRule(rule);
+    if (details.enforcement_default) printRule(details.enforcement_default);
     y += 4;
   }
 
@@ -835,72 +884,84 @@ function ExportPanel({
       const nodes = getNodes();
       if (nodes.length === 0) throw new Error("No nodes to export");
 
-      // Compute tight bounding box using per-type fallback sizes.
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const n of nodes) {
-        const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
-        const w = n.measured?.width ?? fb.width;
-        const h = n.measured?.height ?? fb.height;
-        minX = Math.min(minX, n.position.x);
-        minY = Math.min(minY, n.position.y);
-        maxX = Math.max(maxX, n.position.x + w);
-        maxY = Math.max(maxY, n.position.y + h);
-      }
+      // Search highlight/dim styles are switched off under .pv-exporting
+      // (index.css) for the duration of the capture.
+      const wrapperEl = wrapperRef.current!;
+      wrapperEl.classList.add("pv-exporting");
+      // Force a synchronous style recalc so the neutralised styles are in
+      // effect before html-to-image reads computed styles.
+      void wrapperEl.offsetHeight;
+      try {
 
-      const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
-      const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
-      const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
+        // Compute tight bounding box using per-type fallback sizes.
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of nodes) {
+          const fb = NODE_SIZE_FALLBACKS[n.type ?? "process"] ?? { width: 160, height: 80 };
+          const w = n.measured?.width ?? fb.width;
+          const h = n.measured?.height ?? fb.height;
+          minX = Math.min(minX, n.position.x);
+          minY = Math.min(minY, n.position.y);
+          maxX = Math.max(maxX, n.position.x + w);
+          maxY = Math.max(maxY, n.position.y + h);
+        }
 
-      const options = {
-        filter: (el: HTMLElement) => {
-          const cl = el.classList;
-          if (!cl) return true;
-          return (
-            !cl.contains("react-flow__panel") &&
-            !cl.contains("react-flow__controls") &&
-            (withGrid || !cl.contains("react-flow__background"))
-          );
-        },
-        // No backgroundColor here — applying it to the translated viewport element
-        // offsets the fill rect, leaving transparent strips that JPEG renders as black.
-        // White background is composited at canvas level below (applyBackground).
-        // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
-        // by the transform offset issue, so we pass it directly for SVG only.
-        width: imgW,
-        height: imgH,
-        style: {
-          width: `${imgW}px`,
-          height: `${imgH}px`,
-          transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
-        },
-        pixelRatio,
-      };
+        const imgW = Math.ceil(maxX - minX + EXPORT_PADDING * 2);
+        const imgH = Math.ceil(maxY - minY + EXPORT_PADDING * 2);
+        const pixelRatio = clampPixelRatio(imgW, imgH, 4, maxPixels);
 
-      if (format === "svg") {
-        const dataUrl = await toSvg(viewportEl, {
-          ...options,
-          ...(transparent ? {} : { backgroundColor: "#ffffff" }),
-        });
-        return { dataUrl: addDateStampToSvg(dataUrl, imgW), pixelRatio };
-      }
+        const options = {
+          filter: (el: HTMLElement) => {
+            const cl = el.classList;
+            if (!cl) return true;
+            return (
+              !cl.contains("react-flow__panel") &&
+              !cl.contains("react-flow__controls") &&
+              (withGrid || !cl.contains("react-flow__background"))
+            );
+          },
+          // No backgroundColor here — applying it to the translated viewport element
+          // offsets the fill rect, leaving transparent strips that JPEG renders as black.
+          // White background is composited at canvas level below (applyBackground).
+          // SVG is the exception: html-to-image inserts a <rect>, which is unaffected
+          // by the transform offset issue, so we pass it directly for SVG only.
+          width: imgW,
+          height: imgH,
+          style: {
+            width: `${imgW}px`,
+            height: `${imgH}px`,
+            transform: `translate(${-minX + EXPORT_PADDING}px, ${-minY + EXPORT_PADDING}px) scale(1)`,
+          },
+          pixelRatio,
+        };
 
-      // Always capture as transparent PNG. Using toJpeg here would encode
-      // transparent pixels as black *before* applyBackground can add the white
-      // fill, causing a black background on the output.
-      const rawDataUrl = await toPng(viewportEl, options);
+        if (format === "svg") {
+          const dataUrl = await toSvg(viewportEl, {
+            ...options,
+            ...(transparent ? {} : { backgroundColor: "#ffffff" }),
+          });
+          return { dataUrl: addDateStampToSvg(dataUrl, imgW), pixelRatio };
+        }
 
-      // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
-      // Composite onto a white canvas to guarantee a clean, full-coverage background.
-      const needsWhite = !transparent || format === "jpeg";
-      if (needsWhite) {
-        const mime = format === "jpeg" ? "image/jpeg" : "image/png";
-        const bgUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
-        const dataUrl = await addDateStampToRaster(bgUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, mime, 0.92);
+        // Always capture as transparent PNG. Using toJpeg here would encode
+        // transparent pixels as black *before* applyBackground can add the white
+        // fill, causing a black background on the output.
+        const rawDataUrl = await toPng(viewportEl, options);
+
+        // JPEG has no alpha channel; non-transparent PNG also needs a white fill.
+        // Composite onto a white canvas to guarantee a clean, full-coverage background.
+        const needsWhite = !transparent || format === "jpeg";
+        if (needsWhite) {
+          const mime = format === "jpeg" ? "image/jpeg" : "image/png";
+          const bgUrl = await applyBackground(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, mime, 0.92);
+          const dataUrl = await addDateStampToRaster(bgUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, mime, 0.92);
+          return { dataUrl, pixelRatio };
+        }
+
+        const dataUrl = await addDateStampToRaster(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, "image/png");
         return { dataUrl, pixelRatio };
+      } finally {
+        wrapperEl.classList.remove("pv-exporting");
       }
-
-      const dataUrl = await addDateStampToRaster(rawDataUrl, imgW * pixelRatio, imgH * pixelRatio, pixelRatio, "image/png");
-      return { dataUrl, pixelRatio };
     },
     [getNodes, wrapperRef]
   );
@@ -1578,6 +1639,10 @@ function KeyboardHandler({
       // handle text copy/paste normally.
       const ae = document.activeElement;
       if (ae && ae.closest(".ProseMirror")) return;
+      // Form-field guard: search box, service filter, selects etc. keep native
+      // text copy/paste instead of annotation copy/paste.
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT"
+        || ae.closest(".nokey"))) return;
 
       if (e.key === "c") {
         const nodes = getNodes();
@@ -1900,6 +1965,14 @@ export default function FlowDiagram({ flow, allServices = [], fileRef, onNodeSel
           nodeColors={nodeColors}
         />
         <SelectionHintPanel />
+        {!batchFlow && (
+          <SearchPanel
+            key={flow.service_id}
+            flow={flow}
+            details={flow.details}
+            onNodeSelect={onNodeSelect}
+          />
+        )}
         <StylePanel
           nodeColors={nodeColors}
           setNodeColors={setNodeColors}

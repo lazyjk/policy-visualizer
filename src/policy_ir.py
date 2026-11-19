@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .normalizer import BooleanExpr, normalize
+from .normalizer import BooleanExpr, normalize, unknown_operator_warning, unknown_operators
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class AuthMethod:
     method_type: str
     params: dict[str, str] = field(default_factory=dict)
     inner_methods: list[str] = field(default_factory=list)
+    description: str = ""
 
 
 @dataclass
@@ -112,6 +113,34 @@ class EnforcementPolicy:
 
 
 @dataclass
+class ProfileAttribute:
+    """One attribute returned/applied by an enforcement profile.
+
+    Same shape whether sourced from an XML <AttributeList> or (future) from a
+    ClearPass DB backup's tips_enf_profile_*_params rows.
+    """
+    name: str
+    type: str = ""
+    value: str = ""
+    display_value: str = ""
+
+
+@dataclass
+class ExtraSetting:
+    """A raw setting from the export that this version does not interpret.
+
+    `path` is an XPath-like locator relative to the owning service/profile,
+    e.g. "@forwardType" or "DURRoleConfig/Acl[web-only]/@action".
+    """
+    path: str
+    value: str
+
+
+def _extras(raw: dict[str, Any]) -> list["ExtraSetting"]:
+    return [ExtraSetting(path=e.get("path", ""), value=e.get("value", "")) for e in raw.get("extras", []) or []]
+
+
+@dataclass
 class EnforcementProfile:
     id: str
     name: str
@@ -119,6 +148,12 @@ class EnforcementProfile:
     action: str = ""
     description: str = ""
     metadata: dict = field(default_factory=dict)
+    attributes: list[ProfileAttribute] = field(default_factory=list)
+    template: str = ""
+    product: str = ""                 # e.g. "durPluginA" (Aruba Downloadable User Role)
+    nad_groups: list[str] = field(default_factory=list)  # NAD groups the profile is restricted to
+    extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
+    element_type: str = ""            # XML element for profile types we don't model (profile_type "other")
 
 
 @dataclass
@@ -133,6 +168,39 @@ class Service:
     role_mapping_policy_name: str
     enforcement_policy_id: str
     enforcement_policy_name: str
+    # Service settings. Names mirror ClearPass tips_service columns so a future
+    # DB-backup parser can populate them 1:1.
+    enabled: bool = True
+    template: str = ""
+    monitor_mode: bool = False
+    use_cached_results: bool = False
+    strip_username: bool = False
+    strip_rules: list[str] = field(default_factory=list)  # e.g. ["user:@", "\\:user"] (tips_service.strip_rules_csv)
+    posture_enabled: bool = False
+    profiler_enabled: bool = False
+    audit_enabled: bool = False
+    # Position of the service element in the XML file. NOT ClearPass
+    # evaluation precedence (the export does not carry it).
+    export_order: int | None = None
+    is_category: bool = False
+    extras: list[ExtraSetting] = field(default_factory=list)  # uninterpreted settings
+
+
+def is_category_name(name: str) -> bool:
+    """True for ClearPass 'divider' services named like '------Wireless------'."""
+    return name.strip().startswith("---")
+
+
+def _attrs(raw_profile: dict[str, Any]) -> list[ProfileAttribute]:
+    return [
+        ProfileAttribute(
+            name=a.get("name", ""),
+            type=a.get("type", ""),
+            value=a.get("value", ""),
+            display_value=a.get("displayValue", ""),
+        )
+        for a in raw_profile.get("attributes", []) or []
+    ]
 
 
 @dataclass
@@ -162,6 +230,13 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     # See CLAUDE.md § 12 "Versioning & Release Policy" for full rules.
     ir = PolicyIR(version="1.0", source_file=source_file)
 
+    def _warn_unknown_ops(expr: BooleanExpr | None, context: str) -> None:
+        ops = unknown_operators(expr)
+        if ops:
+            msg = unknown_operator_warning(ops, context)
+            logger.warning("%s", msg)
+            ir.warnings.append(msg)
+
     # Roles
     for r in raw.get("roles", []):
         rid = _stable_id(r["name"])
@@ -177,6 +252,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             method_type=am.get("methodType", ""),
             params=am.get("params", {}),
             inner_methods=am.get("innerMethods", []),
+            description=am.get("description", ""),
         )
     method_by_name = {v.name: v for v in ir.auth_methods.values()}
 
@@ -202,6 +278,10 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type=profile_type,
             action=action,
             description=rp.get("description", ""),
+            attributes=_attrs(rp),
+            product=rp.get("product", ""),
+            nad_groups=list(rp.get("nadGroups", [])),
+            extras=_extras(rp),
         )
     for pp in raw.get("postAuthEnfProfiles", []):
         pid = _stable_id(pp["name"])
@@ -209,6 +289,8 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             id=pid, name=pp["name"],
             profile_type="post_auth",
             description=pp.get("description", ""),
+            attributes=_attrs(pp),
+            extras=_extras(pp),
         )
     for tp in raw.get("tacacsEnfProfiles", []):
         pid = _stable_id(tp["name"])
@@ -227,6 +309,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             action=action,
             description=tp.get("description", ""),
             metadata=meta,
+            attributes=_attrs(tp),
+            nad_groups=list(tp.get("nadGroups", [])),
+            extras=_extras(tp),
         )
     for cp in raw.get("radiusCoaEnfProfiles", []):
         pid = _stable_id(cp["name"])
@@ -235,6 +320,10 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type="radius_coa",
             action=cp.get("action", "").lower(),
             description=cp.get("description", ""),
+            attributes=_attrs(cp),
+            template=cp.get("template", ""),
+            nad_groups=list(cp.get("nadGroups", [])),
+            extras=_extras(cp),
         )
     for gp in raw.get("genericEnfProfiles", []):
         pid = _stable_id(gp["name"])
@@ -244,6 +333,21 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             profile_type="generic_accept" if action == "accept" else "generic_reject",
             action=action,
             description=gp.get("description", ""),
+            attributes=_attrs(gp),
+            extras=_extras(gp),
+        )
+    for op in raw.get("otherEnfProfiles", []):
+        pid = _stable_id(op["name"])
+        action = op.get("action", "").lower()
+        ir.enforcement_profiles[pid] = EnforcementProfile(
+            id=pid, name=op["name"],
+            profile_type="other",
+            action=action,
+            description=op.get("description", ""),
+            attributes=_attrs(op),
+            nad_groups=list(op.get("nadGroups", [])),
+            extras=_extras(op),
+            element_type=op.get("elementType", ""),
         )
     profile_by_name = {v.name: v for v in ir.enforcement_profiles.values()}
 
@@ -274,8 +378,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         rmid = _stable_id(rm["name"])
         rules = []
         rm_on_match = "continue" if rm.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
-        for raw_rule in rm.get("rules", []):
+        for rule_pos, raw_rule in enumerate(rm.get("rules", []), start=1):
             expr = normalize(raw_rule.get("expression"))
+            _warn_unknown_ops(expr, f"Role Mapping Policy '{rm['name']}' rule {rule_pos}")
             results = raw_rule.get("results", [])
             then: RuleThen
             role_result = next((r for r in results if r.get("name") == "Role"), None)
@@ -328,8 +433,9 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
         epid = _stable_id(ep["name"])
         rules = []
         ep_on_match = "continue" if ep.get("ruleCombineAlgo", "first-applicable") == "evaluate-all" else "stop"
-        for raw_rule in ep.get("rules", []):
+        for rule_pos, raw_rule in enumerate(ep.get("rules", []), start=1):
             expr = normalize(raw_rule.get("expression"))
+            _warn_unknown_ops(expr, f"Enforcement Policy '{ep['name']}' rule {rule_pos}")
             results = raw_rule.get("results", [])
             enf_result = next((r for r in results if r.get("name") == "Enforcement-Profile"), None)
             profile_ids: list[str] = []
@@ -374,6 +480,7 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
     for svc in raw.get("services", []):
         svid = _stable_id(svc["name"])
         match_expr = normalize(svc.get("matchExpression"))
+        _warn_unknown_ops(match_expr, f"Service '{svc['name']}' match rule")
 
         method_ids = []
         method_names = svc.get("authMethods", [])
@@ -437,6 +544,18 @@ def build(raw: dict[str, Any], source_file: str = "") -> PolicyIR:
             role_mapping_policy_name=rm_name,
             enforcement_policy_id=ep_id,
             enforcement_policy_name=ep_name,
+            enabled=str(svc.get("enabled", "true")).strip().lower() == "true",
+            template=svc.get("serviceTemplate", ""),
+            monitor_mode=bool(svc.get("monitorMode", False)),
+            use_cached_results=bool(svc.get("useCachedResults", False)),
+            strip_username=bool(svc.get("stripUsername", False)),
+            strip_rules=list(svc.get("stripRules", [])),
+            posture_enabled=bool(svc.get("postureEnabled", False)),
+            profiler_enabled=bool(svc.get("profilerEnabled", False)),
+            audit_enabled=bool(svc.get("auditEnabled", False)),
+            export_order=svc.get("exportOrder"),
+            is_category=is_category_name(svc["name"]),
+            extras=_extras(svc),
         )
 
     return ir
