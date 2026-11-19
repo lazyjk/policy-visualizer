@@ -178,6 +178,11 @@ function ProfilesSection({ profiles }: { profiles: ProfileDetail[] }) {
               NAD groups: <span style={{ color: "#374151" }}>{p.nad_groups.join(", ")}</span>
             </div>
           )}
+          {(p.tacacs_services ?? []).length > 0 && (
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+              TACACS services: <span style={{ color: "#374151" }}>{p.tacacs_services.join(", ")}</span>
+            </div>
+          )}
           {p.attributes.length > 0 ? (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <tbody>
@@ -225,6 +230,36 @@ function StripUsername({ ctx }: { ctx: ServiceContext }) {
   );
 }
 
+function ProxyAndProfilerSection({ ctx }: { ctx: ServiceContext }) {
+  const proxies = ctx.proxy_targets ?? [];
+  const acct = ctx.acct_proxy_targets ?? [];
+  const cats = ctx.profiler_categories ?? [];
+  if (proxies.length === 0 && acct.length === 0 && !ctx.profiler_coa_profile && cats.length === 0) return null;
+  return (
+    <Section title="Proxy & Profiler">
+      {proxies.length > 0 && (
+        <div>
+          <span style={{ color: "#6b7280" }}>Proxy targets: </span>{proxies.join(", ")}
+          {ctx.proxy_forward_type && <Pill text={ctx.proxy_forward_type.replace(/_/g, " ").toLowerCase()} tone="gray" />}
+          {ctx.proxy_accounting && <Pill text="accounting proxied" tone="gray" />}
+        </div>
+      )}
+      {acct.length > 0 && (
+        <div><span style={{ color: "#6b7280" }}>Accounting proxy: </span>{acct.join(", ")}</div>
+      )}
+      {(ctx.profiler_coa_profile || cats.length > 0) && (
+        <div>
+          <span style={{ color: "#6b7280" }}>Profiler CoA: </span>
+          {ctx.profiler_coa_profile || <span style={{ color: "#9ca3af" }}>(none)</span>}
+          {cats.length > 0 && (
+            <span style={{ color: "#6b7280", fontSize: 11 }}> — on category change: {cats.join(", ")}</span>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
   const flags: string[] = [];
   if (ctx.use_cached_results) flags.push("Cached results");
@@ -252,6 +287,7 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
       </Section>
 
       {(ctx.auth_method_names.length > 0 || ctx.auth_source_names.length > 0
+        || (ctx.authorization_source_names ?? []).length > 0
         || ctx.strip_username || (ctx.strip_rules ?? []).length > 0) && (
         <Section title="Authentication">
           {ctx.auth_method_names.length > 0 && (
@@ -260,9 +296,17 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
           {ctx.auth_source_names.length > 0 && (
             <div><span style={{ color: "#6b7280" }}>Sources: </span>{ctx.auth_source_names.join(", ")}</div>
           )}
+          {(ctx.authorization_source_names ?? []).length > 0 && (
+            <div>
+              <span style={{ color: "#6b7280" }}>Authorization sources: </span>
+              {ctx.authorization_source_names.join(", ")}
+            </div>
+          )}
           <StripUsername ctx={ctx} />
         </Section>
       )}
+
+      <ProxyAndProfilerSection ctx={ctx} />
 
       {(ctx.role_mapping_policy_name || ctx.enforcement_policy_name) && (
         <Section title="Policies">
