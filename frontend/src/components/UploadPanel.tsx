@@ -13,6 +13,8 @@ interface Props {
   error: string | null;
   onFileSelect: (file: File) => void;
   onServiceSelect: (id: string) => void;
+  /** Opens the where-used / unused-object report; undefined while unavailable. */
+  onOpenReport?: () => void;
 }
 
 export default function UploadPanel({
@@ -23,6 +25,7 @@ export default function UploadPanel({
   error,
   onFileSelect,
   onServiceSelect,
+  onOpenReport,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -136,6 +139,12 @@ export default function UploadPanel({
             {fileName}
           </span>
         </div>
+      )}
+
+      {onOpenReport && (
+        <button onClick={onOpenReport} style={reportButtonStyle} title="Where objects are used, and what nothing uses">
+          Configuration report
+        </button>
       )}
 
       {/* Error */}
@@ -290,6 +299,19 @@ const fileNameStyle: React.CSSProperties = {
   color: "#15803d",
   display: "flex",
   alignItems: "center",
+};
+
+const reportButtonStyle: React.CSSProperties = {
+  marginTop: 8,
+  width: "100%",
+  padding: "6px 10px",
+  fontSize: 12,
+  fontFamily: "inherit",
+  color: "#4338ca",
+  background: "#eef2ff",
+  border: "1px solid #c7d2fe",
+  borderRadius: 6,
+  cursor: "pointer",
 };
 
 const errorStyle: React.CSSProperties = {

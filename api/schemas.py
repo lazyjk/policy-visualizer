@@ -137,5 +137,37 @@ class ServiceListResponse(BaseModel):
     services: list[ServiceSummary]
 
 
+class XrefUsageSchema(BaseModel):
+    kind: str            # "service" | "role_mapping_policy" | "enforcement_policy" | "auth_method"
+    id: str
+    name: str
+    where: str           # e.g. "rule 3", "default profile", "authentication source"
+
+
+class XrefObjectSchema(BaseModel):
+    kind: str            # role_mapping_policy | enforcement_policy | enforcement_profile | role | auth_method | auth_source
+    id: str
+    name: str
+    builtin: bool = False   # ClearPass system object, e.g. "[Allow Access Profile]"
+    status: str             # used | only_disabled | unused
+    used_by: list[XrefUsageSchema] = []
+
+
+class XrefFindingSchema(BaseModel):
+    code: str            # unused | only_disabled | role_assigned_never_tested | role_tested_never_assigned
+    kind: str
+    id: str
+    name: str
+    builtin: bool = False
+    message: str
+
+
+class XrefResponse(BaseModel):
+    source_format: str   # "xml" | "pgdump"
+    complete: bool       # True only for DB backups (exports omit unreferenced objects)
+    objects: list[XrefObjectSchema]
+    findings: list[XrefFindingSchema]
+
+
 class HealthResponse(BaseModel):
     status: str

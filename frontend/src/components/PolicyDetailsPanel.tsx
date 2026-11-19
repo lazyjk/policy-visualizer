@@ -1,9 +1,13 @@
-import type { ExtraSetting, FlowNode, PolicyDetails, ProfileDetail, RuleDetail, ServiceContext } from "../api";
+import type {
+  ExtraSetting, FlowNode, PolicyDetails, ProfileDetail, RuleDetail, ServiceContext, XrefObject, XrefReport,
+} from "../api";
 import { templateLabel } from "../serviceLabels";
 
 interface PolicyDetailsPanelProps {
   details: PolicyDetails | undefined;
   selectedNode: FlowNode | null;
+  /** Where-used report for the file (ClearPass only); null when unavailable. */
+  xref?: XrefReport | null;
 }
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -335,7 +339,42 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
   );
 }
 
-function RuleDetailView({ rule }: { rule: RuleDetail }) {
+const WHERE_USED_MAX = 8;
+
+/** "Where used" for the profiles/roles a rule links to (matched by name). */
+function WhereUsedSection({ rule, xref }: { rule: RuleDetail; xref: XrefReport }) {
+  const wanted = new Set([...rule.linked_names, ...(rule.profiles ?? []).map((p) => p.name)]);
+  const objects: XrefObject[] = xref.objects.filter(
+    (o) => (o.kind === "enforcement_profile" || o.kind === "role") && wanted.has(o.name),
+  );
+  if (objects.length === 0) return null;
+  return (
+    <Section title="Where Used">
+      {objects.map((o) => (
+        <div key={`${o.kind}:${o.id}`} style={{ marginBottom: 6 }}>
+          <div style={{ fontWeight: 600, color: "#111827", fontSize: 12 }}>
+            {o.name}
+            {o.status !== "used" && (
+              <Pill text={o.status === "unused" ? "unused" : "disabled services only"} tone="amber" />
+            )}
+          </div>
+          <ul style={{ margin: "2px 0 0", paddingLeft: 16, fontSize: 11, lineHeight: 1.6, color: "#374151" }}>
+            {o.used_by.slice(0, WHERE_USED_MAX).map((u, i) => (
+              <li key={i}>
+                {u.name} <span style={{ color: "#9ca3af" }}>— {u.where}</span>
+              </li>
+            ))}
+            {o.used_by.length > WHERE_USED_MAX && (
+              <li style={{ color: "#9ca3af" }}>+{o.used_by.length - WHERE_USED_MAX} more (see Configuration report)</li>
+            )}
+          </ul>
+        </div>
+      ))}
+    </Section>
+  );
+}
+
+function RuleDetailView({ rule, xref }: { rule: RuleDetail; xref?: XrefReport | null }) {
   return (
     <>
       <Section title="Summary">
@@ -381,11 +420,13 @@ function RuleDetailView({ rule }: { rule: RuleDetail }) {
           </ul>
         </Section>
       )}
+
+      {xref && <WhereUsedSection rule={rule} xref={xref} />}
     </>
   );
 }
 
-export default function PolicyDetailsPanel({ details, selectedNode }: PolicyDetailsPanelProps) {
+export default function PolicyDetailsPanel({ details, selectedNode, xref }: PolicyDetailsPanelProps) {
   return (
     <div style={PANEL_STYLE}>
       <div style={HEADER_STYLE}>Policy Inspector</div>
@@ -412,7 +453,7 @@ export default function PolicyDetailsPanel({ details, selectedNode }: PolicyDeta
           <div>Details for this node could not be resolved.</div>
         </div>
       ) : (
-        <RuleDetailView rule={details.rule_index[selectedNode.trace_rule_id]} />
+        <RuleDetailView rule={details.rule_index[selectedNode.trace_rule_id]} xref={xref} />
       )}
     </div>
   );
