@@ -1,5 +1,5 @@
 /**
- * UploadPanel — XML file upload and optional service picker.
+ * UploadPanel — file upload (XML export or ClearPass DB backup) and service picker.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServiceSummary } from "../api";
@@ -39,18 +39,22 @@ export default function UploadPanel({
 
   // Real services exclude ClearPass "------Name------" divider entries.
   const realServiceCount = useMemo(() => services.filter((s) => !s.is_category).length, [services]);
+  // Only a DB backup carries ClearPass evaluation order; an XML export is
+  // grouped by service type instead.
+  const hasPrecedence = useMemo(() => services.some((s) => s.precedence != null), [services]);
+  const plainView = !filterType && !nameFilter.trim() && sortOrder === "none";
 
   const displayedServices = useMemo(() => {
-    // File order (as ClearPass wrote the export — NOT ClearPass service
-    // precedence, which the XML doesn't carry). Stable for missing export_order.
+    const position = (s: ServiceSummary, i: number) =>
+      hasPrecedence ? (s.precedence ?? Number.MAX_SAFE_INTEGER) : (s.export_order ?? i);
     let list = services
       .map((s, i) => ({ s, i }))
-      .sort((a, b) => (a.s.export_order ?? a.i) - (b.s.export_order ?? b.i))
+      .sort((a, b) => position(a.s, a.i) - position(b.s, b.i) || a.i - b.i)
       .map(({ s }) => s);
-    // ClearPass "------Name------" divider services are hidden: they carry no
-    // policy, and the XML export doesn't preserve ClearPass service order, so
-    // they can't be used as reliable section headers.
-    list = list.filter((s) => !s.is_category);
+    // ClearPass "------Name------" divider services carry no policy. In true
+    // evaluation order (DB backup, unsorted, unfiltered) they become section
+    // headers; anywhere else their position means nothing, so they're hidden.
+    if (!(hasPrecedence && plainView)) list = list.filter((s) => !s.is_category);
     if (filterType) list = list.filter((s) => s.service_type === filterType);
     if (nameFilter.trim()) {
       const raw = nameFilter.trim();
@@ -63,15 +67,15 @@ export default function UploadPanel({
     if (sortOrder === "asc") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortOrder === "desc") list.sort((a, b) => b.name.localeCompare(a.name));
     return list;
-  }, [services, filterType, nameFilter, sortOrder]);
+  }, [services, filterType, nameFilter, sortOrder, hasPrecedence, plainView]);
 
   function cycleSortOrder() {
     setSortOrder((prev) => (prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"));
   }
 
   function handleFile(file: File) {
-    if (!file.name.endsWith(".xml")) {
-      alert("Please upload an XML file (.xml).");
+    if (!/\.(xml|pgdump|dump)$/i.test(file.name)) {
+      alert("Please upload an XML export (.xml) or a ClearPass DB backup (.pgdump).");
       return;
     }
     onFileSelect(file);
@@ -112,13 +116,15 @@ export default function UploadPanel({
         <input
           ref={inputRef}
           type="file"
-          accept=".xml"
+          accept=".xml,.pgdump,.dump"
           style={{ display: "none" }}
           onChange={handleChange}
         />
         <span style={{ fontSize: 28 }}>📁</span>
         <p style={{ margin: "8px 0 0", fontSize: 13, color: "#6b7280" }}>
-          {loading ? "Processing…" : "Drop a service or policy XML file here or click to browse"}
+          {loading
+            ? "Processing…"
+            : "Drop a service/policy XML export or a ClearPass DB backup (.pgdump) here, or click to browse"}
         </p>
       </div>
 
@@ -142,8 +148,13 @@ export default function UploadPanel({
       {/* Service picker */}
       {services.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 500 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 500 }}>
             Select a service to visualize:
+          </p>
+          <p style={{ margin: "0 0 8px", fontSize: 10, color: "#9ca3af" }}>
+            {hasPrecedence
+              ? "Listed in ClearPass evaluation order"
+              : "Listed in export file order — upload a DB backup for evaluation order"}
           </p>
 
           {/* Filter + sort controls — only shown when there are multiple services */}
@@ -209,6 +220,13 @@ export default function UploadPanel({
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {displayedServices.map((svc) => {
+                if (svc.is_category) {
+                  return (
+                    <li key={svc.id} style={sectionHeaderStyle}>
+                      {svc.name.replace(/^-+|-+$/g, "").trim() || svc.name}
+                    </li>
+                  );
+                }
                 const isActive = svc.id === selectedService;
                 const enabled = svc.enabled !== false;
                 const tmpl = templateLabel(svc.template ?? "");
@@ -222,6 +240,9 @@ export default function UploadPanel({
                       onClick={() => onServiceSelect(svc.id)}
                       title={[svc.description, enabled ? "" : "Disabled in ClearPass"].filter(Boolean).join("\n") || undefined}
                     >
+                      {hasPrecedence && svc.precedence != null && (
+                        <span style={precedenceStyle}>{svc.precedence}</span>
+                      )}
                       <span>{svc.name}</span>
                       <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
                       {tmpl && tmpl !== svc.service_type && (
@@ -323,6 +344,26 @@ const serviceTypeBadgeStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "1px 5px",
   verticalAlign: "middle",
+};
+
+const sectionHeaderStyle: React.CSSProperties = {
+  margin: "10px 0 6px",
+  padding: "0 2px 2px",
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#6b7280",
+  borderBottom: "1px solid #e5e7eb",
+};
+
+const precedenceStyle: React.CSSProperties = {
+  display: "inline-block",
+  minWidth: 18,
+  marginRight: 6,
+  fontSize: 10,
+  color: "#9ca3af",
+  fontVariantNumeric: "tabular-nums",
 };
 
 const disabledBadgeStyle: React.CSSProperties = {

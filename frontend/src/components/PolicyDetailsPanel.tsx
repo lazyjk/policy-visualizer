@@ -270,7 +270,14 @@ function ServiceSummaryCard({ ctx }: { ctx: ServiceContext }) {
   return (
     <>
       <Section title="Service">
-        <div style={{ fontWeight: 600, color: "#111827" }}>{ctx.service_name}</div>
+        <div style={{ fontWeight: 600, color: "#111827" }}>
+          {ctx.precedence != null && (
+            <span style={{ color: "#6b7280", fontWeight: 400 }} title="Evaluation order in ClearPass">
+              #{ctx.precedence}{" "}
+            </span>
+          )}
+          {ctx.service_name}
+        </div>
         {ctx.description && <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>{ctx.description}</div>}
         <div style={{ marginTop: 6 }}>
           <Pill text={ctx.service_type} tone="gray" />

@@ -667,6 +667,7 @@ function addAppendixPages(pdf: jsPDF, details: PolicyDetails, serviceName: strin
   printLabel("Service:", `${ctx.service_name} (${ctx.service_type})`);
   if (ctx.description) printLabel("Description:", ctx.description);
   if (ctx.template) printLabel("Template:", ctx.template);
+  if (ctx.precedence != null) printLabel("Evaluation order:", String(ctx.precedence));
   if (ctx.enabled !== undefined) {
     const status = [ctx.enabled ? "Enabled" : "Disabled", ctx.monitor_mode ? "Monitor mode" : ""]
       .filter(Boolean).join(", ");

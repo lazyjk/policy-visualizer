@@ -95,6 +95,7 @@ class ServiceContextSchema(BaseModel):
     acct_proxy_targets: list[str] = []
     profiler_coa_profile: str = ""         # CoA sent when an endpoint's category changes
     profiler_categories: list[str] = []
+    precedence: int | None = None          # evaluation order (DB backups only)
     role_mapping_policy_name: str = ""
     enforcement_policy_name: str = ""
     extras: list[ExtraSettingSchema] = []

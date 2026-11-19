@@ -312,8 +312,10 @@ def test_parity_details(name, xml_ir, db_ir):
     xd = build_clearpass_details(_svc(xml_ir, name), xml_ir)
     dd = build_clearpass_details(_svc(db_ir, name), db_ir)
     xc, dc = dict(xd["service_context"]), dict(dd["service_context"])
-    # XML-only: settings the export carries but this version does not interpret.
+    # Known differences: "Other settings" exist only in the export; precedence only in the DB.
     xc.pop("extras"), dc.pop("extras")
+    assert xc.pop("precedence") is None
+    assert dc.pop("precedence") == _svc(db_ir, name).precedence is not None
     assert xc == dc
     for kind in ("role_mapping_rules", "enforcement_rules"):
         assert len(xd[kind]) == len(dd[kind])
