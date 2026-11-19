@@ -304,7 +304,10 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
     tree = ET.parse(str(xml_path))
     root = tree.getroot()
 
+    header = root.find(_tag("TipsHeader"))
     model: dict[str, Any] = {
+        # ClearPass release that wrote the export, e.g. "6.11" (coverage report)
+        "clearpassVersion": header.get("version", "") if header is not None else "",
         "services": [],
         "authMethods": [],
         "authSources": [],

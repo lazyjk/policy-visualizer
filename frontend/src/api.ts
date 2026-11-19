@@ -222,3 +222,17 @@ export async function fetchXref(file: File): Promise<XrefReport> {
   }
   return res.json();
 }
+
+/** Anonymous feature-usage counts (POST /api/coverage, ClearPass only). */
+export type CoverageReport = Record<string, unknown>;
+
+export async function fetchCoverage(file: File): Promise<CoverageReport> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/coverage`, { method: "POST", body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail ?? res.statusText);
+  }
+  return res.json();
+}
