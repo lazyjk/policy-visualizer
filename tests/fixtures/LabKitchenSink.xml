@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <TipsContents xmlns="http://www.avendasys.com/tipsapiDefs/1.0">
-  <TipsHeader exportTime="Thu Nov 19 10:50:32 MST 2026" version="6.11"/>
+  <TipsHeader exportTime="Thu Nov 19 13:50:27 MST 2026" version="6.11"/>
   <RadiusEnforcementServices>
     <RadiusEnforcementService description="Authorization service for AirGroup device access" name="[AirGroup Authorization Service]" useCachedResults="false" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
       <RuleExpression displayOperator="MATCHES_ALL" operator="and">
@@ -48,22 +48,6 @@
         <string>kit-lab-wired 802.1X Wired Enforcement Policy</string>
       </EnfPolicyNameList>
     </RadiusEnforcementService>
-    <RadiusEnforcementService description="802.1X Wired Access Service" name="-----------WIRELESS--------------" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
-      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
-      <AuthMethodNameList>
-        <string>[EAP PEAP]</string>
-        <string>[EAP FAST]</string>
-        <string>[EAP TLS With CN Check]</string>
-        <string>[EAP TTLS]</string>
-        <string>[EAP MSCHAPv2]</string>
-      </AuthMethodNameList>
-      <AuthSourceNameList>
-        <string>lab-ad</string>
-      </AuthSourceNameList>
-      <EnfPolicyNameList>
-        <string>[Sample Allow Access Policy]</string>
-      </EnfPolicyNameList>
-    </RadiusEnforcementService>
     <RadiusEnforcementService description="Authorization Service using RADIUS" name="test-radius-authroization" useCachedResults="false" stripRulesCsv="user:@" stripUsername="true" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
       <RuleExpression displayOperator="MATCHES_ANY" operator="OR">
         <AttributeList>
@@ -77,6 +61,22 @@
       <AutzSourceNameList>
         <string>[Admin User Repository]</string>
       </AutzSourceNameList>
+      <EnfPolicyNameList>
+        <string>[Sample Allow Access Policy]</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+    <RadiusEnforcementService description="802.1X Wired Access Service" name="-----------WIRELESS--------------" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="false" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[EAP PEAP]</string>
+        <string>[EAP FAST]</string>
+        <string>[EAP TLS With CN Check]</string>
+        <string>[EAP TTLS]</string>
+        <string>[EAP MSCHAPv2]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>lab-ad</string>
+      </AuthSourceNameList>
       <EnfPolicyNameList>
         <string>[Sample Allow Access Policy]</string>
       </EnfPolicyNameList>
@@ -144,22 +144,6 @@
         <RulesCondition valueDispName="&amp;nbsp;" value="" oper="3" name="ARAP-Features" type="Radius:IETF"/>
       </AcctFilterParamList>
     </RadiusEnforcementService>
-    <RadiusEnforcementService description="802.1X Wired Access Service" name="-----------WIRED--------------" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
-      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
-      <AuthMethodNameList>
-        <string>[EAP PEAP]</string>
-        <string>[EAP FAST]</string>
-        <string>[EAP TLS With CN Check]</string>
-        <string>[EAP TTLS]</string>
-        <string>[EAP MSCHAPv2]</string>
-      </AuthMethodNameList>
-      <AuthSourceNameList>
-        <string>lab-ad</string>
-      </AuthSourceNameList>
-      <EnfPolicyNameList>
-        <string>[Sample Allow Access Policy]</string>
-      </EnfPolicyNameList>
-    </RadiusEnforcementService>
     <RadiusEnforcementService description="Aruba 802.1X Wireless Access Service" name="test-aruba-wireless" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
       <RuleExpression displayOperator="MATCHES_ALL" operator="and">
         <AttributeList>
@@ -206,25 +190,6 @@
         <string>[Sample Allow Access Policy]</string>
       </EnfPolicyNameList>
     </RadiusEnforcementService>
-    <RadiusEnforcementService description="MAC-based Authentication Service" name="test-mac-auth" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
-      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
-        <AttributeList>
-          <RuleAttribute displayValue="Ethernet (15), Wireless-802.11 (19)" value="15,19" operator="BELONGS_TO" name="NAS-Port-Type" type="Radius:IETF"/>
-          <RuleAttribute displayValue="Login-User (1), Call-Check (10)" value="1,10" operator="BELONGS_TO" name="Service-Type" type="Radius:IETF"/>
-          <RuleAttribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" operator="EQUALS" name="Client-Mac-Address" type="Connection"/>
-        </AttributeList>
-      </RuleExpression>
-      <ServiceTemplate>MAC_AUTH_BYPASS</ServiceTemplate>
-      <AuthMethodNameList>
-        <string>[Allow All MAC AUTH]</string>
-      </AuthMethodNameList>
-      <AuthSourceNameList>
-        <string>[Endpoints Repository]</string>
-      </AuthSourceNameList>
-      <EnfPolicyNameList>
-        <string>[Sample Allow Access Policy]</string>
-      </EnfPolicyNameList>
-    </RadiusEnforcementService>
     <RadiusEnforcementService description="" name="test-gen-radius-enforcemnt" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
       <RuleExpression displayOperator="MATCHES_ALL" operator="and">
         <AttributeList>
@@ -235,6 +200,22 @@
       <ServiceTemplate>RADIUS_ENFORCEMENT</ServiceTemplate>
       <AuthMethodNameList>
         <string>[EAP FAST]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>lab-ad</string>
+      </AuthSourceNameList>
+      <EnfPolicyNameList>
+        <string>[Sample Allow Access Policy]</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
+    <RadiusEnforcementService description="802.1X Wired Access Service" name="-----------WIRED--------------" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="false" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <ServiceTemplate>IBNS_WIRED</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[EAP PEAP]</string>
+        <string>[EAP FAST]</string>
+        <string>[EAP TLS With CN Check]</string>
+        <string>[EAP TTLS]</string>
+        <string>[EAP MSCHAPv2]</string>
       </AuthMethodNameList>
       <AuthSourceNameList>
         <string>lab-ad</string>
@@ -359,6 +340,25 @@
         <string>test-guest-access-mac-caching User Authentication with MAC Caching Enforcement Policy</string>
       </EnfPolicyNameList>
     </RadiusEnforcementService>
+    <RadiusEnforcementService description="MAC-based Authentication Service" name="test-mac-auth" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" acctProxyTargets="false" profilerEnabled="false" auditEnabled="false" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ALL" operator="and">
+        <AttributeList>
+          <RuleAttribute displayValue="Ethernet (15), Wireless-802.11 (19)" value="15,19" operator="BELONGS_TO" name="NAS-Port-Type" type="Radius:IETF"/>
+          <RuleAttribute displayValue="Login-User (1), Call-Check (10)" value="1,10" operator="BELONGS_TO" name="Service-Type" type="Radius:IETF"/>
+          <RuleAttribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" operator="EQUALS" name="Client-Mac-Address" type="Connection"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>MAC_AUTH_BYPASS</ServiceTemplate>
+      <AuthMethodNameList>
+        <string>[Allow All MAC AUTH]</string>
+      </AuthMethodNameList>
+      <AuthSourceNameList>
+        <string>[Endpoints Repository]</string>
+      </AuthSourceNameList>
+      <EnfPolicyNameList>
+        <string>test-other-profiles</string>
+      </EnfPolicyNameList>
+    </RadiusEnforcementService>
   </RadiusEnforcementServices>
   <RadiusProxyServices>
     <RadiusProxyService description="" name="test-radius-proxy" useCachedResults="false" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" profilerEnabled="false" auditEnabled="false" proxyAccountRequest="false" forwardType="ROUND_ROBIN">
@@ -453,6 +453,23 @@
         <string>[Device Registration Disconnect]</string>
       </EnfPolicyNameList>
     </AvendaWebAuthService>
+    <AvendaWebAuthService description="" name="test-web-auth" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true" postureEnabled="false">
+      <RuleExpression displayOperator="MATCHES_ANY" operator="OR">
+        <AttributeList>
+          <RuleAttribute displayValue="Authentication" value="Authentication" operator="MATCHES_ANY" name="CheckType" type="Host"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>AVENDA_WEB_AUTH</ServiceTemplate>
+      <AuthSourceNameList>
+        <string>[Admin User Repository]</string>
+      </AuthSourceNameList>
+      <RoleMappingNameList>
+        <string>test-role-mapping</string>
+      </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>test-other-profiles2</string>
+      </EnfPolicyNameList>
+    </AvendaWebAuthService>
   </AvendaWebAuthServices>
   <AvendaAppAuthServices>
     <AvendaAppAuthService description="SAML-based Single Sign-On (SSO) access to ClearPass Policy Manager, Insight, Guest and Operator screens via external Identity Provider." name="test-sso-guest ClearPass Admin SSO Login (SAML SP Service)" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true">
@@ -504,20 +521,6 @@
         <string>[Insight Operator Logins]</string>
       </EnfPolicyNameList>
     </AvendaAppAuthService>
-    <AvendaAppAuthService description="Authentication Service for Applications" name="test-app-auth" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true">
-      <RuleExpression displayOperator="MATCHES_ANY" operator="OR">
-        <AttributeList>
-          <RuleAttribute displayValue="test" value="test" operator="EQUALS" name="Name" type="Application"/>
-        </AttributeList>
-      </RuleExpression>
-      <ServiceTemplate>AVENDA_APP_AUTH</ServiceTemplate>
-      <AuthSourceNameList>
-        <string>lab-ad</string>
-      </AuthSourceNameList>
-      <EnfPolicyNameList>
-        <string>[Guest Operator Logins]</string>
-      </EnfPolicyNameList>
-    </AvendaAppAuthService>
     <AvendaAppAuthService description="Authorization Service for Applications" name="test-aruba-app-authz" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true">
       <RuleExpression displayOperator="MATCHES_ANY" operator="OR">
         <AttributeList>
@@ -531,6 +534,20 @@
       <RoleMappingNameList>
         <string>sso-guest-login</string>
       </RoleMappingNameList>
+      <EnfPolicyNameList>
+        <string>[Guest Operator Logins]</string>
+      </EnfPolicyNameList>
+    </AvendaAppAuthService>
+    <AvendaAppAuthService description="Authentication Service for Applications" name="test-app-auth" stripRulesCsv="" stripUsername="false" monitor="false" enabled="true">
+      <RuleExpression displayOperator="MATCHES_ANY" operator="OR">
+        <AttributeList>
+          <RuleAttribute displayValue="test" value="test" operator="EQUALS" name="Name" type="Application"/>
+        </AttributeList>
+      </RuleExpression>
+      <ServiceTemplate>AVENDA_APP_AUTH</ServiceTemplate>
+      <AuthSourceNameList>
+        <string>lab-ad</string>
+      </AuthSourceNameList>
       <EnfPolicyNameList>
         <string>[Guest Operator Logins]</string>
       </EnfPolicyNameList>
@@ -659,57 +676,10 @@
         </Filter>
       </Filters>
     </AuthSource>
-    <AuthSource description="Authorization source for implementing various time functions" name="[Time Source]" isAuthorizationSource="true" type="Local">
-      <NVPair value="0" name="cache_timeout"/>
-      <NVPair value="PostgreSQL" name="sql_driver"/>
-      <NVPair value="localhost" name="server"/>
-      <NVPair value="5433" name="port"/>
-      <NVPair value="" name="db_name"/>
-      <NVPair value="" name="login"/>
-      <NVPair value="" name="password"/>
-      <NVPair value="10" name="timeout"/>
-      <Filters>
-        <Filter paramValues="" filterQuery="" filterName="Current Time">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now" attrName="now"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="Next 2 hours">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 2hrs" attrName="now_plus_2hrs"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="One Day">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 1day" attrName="now_plus_1day"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="Seven Days">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 7days" attrName="now_plus_7days"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="Current Time MS">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer64" aliasName="Now MS time" attrName="now_ms_time"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="Date Time">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="Now DT" attrName="today"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Day DT" attrName="one_day"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Week DT" attrName="one_week"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Month DT" attrName="one_month"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="Six Months DT" attrName="six_months"/>
-          </Attributes>
-        </Filter>
-      </Filters>
-    </AuthSource>
-    <AuthSource description="Authenticate users against Policy Manager local user database" name="[Local User Repository]" isAuthorizationSource="true" type="Local">
+    <AuthSource description="Authenticate users against Policy Manager admin user database" name="[Admin User Repository]" isAuthorizationSource="true" type="Local">
       <NVPair value="300" name="cache_timeout"/>
       <NVPair value="PostgreSQL" name="sql_driver"/>
       <NVPair value="localhost" name="server"/>
-      <NVPair value="6432" name="port"/>
       <NVPair value="" name="db_name"/>
       <NVPair value="" name="login"/>
       <NVPair value="" name="password"/>
@@ -718,32 +688,6 @@
         <Filter paramValues="" filterQuery="" filterName="Authentication">
           <Attributes>
             <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Role_Name" attrName="role_name"/>
-            <Attribute isUserAttr="true" isRole="false" attrDataType="Boolean" aliasName="Enabled" attrName="enabled"/>
-          </Attributes>
-        </Filter>
-      </Filters>
-    </AuthSource>
-    <AuthSource description="Authenticate guest users against Policy Manager local database" name="[Guest User Repository]" isAuthorizationSource="true" type="Local">
-      <NVPair value="0" name="cache_timeout"/>
-      <NVPair value="PostgreSQL" name="sql_driver"/>
-      <NVPair value="localhost" name="server"/>
-      <NVPair value="6432" name="port"/>
-      <NVPair value="" name="db_name"/>
-      <NVPair value="" name="login"/>
-      <NVPair value="" name="password"/>
-      <NVPair value="10" name="timeout"/>
-      <Filters>
-        <Filter paramValues="" filterQuery="" filterName="Authentication">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="SponsorName" attrName="sponsor_name"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="RemainingExpiration" attrName="remaining_expiration"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="ExpireTime" attrName="expire_time"/>
-          </Attributes>
-        </Filter>
-        <Filter paramValues="" filterQuery="" filterName="Authorization">
-          <Attributes>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="AccountExpired" attrName="is_expired"/>
-            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="AccountEnabled" attrName="is_enabled"/>
           </Attributes>
         </Filter>
       </Filters>
@@ -856,10 +800,57 @@
         </Filter>
       </Filters>
     </AuthSource>
-    <AuthSource description="Authenticate users against Policy Manager admin user database" name="[Admin User Repository]" isAuthorizationSource="true" type="Local">
+    <AuthSource description="Authorization source for implementing various time functions" name="[Time Source]" isAuthorizationSource="true" type="Local">
+      <NVPair value="0" name="cache_timeout"/>
+      <NVPair value="PostgreSQL" name="sql_driver"/>
+      <NVPair value="localhost" name="server"/>
+      <NVPair value="5433" name="port"/>
+      <NVPair value="" name="db_name"/>
+      <NVPair value="" name="login"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="10" name="timeout"/>
+      <Filters>
+        <Filter paramValues="" filterQuery="" filterName="Current Time">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now" attrName="now"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="Next 2 hours">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 2hrs" attrName="now_plus_2hrs"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="One Day">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 1day" attrName="now_plus_1day"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="Seven Days">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="Now Plus 7days" attrName="now_plus_7days"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="Current Time MS">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer64" aliasName="Now MS time" attrName="now_ms_time"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="Date Time">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="Now DT" attrName="today"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Day DT" attrName="one_day"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Week DT" attrName="one_week"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="One Month DT" attrName="one_month"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="Six Months DT" attrName="six_months"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+    <AuthSource description="Authenticate users against Policy Manager local user database" name="[Local User Repository]" isAuthorizationSource="true" type="Local">
       <NVPair value="300" name="cache_timeout"/>
       <NVPair value="PostgreSQL" name="sql_driver"/>
       <NVPair value="localhost" name="server"/>
+      <NVPair value="6432" name="port"/>
       <NVPair value="" name="db_name"/>
       <NVPair value="" name="login"/>
       <NVPair value="" name="password"/>
@@ -868,6 +859,32 @@
         <Filter paramValues="" filterQuery="" filterName="Authentication">
           <Attributes>
             <Attribute isUserAttr="true" isRole="false" attrDataType="String" aliasName="Role_Name" attrName="role_name"/>
+            <Attribute isUserAttr="true" isRole="false" attrDataType="Boolean" aliasName="Enabled" attrName="enabled"/>
+          </Attributes>
+        </Filter>
+      </Filters>
+    </AuthSource>
+    <AuthSource description="Authenticate guest users against Policy Manager local database" name="[Guest User Repository]" isAuthorizationSource="true" type="Local">
+      <NVPair value="0" name="cache_timeout"/>
+      <NVPair value="PostgreSQL" name="sql_driver"/>
+      <NVPair value="localhost" name="server"/>
+      <NVPair value="6432" name="port"/>
+      <NVPair value="" name="db_name"/>
+      <NVPair value="" name="login"/>
+      <NVPair value="" name="password"/>
+      <NVPair value="10" name="timeout"/>
+      <Filters>
+        <Filter paramValues="" filterQuery="" filterName="Authentication">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="String" aliasName="SponsorName" attrName="sponsor_name"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Integer" aliasName="RemainingExpiration" attrName="remaining_expiration"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Date-Time" aliasName="ExpireTime" attrName="expire_time"/>
+          </Attributes>
+        </Filter>
+        <Filter paramValues="" filterQuery="" filterName="Authorization">
+          <Attributes>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="AccountExpired" attrName="is_expired"/>
+            <Attribute isUserAttr="false" isRole="false" attrDataType="Boolean" aliasName="AccountEnabled" attrName="is_enabled"/>
           </Attributes>
         </Filter>
       </Filters>
@@ -875,13 +892,13 @@
   </AuthSources>
   <Roles>
     <Role description="Role for an AirGroup protocol version 1 request" name="[AirGroup v1]"/>
+    <Role description="Default role for a contractor" name="[Contractor]"/>
+    <Role description="Default role for read-only access to Aruba device" name="[Aruba TACACS+ read-only Admin]"/>
     <Role description="Role for an AirGroup protocol version 2 request" name="[AirGroup v2]"/>
     <Role description="Default role for a Guest" name="[Guest]"/>
-    <Role description="Default role for a contractor" name="[Contractor]"/>
     <Role description="Default role for another user or device" name="[Other]"/>
     <Role description="Default role for an employee" name="[Employee]"/>
     <Role description="Default role applied during MAC caching" name="[MAC Caching]"/>
-    <Role description="Default role for read-only access to Aruba device" name="[Aruba TACACS+ read-only Admin]"/>
     <Role description="Super administrator role for Policy Manager Admin" name="[TACACS+ Super Admin]"/>
     <Role description="Read-only administrator role for Policy Manager Admin" name="[TACACS+ Read-only Admin]"/>
     <Role description="Help desk role for Policy Manager Admin" name="[TACACS+ Help Desk]"/>
@@ -891,6 +908,49 @@
     <Role description="Default role for authenticated users" name="[User Authenticated]"/>
   </Roles>
   <RoleMappings>
+    <RoleMapping description="" name="test-role-mapping" ruleCombineAlgo="evaluate-all" dftRoleName="[AirGroup v1]">
+      <Policy ruleCombiningAlgorithm="evaluate-all">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="lab-ad" value="lab-ad" operator="EQUALS" name="Source" type="Authentication"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[AirGroup v1]" value="34" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ALL" operator="and">
+                <AttributeList>
+                  <RuleAttribute displayValue="test" value="test" operator="EQUALS_IGNORE_CASE" name="SSO-SP" type="Application"/>
+                  <RuleAttribute displayValue="1234" value="1234" operator="ENDS_WITH" name="Device-UDID" type="Application:ClearPass"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Aruba TACACS+ read-only Admin]" value="31" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="&amp;nbsp;" value="" operator="EXISTS" name="Hostname" type="Authorization:[Endpoints Repository]"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="[Contractor]" value="20" name="Role" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </RoleMapping>
     <RoleMapping description="System-defined mapping to identify the protocol version of an AirGroup request" name="[AirGroup Version Match]" ruleCombineAlgo="first-applicable" dftRoleName="[AirGroup v1]">
       <Policy ruleCombiningAlgorithm="first-applicable">
         <RuleList>
@@ -930,49 +990,6 @@
                 <AttributeList>
                   <RuleAttribute displayValue="guestOU" value="guestOU" operator="CONTAINS" name="memberOf" type="Authorization:lab-ad"/>
                   <RuleAttribute displayValue="contractorOU" value="contractorOU" operator="CONTAINS" name="memberOf" type="Authorization:lab-ad"/>
-                </AttributeList>
-              </Expression>
-            </Condition>
-            <ResultList>
-              <RuleResult displayValue="[Contractor]" value="20" name="Role" type="Tips"/>
-            </ResultList>
-          </Rule>
-        </RuleList>
-      </Policy>
-    </RoleMapping>
-    <RoleMapping description="" name="test-role-mapping" ruleCombineAlgo="evaluate-all" dftRoleName="[AirGroup v1]">
-      <Policy ruleCombiningAlgorithm="evaluate-all">
-        <RuleList>
-          <Rule>
-            <Condition>
-              <Expression displayOperator="MATCHES_ANY" operator="OR">
-                <AttributeList>
-                  <RuleAttribute displayValue="lab-ad" value="lab-ad" operator="EQUALS" name="Source" type="Authentication"/>
-                </AttributeList>
-              </Expression>
-            </Condition>
-            <ResultList>
-              <RuleResult displayValue="[AirGroup v1]" value="34" name="Role" type="Tips"/>
-            </ResultList>
-          </Rule>
-          <Rule>
-            <Condition>
-              <Expression displayOperator="MATCHES_ALL" operator="and">
-                <AttributeList>
-                  <RuleAttribute displayValue="test" value="test" operator="EQUALS_IGNORE_CASE" name="SSO-SP" type="Application"/>
-                  <RuleAttribute displayValue="1234" value="1234" operator="ENDS_WITH" name="Device-UDID" type="Application:ClearPass"/>
-                </AttributeList>
-              </Expression>
-            </Condition>
-            <ResultList>
-              <RuleResult displayValue="[Aruba TACACS+ read-only Admin]" value="31" name="Role" type="Tips"/>
-            </ResultList>
-          </Rule>
-          <Rule>
-            <Condition>
-              <Expression displayOperator="MATCHES_ANY" operator="OR">
-                <AttributeList>
-                  <RuleAttribute displayValue="&amp;nbsp;" value="" operator="EXISTS" name="Hostname" type="Authorization:[Endpoints Repository]"/>
                 </AttributeList>
               </Expression>
             </Condition>
@@ -1204,6 +1221,24 @@
         </RuleList>
       </Policy>
     </EnforcementPolicy>
+    <EnforcementPolicy description="" name="test-other-profiles2" policyType="WEBAUTH" defaultProfileName="test-http-enforcment">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="" value="" operator="EXISTS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="test-snmp-enforcement, test-agent-enforcment" value="3016,3013" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
     <EnforcementPolicy name="test-mpsk Aruba Wireless with MPSK Enforcement Policy" policyType="RADIUS" defaultProfileName="test-mpsk Aruba Wireless with MPSK Default Profile">
       <Policy ruleCombiningAlgorithm="first-applicable">
         <RuleList>
@@ -1308,6 +1343,24 @@
             </Condition>
             <ResultList>
               <RuleResult displayValue="test-guest-access-mac-caching MAC Caching Session Timeout, test-guest-access-mac-caching MAC Caching Bandwidth Limit, test-guest-access-mac-caching MAC Caching Session Limit, test-guest-access-mac-caching Employee MAC Caching, test-guest-access-mac-caching MAC Caching Do Expire, test-guest-access-mac-caching MAC Caching Expire Post Login, test-guest-access-mac-caching Employee Profile" value="3025,3028,3029,3030,3026,3027,3023" name="Enforcement-Profile" type="Tips"/>
+            </ResultList>
+          </Rule>
+        </RuleList>
+      </Policy>
+    </EnforcementPolicy>
+    <EnforcementPolicy description="" name="test-other-profiles" policyType="RADIUS" defaultProfileName="[Deny Access Profile]">
+      <Policy ruleCombiningAlgorithm="first-applicable">
+        <RuleList>
+          <Rule>
+            <Condition>
+              <Expression displayOperator="MATCHES_ANY" operator="OR">
+                <AttributeList>
+                  <RuleAttribute displayValue="" value="" operator="EXISTS" name="Role" type="Tips"/>
+                </AttributeList>
+              </Expression>
+            </Condition>
+            <ResultList>
+              <RuleResult displayValue="cli-based-enforcement, test-http-enforcment, test-aruba-radius-enforcement-profile, test-cisco-dacl, test-cisco-web-auth, test-dur-enforcement-profile, test-filter-id-enforcement, test-vlan-enforcement" value="3014,3017,3007,3008,3009,3006,3010,3012" name="Enforcement-Profile" type="Tips"/>
             </ResultList>
           </Rule>
         </RuleList>
@@ -1720,11 +1773,65 @@
     </EnforcementPolicy>
   </EnforcementPolicies>
   <RadiusEnfProfiles>
+    <RadiusEnfProfile description="" name="test-dur-enforcement-profile" productVersion="1.0" product="durPluginA" action="Accept">
+      <NadGroupNameList>
+        <string>test-device-group</string>
+      </NadGroupNameList>
+      <DURRoleConfig pluginType="durPluginA">
+        <Attribute value="9198" name="mtu"/>
+        <Attribute value="test-role-desc" name="desc"/>
+        <Attribute value="test-policy" name="policy"/>
+        <Attribute value="multi-domain-mode" name="authMode"/>
+        <Attribute value="test-dur-role" name="roleName"/>
+        <Attribute value="test-captive-portal" name="cpProfile"/>
+        <Attribute value="dscp" name="trustMode"/>
+        <Attribute value="Static" name="redSecRole"/>
+        <Attribute value="Id" name="vlanAccess"/>
+        <Attribute value="test-static-role" name="gatewayRole"/>
+        <Attribute value="gateway-zone" name="gatewayZone"/>
+        <Attribute value="critical" name="poePriority"/>
+        <Attribute value="promiscuous" name="privateVlan"/>
+        <Attribute value="30" name="reauthManual"/>
+        <Attribute value="Manual" name="reauthInterval"/>
+        <Attribute value="Parameterized" name="sessionTimeout"/>
+        <Attribute value="Id" name="vlanTrunkNative"/>
+        <Attribute value="Id" name="vlanTrunkAllowed"/>
+        <Attribute value="10" name="vlanTrunkNativeId"/>
+        <Attribute value="Voice" name="deviceTrafficClass"/>
+        <Attribute value="10,20" name="vlanTrunkAllowedId"/>
+        <Attribute value="30" name="cachedReAuthInterval"/>
+        <Attribute value="corporate" name="vlanTrunkAllowedName"/>
+        <Attribute value="Value" name="clientInactivityTimeout"/>
+        <Attribute value="%{Authorization:[Admin User Repository]:Role_Name}" name="sessionTimeoutParameterized"/>
+        <Attribute value="300" name="clientInactivityTimeoutValue"/>
+        <Attribute value="%{Authorization:[Endpoints Repository]:IsProfiled}" name="vlanTrunkAllowedParameterized"/>
+      </DURRoleConfig>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-cisco-dacl" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="permit ip any any" value="permit ip any any" name="Cisco-IP-Downloadable-ACL" type="Radius:Cisco"/>
+      </AttributeList>
+    </RadiusEnfProfile>
     <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="" name="test-cisco-web-auth" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="priv-lvl=15" value="priv-lvl=15" name="Cisco-AVPair" type="Radius:Cisco"/>
+        <Attribute displayValue="proxyacl# 10=permit ip any any" value="proxyacl# 10=permit ip any any" name="Cisco-AVPair" type="Radius:Cisco"/>
+      </AttributeList>
+    </RadiusEnfProfile>
     <RadiusEnfProfile description="System-defined profile to deny network access" name="[Deny Access Profile]" action="Reject"/>
     <RadiusEnfProfile description="" name="test-filter-id-enforcement" action="Accept">
       <AttributeList>
         <Attribute displayValue="Enter Filter Name" value="" name="Filter-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-vlan-enforcement" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="10800" value="10800" name="Session-Timeout" type="Radius:IETF"/>
+        <Attribute displayValue="RADIUS-Request (1)" value="1" name="Termination-Action" type="Radius:IETF"/>
+        <Attribute displayValue="VLAN (13)" value="13" name="Tunnel-Type" type="Radius:IETF"/>
+        <Attribute displayValue="IEEE-802 (6)" value="6" name="Tunnel-Medium-Type" type="Radius:IETF"/>
+        <Attribute displayValue="10" value="10" name="Tunnel-Private-Group-Id" type="Radius:IETF"/>
       </AttributeList>
     </RadiusEnfProfile>
     <RadiusEnfProfile name="test-mpsk Aruba Wireless with MPSK Default Profile" action="Accept">
@@ -1817,12 +1924,74 @@
         <Attribute displayValue="Wireless-Employee" value="Wireless-Employee" name="Aruba-User-Role" type="Radius:Aruba"/>
       </AttributeList>
     </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-aruba-radius-enforcement-profile" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="test" value="test" name="Aruba-User-Role" type="Radius:Aruba"/>
+      </AttributeList>
+      <NadGroupNameList>
+        <string>test-device-group</string>
+      </NadGroupNameList>
+    </RadiusEnfProfile>
     <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="" name="test-dur-enforcement-profile" productVersion="1.0" product="durPluginA" action="Accept">
+      <NadGroupNameList>
+        <string>test-device-group</string>
+      </NadGroupNameList>
+      <DURRoleConfig pluginType="durPluginA">
+        <Attribute value="9198" name="mtu"/>
+        <Attribute value="test-role-desc" name="desc"/>
+        <Attribute value="test-policy" name="policy"/>
+        <Attribute value="multi-domain-mode" name="authMode"/>
+        <Attribute value="test-dur-role" name="roleName"/>
+        <Attribute value="test-captive-portal" name="cpProfile"/>
+        <Attribute value="dscp" name="trustMode"/>
+        <Attribute value="Static" name="redSecRole"/>
+        <Attribute value="Id" name="vlanAccess"/>
+        <Attribute value="test-static-role" name="gatewayRole"/>
+        <Attribute value="gateway-zone" name="gatewayZone"/>
+        <Attribute value="critical" name="poePriority"/>
+        <Attribute value="promiscuous" name="privateVlan"/>
+        <Attribute value="30" name="reauthManual"/>
+        <Attribute value="Manual" name="reauthInterval"/>
+        <Attribute value="Parameterized" name="sessionTimeout"/>
+        <Attribute value="Id" name="vlanTrunkNative"/>
+        <Attribute value="Id" name="vlanTrunkAllowed"/>
+        <Attribute value="10" name="vlanTrunkNativeId"/>
+        <Attribute value="Voice" name="deviceTrafficClass"/>
+        <Attribute value="10,20" name="vlanTrunkAllowedId"/>
+        <Attribute value="30" name="cachedReAuthInterval"/>
+        <Attribute value="corporate" name="vlanTrunkAllowedName"/>
+        <Attribute value="Value" name="clientInactivityTimeout"/>
+        <Attribute value="%{Authorization:[Admin User Repository]:Role_Name}" name="sessionTimeoutParameterized"/>
+        <Attribute value="300" name="clientInactivityTimeoutValue"/>
+        <Attribute value="%{Authorization:[Endpoints Repository]:IsProfiled}" name="vlanTrunkAllowedParameterized"/>
+      </DURRoleConfig>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-cisco-dacl" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="permit ip any any" value="permit ip any any" name="Cisco-IP-Downloadable-ACL" type="Radius:Cisco"/>
+      </AttributeList>
+    </RadiusEnfProfile>
     <RadiusEnfProfile description="System-defined profile to allow network access" name="[Allow Access Profile]" action="Accept"/>
+    <RadiusEnfProfile description="" name="test-cisco-web-auth" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="priv-lvl=15" value="priv-lvl=15" name="Cisco-AVPair" type="Radius:Cisco"/>
+        <Attribute displayValue="proxyacl# 10=permit ip any any" value="proxyacl# 10=permit ip any any" name="Cisco-AVPair" type="Radius:Cisco"/>
+      </AttributeList>
+    </RadiusEnfProfile>
     <RadiusEnfProfile description="System-defined profile to deny network access" name="[Deny Access Profile]" action="Reject"/>
     <RadiusEnfProfile description="" name="test-filter-id-enforcement" action="Accept">
       <AttributeList>
         <Attribute displayValue="Enter Filter Name" value="" name="Filter-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-vlan-enforcement" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="10800" value="10800" name="Session-Timeout" type="Radius:IETF"/>
+        <Attribute displayValue="RADIUS-Request (1)" value="1" name="Termination-Action" type="Radius:IETF"/>
+        <Attribute displayValue="VLAN (13)" value="13" name="Tunnel-Type" type="Radius:IETF"/>
+        <Attribute displayValue="IEEE-802 (6)" value="6" name="Tunnel-Medium-Type" type="Radius:IETF"/>
+        <Attribute displayValue="10" value="10" name="Tunnel-Private-Group-Id" type="Radius:IETF"/>
       </AttributeList>
     </RadiusEnfProfile>
     <RadiusEnfProfile name="test-mpsk Aruba Wireless with MPSK Default Profile" action="Accept">
@@ -1914,15 +2083,17 @@
       <AttributeList>
         <Attribute displayValue="Wireless-Employee" value="Wireless-Employee" name="Aruba-User-Role" type="Radius:Aruba"/>
       </AttributeList>
+    </RadiusEnfProfile>
+    <RadiusEnfProfile description="" name="test-aruba-radius-enforcement-profile" action="Accept">
+      <AttributeList>
+        <Attribute displayValue="test" value="test" name="Aruba-User-Role" type="Radius:Aruba"/>
+      </AttributeList>
+      <NadGroupNameList>
+        <string>test-device-group</string>
+      </NadGroupNameList>
     </RadiusEnfProfile>
   </RadiusEnfProfiles>
   <RadiusCoAEnfProfiles>
-    <RadiusCoAEnfProfile description="System-defined profile to disconnect the user on H3C products (including HPE FlexNetwork / Comware)." name="[H3C - Terminate Session]" action="Disconnect" template="Terminate-Session-H3C">
-      <AttributeList>
-        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
-        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
-      </AttributeList>
-    </RadiusCoAEnfProfile>
     <RadiusCoAEnfProfile description="System-defined profile to disconnect user (Cisco)" name="[Cisco - Terminate Session]" action="Disconnect" template="Terminate-Session">
       <AttributeList>
         <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
@@ -1935,15 +2106,6 @@
         <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
         <Attribute displayValue="%{Radius:IETF:NAS-Port}" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
         <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
-        <Attribute displayValue="%{Radius:IETF:Event-Timestamp}" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
-      </AttributeList>
-    </RadiusCoAEnfProfile>
-    <RadiusCoAEnfProfile description="System-defined profile to disconnect a device on AOS-CX switches." name="[AOS-CX - Disconnect]" action="Disconnect" template="ArubaCX-Disconnect">
-      <AttributeList>
-        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
-        <Attribute displayValue="%{Radius:IETF:NAS-Port}" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
-        <Attribute displayValue="%{Radius:IETF:NAS-Identifier}" value="%{Radius:IETF:NAS-Identifier}" name="NAS-Identifier" type="Radius:IETF"/>
-        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
         <Attribute displayValue="%{Radius:IETF:Event-Timestamp}" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
       </AttributeList>
     </RadiusCoAEnfProfile>
@@ -1977,6 +2139,21 @@
         <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
         <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
         <Attribute displayValue="%{Radius:IETF:NAS-IP-Address}" value="%{Radius:IETF:NAS-IP-Address}" name="NAS-IP-Address" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect the user on H3C products (including HPE FlexNetwork / Comware)." name="[H3C - Terminate Session]" action="Disconnect" template="Terminate-Session-H3C">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+      </AttributeList>
+    </RadiusCoAEnfProfile>
+    <RadiusCoAEnfProfile description="System-defined profile to disconnect a device on AOS-CX switches." name="[AOS-CX - Disconnect]" action="Disconnect" template="ArubaCX-Disconnect">
+      <AttributeList>
+        <Attribute displayValue="%{Radius:IETF:Calling-Station-Id}" value="%{Radius:IETF:Calling-Station-Id}" name="Calling-Station-Id" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-Port}" value="%{Radius:IETF:NAS-Port}" name="NAS-Port" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:NAS-Identifier}" value="%{Radius:IETF:NAS-Identifier}" name="NAS-Identifier" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:User-Name}" value="%{Radius:IETF:User-Name}" name="User-Name" type="Radius:IETF"/>
+        <Attribute displayValue="%{Radius:IETF:Event-Timestamp}" value="%{Radius:IETF:Event-Timestamp}" name="Event-Timestamp" type="Radius:IETF"/>
       </AttributeList>
     </RadiusCoAEnfProfile>
     <RadiusCoAEnfProfile description="" name="test-dynauth-enforcement-profile" action="CoA" template="ArubaCX-Bounce-Switch-Port">
@@ -2069,7 +2246,24 @@
       </ServiceAttrList>
     </TacacsEnfProfile>
   </TacacsEnfProfiles>
+  <SnmpEnfProfiles>
+    <SnmpEnfProfile description="" name="test-snmp-enforcement">
+      <ProfileParams>
+        <Entry value="30" key="SessionTimeout"/>
+        <Entry value="30" key="VLAN"/>
+        <Entry value="true" key="ResetConnection"/>
+      </ProfileParams>
+    </SnmpEnfProfile>
+  </SnmpEnfProfiles>
   <GenericEnfProfiles>
+    <GenericEnfProfile description="" name="test-http-enforcment" action="Accept" type="HTTP">
+      <ProfileParams displayValue="localhost" value="localhost" name="TargetServer"/>
+      <ProfileParams displayValue="Nmap Scan" value="Nmap Scan (HTTP)" name="Action"/>
+    </GenericEnfProfile>
+    <GenericEnfProfile description="" name="cli-based-enforcement" action="Accept" type="CLI">
+      <ProfileParams displayValue="%{Connection:NAD-IP-Address}" value="%{Connection:NAD-IP-Address}" name="TargetDevice"/>
+      <ProfileParams displayValue="show run&lt;br&gt;" value="show run" name="Command"/>
+    </GenericEnfProfile>
     <GenericEnfProfile description="System-defined profile to send time-based sharing policy to the AirGroup notification service" name="[Handle AirGroup Time Sharing]" action="Accept" type="HTTP">
       <ProfileParams displayValue="localhost" value="localhost" name="TargetServer"/>
       <ProfileParams displayValue="Handle AirGroup Time Sharing" value="Handle AirGroup Time Sharing (HTTP)" name="Action"/>
@@ -2085,6 +2279,12 @@
       <ProfileParams displayValue="%{Authorization:[Admin User Repository]:Role_Name}" value="%{Authorization:[Admin User Repository]:Role_Name}" name="admin_privileges"/>
     </GenericEnfProfile>
   </GenericEnfProfiles>
+  <AgentEnfProfiles>
+    <AgentEnfProfile description="" name="test-agent-enforcment" agentEnfType="Agent">
+      <ProfileParams displayValue="false" value="false" name="BounceClient"/>
+      <ProfileParams displayValue="Enter message here" value="" name="Message"/>
+    </AgentEnfProfile>
+  </AgentEnfProfiles>
   <PostAuthEnfProfiles>
     <PostAuthEnfProfile description="Enforcement profile for User do expire functionality" name="test-guest-access-mac-caching MAC Caching Do Expire" postAuthType="SessionRestriction">
       <AttributeList>
@@ -2159,6 +2359,9 @@
       </AttributeList>
     </PostAuthEnfProfile>
   </PostAuthEnfProfiles>
+  <NadGroups>
+    <NadGroup description="" name="test-device-group" members="192.0.2.0/24" membersFormat="subnet"/>
+  </NadGroups>
   <Proxies>
     <Proxy description="test" name="test-acct-proxy" acctPort="1813" authPort="1812" type="RADIUS" secret="" hostName="192.0.2.10"/>
     <Proxy name="eduroam-test-1 EDUROAM RADIUS PROXY" acctPort="1813" authPort="1812" type="RADIUS" secret="" hostName="192.0.2.71"/>
@@ -2302,6 +2505,7 @@
   </AdminPrivileges>
   <ContextServers>
     <ContextServer ipVersion="ipV4" authMethod="basic" bypassProxy="true" enableServer="true" validateServer="false" password="" username="" baseUrl="https://localhost" type="HTTP" server="localhost"/>
+    <ContextServer ipVersion="ipV4" authMethod="basic" bypassProxy="true" enableServer="true" validateServer="false" password="" username="" baseUrl="https://localhost" type="HTTP" server="localhost"/>
   </ContextServers>
   <ContextServerActions>
     <ContextServerAction content="version=1##NEWLINE##mac=%{Connection:Client-Mac-Address-NoDelim}##NEWLINE##airgroup_enable=%{GuestUser:airgroup_enable}##NEWLINE##airgroup_shared=%{GuestUser:airgroup_shared}##NEWLINE##airgroup_device_owner=##NEWLINE##airgroup_shared_group=%{GuestUser:airgroup_shared_group}##NEWLINE##airgroup_shared_location=%{GuestUser:airgroup_shared_location}##NEWLINE##airgroup_shared_role=%{GuestUser:airgroup_shared_role}##NEWLINE##airgroup_shared_user=%{GuestUser:airgroup_shared_user}##NEWLINE##airgroup_shared_time=%{GuestUser:airgroup_shared_time}" contentType="PLAIN" url="/guest/airgroup_endpoint_context_server.php" authMethod="basic" method="POST" description="Sends time-based sharing policy to the AirGroup notification service" serverName="localhost" action="Handle AirGroup Time Sharing" type="HTTP">
@@ -2362,4 +2566,68 @@
       </AttributeList>
     </RadiusCOATemplate>
   </RadiusCOATemplates>
+  <DURRoleConfigEntities>
+    <DURRoleConfigEntity entity="CAPTIVE_PORTAL" name="test-captive-portal" pluginType="durPluginA">
+      <Attributes>
+        <Attribute value="https://test-captiveportal.local" name="url"/>
+        <Attribute value="test-captive-portal" name="name"/>
+      </Attributes>
+    </DURRoleConfigEntity>
+    <DURRoleConfigEntity entity="POLICY" name="test-policy" pluginType="durPluginA">
+      <Rules>
+        <Rule>
+          <Attribute value="ip" name="klass"/>
+          <Attribute value="permit" name="action"/>
+          <Attribute value="1" name="number"/>
+          <Attribute value="test-class" name="klassName"/>
+          <Attribute value="" name="exceedAction"/>
+        </Rule>
+      </Rules>
+    </DURRoleConfigEntity>
+    <DURRoleConfigEntity entity="CLASS" name="test-class" pluginType="durPluginA">
+      <Attributes>
+        <Attribute value="ip" name="traffic"/>
+      </Attributes>
+      <Rules>
+        <Rule>
+          <Attribute value="1" name="number"/>
+          <Attribute value="match" name="packet"/>
+          <Attribute value="any" name="source"/>
+          <Attribute value="any" name="destination"/>
+          <Attribute value="tcp" name="ipv4Protocol"/>
+        </Rule>
+      </Rules>
+    </DURRoleConfigEntity>
+    <DURRoleConfigEntity entity="CAPTIVE_PORTAL" name="test-captive-portal" pluginType="durPluginA">
+      <Attributes>
+        <Attribute value="https://test-captiveportal.local" name="url"/>
+        <Attribute value="test-captive-portal" name="name"/>
+      </Attributes>
+    </DURRoleConfigEntity>
+    <DURRoleConfigEntity entity="POLICY" name="test-policy" pluginType="durPluginA">
+      <Rules>
+        <Rule>
+          <Attribute value="ip" name="klass"/>
+          <Attribute value="permit" name="action"/>
+          <Attribute value="1" name="number"/>
+          <Attribute value="test-class" name="klassName"/>
+          <Attribute value="" name="exceedAction"/>
+        </Rule>
+      </Rules>
+    </DURRoleConfigEntity>
+    <DURRoleConfigEntity entity="CLASS" name="test-class" pluginType="durPluginA">
+      <Attributes>
+        <Attribute value="ip" name="traffic"/>
+      </Attributes>
+      <Rules>
+        <Rule>
+          <Attribute value="1" name="number"/>
+          <Attribute value="match" name="packet"/>
+          <Attribute value="any" name="source"/>
+          <Attribute value="any" name="destination"/>
+          <Attribute value="tcp" name="ipv4Protocol"/>
+        </Rule>
+      </Rules>
+    </DURRoleConfigEntity>
+  </DURRoleConfigEntities>
 </TipsContents>

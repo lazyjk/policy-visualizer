@@ -268,10 +268,10 @@ export default function UploadPanel({
                       {hasPrecedence && svc.precedence != null && (
                         <span style={precedenceStyle}>{svc.precedence}</span>
                       )}
-                      <span>{svc.name}</span>
+                      <span style={serviceNameStyle}>{svc.name}</span>
                       <span style={serviceTypeBadgeStyle}>{svc.service_type}</span>
                       {tmpl && tmpl !== svc.service_type && (
-                        <span style={serviceTypeBadgeStyle}>{tmpl}</span>
+                        <span style={serviceTypeBadgeStyle} title={svc.template}>{tmpl}</span>
                       )}
                       {!enabled && <span style={disabledBadgeStyle}>Disabled</span>}
                     </button>
@@ -343,6 +343,11 @@ const errorStyle: React.CSSProperties = {
 const serviceButtonStyle: React.CSSProperties = {
   width: "100%",
   textAlign: "left",
+  // Name and badges wrap inside the button instead of overflowing the panel.
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: 4,
   padding: "8px 10px",
   background: "#f3f4f6",
   border: "1px solid #e5e7eb",
@@ -373,8 +378,19 @@ const controlSelectStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const serviceNameStyle: React.CSSProperties = {
+  marginRight: 2,
+  minWidth: 0,
+  overflowWrap: "anywhere",
+};
+
 const serviceTypeBadgeStyle: React.CSSProperties = {
-  marginLeft: 6,
+  // Never wider than the button; long values (e.g. unknown raw templates) get "…".
+  display: "inline-block",
+  maxWidth: "100%",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
   fontSize: 10,
   fontWeight: 600,
   color: "#6b7280",
@@ -398,7 +414,7 @@ const sectionHeaderStyle: React.CSSProperties = {
 const precedenceStyle: React.CSSProperties = {
   display: "inline-block",
   minWidth: 18,
-  marginRight: 6,
+  marginRight: 2,
   fontSize: 10,
   color: "#9ca3af",
   fontVariantNumeric: "tabular-nums",

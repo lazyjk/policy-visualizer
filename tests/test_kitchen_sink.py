@@ -1,7 +1,9 @@
 """Regression suite for the lab kitchen-sink export (LabKitchenSink.xml).
 
 A real ClearPass 6.11 export from a lab configured with one service per
-template and many profile/condition variants. Values were sanitized with
+template and many profile/condition variants (v2, 2026-11-19: the DUR, SNMP,
+Agent, CLI, HTTP, dACL, web-auth and VLAN test profiles are wired into
+policies, so the export carries them). Values were sanitized with
 tools/sanitize_fixture.py; structure is untouched.
 
 What this pins down:
@@ -49,6 +51,7 @@ EXPECTED_TEMPLATES = {
     "[Aruba Device Access Service]": "TACACS_ENFORCEMENT",
     "test-cppm-admin-ad ClearPass Admin Access (Active Directory)": "TACACS_ENFORCEMENT",
     "[Device Registration Disconnect]": "AVENDA_WEB_AUTH",
+    "test-web-auth": "AVENDA_WEB_AUTH",
     "test-sso-guest ClearPass Admin SSO Login (SAML SP Service)": "CPPM_APP_AUTZ",
     "[Guest Operator Logins]": "AVENDA_APP_AUTH",
     "[Insight Operator Logins]": "AVENDA_APP_AUTH",
@@ -85,7 +88,7 @@ def test_service_type_counts(ir):
     counts: dict[str, int] = {}
     for s in ir.services.values():
         counts[s.service_type] = counts.get(s.service_type, 0) + 1
-    assert counts == {"RADIUS": 16, "RADIUS_PROXY": 2, "TACACS": 3, "WEBAUTH": 1, "APPLICATION": 5}
+    assert counts == {"RADIUS": 16, "RADIUS_PROXY": 2, "TACACS": 3, "WEBAUTH": 2, "APPLICATION": 5}
 
 
 def test_no_ir_warnings(ir):
@@ -98,7 +101,11 @@ def test_categories_and_disabled(ir):
         "-----------WIRED--------------",
         "-----------WIRELESS--------------",
     ]
-    assert [s.name for s in ir.services.values() if not s.enabled] == [
+    # Divider services are disabled in the lab (they have no conditions of
+    # their own, so an enabled one would match every request of its protocol).
+    assert sorted(s.name for s in ir.services.values() if not s.enabled) == [
+        "-----------WIRED--------------",
+        "-----------WIRELESS--------------",
         "[Policy Manager Admin Network Login Service]",
     ]
 
@@ -121,9 +128,9 @@ def test_service_compiles_deterministically(ir, name):
 
 def test_export_repeats_profiles_but_ir_collapses_them(raw, ir):
     radius_names = [p["name"] for p in raw["radiusEnfProfiles"]]
-    assert len(radius_names) == 39
+    assert len(radius_names) == 49
     assert radius_names.count("[Allow Access Profile]") == 3
-    assert len(ir.enforcement_profiles) == 49
+    assert len(ir.enforcement_profiles) == 58
 
 
 def test_conflicting_duplicate_profile_warns(raw):
@@ -198,6 +205,35 @@ def test_details_expose_new_fields(ir):
     assert super_admin["tacacs_services"] == ["cpass:HTTP", "cpass:CLI"]
 
 
+# --- profile types first seen in the v2 export -------------------------------
+
+def test_snmp_and_agent_profiles_are_modelled(ir):
+    snmp = _profile(ir, "test-snmp-enforcement")
+    assert snmp.profile_type == "snmp" and snmp.element_type == "" and snmp.extras == []
+    assert [(a.name, a.type, a.value) for a in snmp.attributes] == [
+        ("SessionTimeout", "SNMP", "30"), ("VLAN", "SNMP", "30"), ("ResetConnection", "SNMP", "true"),
+    ]
+    agent = _profile(ir, "test-agent-enforcment")
+    assert agent.profile_type == "agent" and agent.extras == []
+    assert [a.name for a in agent.attributes] == ["BounceClient", "Message"]
+
+
+def test_dur_profile_from_a_real_export(ir):
+    """The DUR parser was written against a synthetic fixture; this is the real shape."""
+    dur = _profile(ir, "test-dur-enforcement-profile")
+    assert dur.product == "durPluginA"
+    assert dur.nad_groups == ["test-device-group"]
+    settings = {a.name: a.value for a in dur.attributes if a.type == "DUR:durPluginA"}
+    assert settings["roleName"] == "test-dur-role"
+    assert settings["vlanTrunkAllowedId"] == "10,20"
+    assert dur.extras == []
+
+
+def test_application_profile_types(ir):
+    assert _profile(ir, "cli-based-enforcement").action == "accept"
+    assert {a.name for a in _profile(ir, "test-http-enforcment").attributes} >= {"TargetServer"}
+
+
 # --- API --------------------------------------------------------------------
 
 client = TestClient(app)
@@ -212,11 +248,9 @@ def test_api_services_summary():
     res = _post("/api/services")
     assert res.status_code == 200
     services = res.json()["services"]
-    assert len(services) == 27
+    assert len(services) == 28
     assert sum(s["is_category"] for s in services) == 2
-    assert [s["name"] for s in services if not s["enabled"]] == [
-        "[Policy Manager Admin Network Login Service]",
-    ]
+    assert sum(not s["enabled"] for s in services) == 3
 
 
 def test_api_flow_details_carry_new_fields(ir):

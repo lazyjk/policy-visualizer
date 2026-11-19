@@ -68,7 +68,7 @@ def test_dur_nested_block_captured_but_attributes_not_duplicated(raw):
 def test_unknown_profile_type_captured(raw):
     other = raw["otherEnfProfiles"]
     assert [p["name"] for p in other] == ["snmp-bounce"]
-    assert other[0]["elementType"] == "SnmpEnfProfile"
+    assert other[0]["elementType"] == "FutureEnfProfile"
     extras = {e["path"]: e["value"] for e in other[0]["extras"]}
     assert extras["SnmpSettings/@vlanId"] == "99"
 
@@ -104,7 +104,7 @@ def test_extras_capped(tmp_path):
 def test_unknown_profile_resolves_instead_of_placeholder(ir):
     prof = _profile(ir, "snmp-bounce")
     assert prof.profile_type == "other"
-    assert prof.element_type == "SnmpEnfProfile"
+    assert prof.element_type == "FutureEnfProfile"
     assert not any("snmp-bounce" in w and "not found" in w for w in ir.warnings)
 
 
@@ -113,7 +113,7 @@ def test_details_carry_extras(ir):
     details = build_clearpass_details(svc, ir)
     assert any(e["path"] == "@futureToggle" for e in details["service_context"]["extras"])
     snmp = details["enforcement_rules"][1]["profiles"][0]
-    assert snmp["element_type"] == "SnmpEnfProfile"
+    assert snmp["element_type"] == "FutureEnfProfile"
     assert snmp["extras"]
 
 
@@ -123,7 +123,7 @@ def test_uninterpreted_notes(ir):
     assert len(notes) == 3
     assert "future-service" in notes[0]
     assert "dur-with-acl" in notes[1]
-    assert "SnmpEnfProfile" in notes[2]
+    assert "FutureEnfProfile" in notes[2]
 
 
 def test_unknown_profile_flow_compiles(ir):
