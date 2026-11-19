@@ -2,9 +2,10 @@ import { useMemo, useState, useRef } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import UploadPanel from "./components/UploadPanel";
 import FlowDiagram from "./components/FlowDiagram";
-import { fetchServices, fetchFlow } from "./api";
-import type { FlowIR, FlowNode, ServiceSummary } from "./api";
+import { fetchServices, fetchFlow, fetchXref } from "./api";
+import type { FlowIR, FlowNode, ServiceSummary, XrefReport } from "./api";
 import PolicyDetailsPanel from "./components/PolicyDetailsPanel";
+import ConfigReportModal from "./components/ConfigReportModal";
 import BuilderView from "./components/builder/BuilderView";
 import { DiagramSessionProvider, useDiagramSession } from "./context/DiagramSessionContext";
 import { version } from "../package.json";
@@ -32,6 +33,9 @@ function AppContent() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
+  // Where-used report for the current file (ClearPass only; null for ISE or on error).
+  const [xref, setXref] = useState<XrefReport | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Category dividers ("------Name------") are not real services: never batch-export them.
   const exportableServices = useMemo(() => services.filter((s) => !s.is_category), [services]);
@@ -44,10 +48,17 @@ function AppContent() {
     setServices([]);
     setSelectedService(null);
     setError(null);
+    setXref(null);
+    setReportOpen(false);
     setLoading(true);
     try {
       const result = await fetchServices(file);
       setServices(result.services);
+      // Fetched in the background: the diagram never waits for it, and a
+      // failure (e.g. ISE files, which have no report) just hides the feature.
+      fetchXref(file)
+        .then((report) => { if (fileRef.current === file) setXref(report); })
+        .catch(() => { if (fileRef.current === file) setXref(null); });
       const realServices = result.services.filter((s) => !s.is_category);
       if (realServices.length === 1) {
         // Only one real service (ignoring category dividers) — render immediately
@@ -132,6 +143,7 @@ function AppContent() {
             error={error}
             onFileSelect={handleFileSelect}
             onServiceSelect={handleServiceSelect}
+            onOpenReport={xref ? () => setReportOpen(true) : undefined}
           />
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
             <div style={{ flex: 1, position: "relative", background: "#f9fafb" }}>
@@ -179,15 +191,19 @@ function AppContent() {
                     fontSize: 15,
                   }}
                 >
-                  {loading ? "Compiling diagram…" : "Upload a service or policy XML file to begin"}
+                  {loading ? "Compiling diagram…" : "Upload a service or policy XML export, or a ClearPass DB backup, to begin"}
                 </div>
               )}
             </div>
             {flow && (
-              <PolicyDetailsPanel details={flow.details} selectedNode={selectedNode} />
+              <PolicyDetailsPanel details={flow.details} selectedNode={selectedNode} xref={xref} />
             )}
           </div>
         </div>
+
+      {reportOpen && xref && (
+        <ConfigReportModal report={xref} fileName={fileName} onClose={() => setReportOpen(false)} />
+      )}
 
       {/* Version watermark */}
       <div style={{

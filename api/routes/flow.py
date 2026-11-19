@@ -3,6 +3,7 @@ Flow API routes.
 
 POST /api/flow    — compile a service from an uploaded file into Flow IR JSON
 POST /api/services — list all services in an uploaded file
+POST /api/xref    — where-used / unused-object report (ClearPass)
 GET  /api/health  — liveness check
 
 Supports ClearPass (TipsContents) and Cisco ISE (Root/policysets) XML exports,
@@ -20,7 +21,16 @@ import defusedxml.common
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from api.schemas import FlowEdgeSchema, FlowIRSchema, FlowNodeSchema, HealthResponse, PolicyDetailsSchema, ServiceListResponse, ServiceSummary
+from api.schemas import (
+    FlowEdgeSchema,
+    FlowIRSchema,
+    FlowNodeSchema,
+    HealthResponse,
+    PolicyDetailsSchema,
+    ServiceListResponse,
+    ServiceSummary,
+    XrefResponse,
+)
 from api.schemas_builder import BuilderFromIRRequest
 from src.flow_ir import compile_service
 from src.ise_flow_ir import ise_compile_policy_set
@@ -31,6 +41,7 @@ from src.parser import parse
 from src.pgdump_parser import parse_pgdump
 from src.pgdump_reader import PgDumpError, PgRestoreNotFound, is_pgdump
 from src.policy_details import build_clearpass_details, build_ise_details, uninterpreted_notes
+from src.xref import build_xref
 from src.policy_ir import (
     ApplyProfiles,
     AuthMethod,
@@ -269,6 +280,19 @@ async def get_flow(
         flow = compile_service(svc, ir)
         details = PolicyDetailsSchema.model_validate(build_clearpass_details(svc, ir)) if include_details else None
         return _flow_ir_to_schema(flow, ir.warnings + uninterpreted_notes(svc, ir), details)
+
+
+@router.post("/xref", response_model=XrefResponse)
+async def get_xref(file: UploadFile = File(...)):
+    """Where-used and unused-object report for a ClearPass export or DB backup."""
+    _check_upload(file)
+    data = _read_upload(file)
+    fmt = _detect_format(data)
+    if fmt == "ise":
+        raise HTTPException(status_code=422, detail="The configuration report is available for ClearPass files only.")
+    build_fn = _parse_and_build_pgdump if fmt == "pgdump" else _parse_and_build_clearpass
+    _, ir = build_fn(data, file.filename or "")
+    return XrefResponse.model_validate(build_xref(ir))
 
 
 # ---------------------------------------------------------------------------

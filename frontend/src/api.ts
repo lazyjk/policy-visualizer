@@ -168,3 +168,57 @@ export async function fetchFlow(file: File, serviceId?: string): Promise<FlowIR>
   }
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Where-used / unused-object report (POST /api/xref, ClearPass only)
+// ---------------------------------------------------------------------------
+
+export type XrefKind =
+  | "role_mapping_policy" | "enforcement_policy" | "enforcement_profile"
+  | "role" | "auth_method" | "auth_source";
+
+export interface XrefUsage {
+  kind: string;
+  id: string;
+  name: string;
+  /** e.g. "rule 3", "default profile", "authentication source" */
+  where: string;
+}
+
+export interface XrefObject {
+  kind: XrefKind;
+  id: string;
+  name: string;
+  /** ClearPass system object, e.g. "[Allow Access Profile]". */
+  builtin: boolean;
+  status: "used" | "only_disabled" | "unused";
+  used_by: XrefUsage[];
+}
+
+export interface XrefFinding {
+  code: "unused" | "only_disabled" | "role_assigned_never_tested" | "role_tested_never_assigned";
+  kind: XrefKind;
+  id: string;
+  name: string;
+  builtin: boolean;
+  message: string;
+}
+
+export interface XrefReport {
+  source_format: "xml" | "pgdump";
+  /** True only for DB backups: XML exports omit objects no exported service uses. */
+  complete: boolean;
+  objects: XrefObject[];
+  findings: XrefFinding[];
+}
+
+export async function fetchXref(file: File): Promise<XrefReport> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/xref`, { method: "POST", body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail ?? res.statusText);
+  }
+  return res.json();
+}
