@@ -1,7 +1,7 @@
 """Where-used / unused-object analysis (src/xref.py, POST /api/xref).
 
-The lab DB backup is the oracle: its unreferenced test profiles were created
-on purpose (docs/lab-fixture-checklist.md) and never wired into a policy.
+The lab DB backup is the oracle: after the v2 re-wiring, exactly two of its
+test profiles are still referenced by no policy or service.
 """
 import copy
 import io
@@ -24,17 +24,8 @@ COPY = FIXTURES / "pgdump" / "LabKitchenSink.copy.txt"
 
 # Profiles configured in the lab but referenced by no policy or service.
 LAB_UNUSED_PROFILES = {
-    "cli-based-enforcement",
     "kit-lab-wired 802.1X Wired Default Profile",
-    "test-agent-enforcment",
-    "test-aruba-radius-enforcement-profile",
-    "test-cisco-dacl",
-    "test-cisco-web-auth",
-    "test-dur-enforcement-profile",
     "test-generic-application-enforcment",
-    "test-http-enforcment",
-    "test-snmp-enforcement",
-    "test-vlan-enforcement",
 }
 
 

@@ -86,9 +86,9 @@ def test_lab_counts(case):
     fmt, _, _, report = case
     assert report["source"]["format"] == fmt
     assert report["source"]["clearpass_version"] == ("6.11" if fmt == "xml" else None)
-    assert report["services"]["total"] == 27
+    assert report["services"]["total"] == 28
     assert report["services"]["by_type"] == {
-        "APPLICATION": 5, "RADIUS": 16, "RADIUS_PROXY": 2, "TACACS": 3, "WEBAUTH": 1,
+        "APPLICATION": 5, "RADIUS": 16, "RADIUS_PROXY": 2, "TACACS": 3, "WEBAUTH": 2,
     }
     assert report["services"]["options"]["divider"] == 2
     assert report["conditions"]["unknown_operators"] == {}
@@ -130,7 +130,7 @@ client = TestClient(app)
 def test_api_coverage_xml():
     res = client.post("/api/coverage", files={"file": ("lab.xml", io.BytesIO(XML.read_bytes()), "application/xml")})
     assert res.status_code == 200
-    assert res.json()["services"]["total"] == 27
+    assert res.json()["services"]["total"] == 28
 
 
 def test_api_coverage_pgdump(monkeypatch):
@@ -150,4 +150,4 @@ def test_api_coverage_rejects_ise():
 def test_cli_coverage_stdout_is_json():
     result = CliRunner().invoke(cli_main, [str(XML), "--coverage"])  # click 8.2+: stderr kept separate
     assert result.exit_code == 0
-    assert json.loads(result.stdout)["services"]["total"] == 27
+    assert json.loads(result.stdout)["services"]["total"] == 28

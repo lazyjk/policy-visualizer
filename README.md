@@ -167,7 +167,7 @@ From repository root:
 .venv/bin/pytest tests/
 ```
 
-Current collected count: **571 tests**. The DB-backup tests run against a sanitized COPY-text extract (`tests/fixtures/pgdump/`), so they don't need `pg_restore`; one integration test runs only when a local backup and `pg_restore` are present.
+Current collected count: **578 tests**. The DB-backup tests run against a sanitized COPY-text extract (`tests/fixtures/pgdump/`), so they don't need `pg_restore`; one integration test runs only when a local backup and `pg_restore` are present.
 
 To regenerate the documented totals:
 

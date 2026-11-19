@@ -131,6 +131,8 @@ _KNOWN_PROFILE_PARTS: dict[str, tuple[set[str], set[str]]] = {
         {"AttributeList", "NadGroupNameList"},
     ),
     "GenericEnfProfile": ({"name", "description", "action", "type"}, {"ProfileParams"}),
+    "SnmpEnfProfile": ({"name", "description"}, {"ProfileParams", "NadGroupNameList"}),
+    "AgentEnfProfile": ({"name", "description", "agentEnfType"}, {"ProfileParams", "NadGroupNameList"}),
 }
 
 
@@ -475,10 +477,46 @@ def parse(xml_path: str | Path) -> dict[str, Any]:
             "extras": _profile_extras(gp),
         })
 
-    # --- Any other enforcement profile type (SNMP, Agent, HTTP, CLI, ...) ---
+    # --- SNMP and Agent (OnGuard) Enforcement Profiles ---
+    # Kept in otherEnfProfiles with an explicit profileType ("snmp" / "agent"),
+    # the same shape the DB-backup adapter produces.
+    model["otherEnfProfiles"] = []
+    for sp in root.findall(f".//{_tag('SnmpEnfProfile')}"):
+        params = sp.find(_tag("ProfileParams"))
+        entries = params.findall(_tag("Entry")) if params is not None else []
+        model["otherEnfProfiles"].append({
+            "name": sp.get("name", ""),
+            "description": sp.get("description", ""),
+            "action": "",
+            "profileType": "snmp",
+            # <ProfileParams><Entry key="VLAN" value="30"/></ProfileParams>
+            "attributes": [
+                {"name": e.get("key", ""), "type": "SNMP", "value": e.get("value", ""),
+                 "displayValue": e.get("value", "")}
+                for e in entries
+            ],
+            "nadGroups": _string_list(sp, "NadGroupNameList"),
+            "extras": _profile_extras(sp),
+        })
+    for ap in root.findall(f".//{_tag('AgentEnfProfile')}"):
+        model["otherEnfProfiles"].append({
+            "name": ap.get("name", ""),
+            "description": ap.get("description", ""),
+            "action": "",
+            "profileType": "agent",
+            # <ProfileParams name="BounceClient" value="false" displayValue="false"/>
+            "attributes": [
+                {"name": pp_el.get("name", ""), "type": "Agent", "value": pp_el.get("value", ""),
+                 "displayValue": pp_el.get("displayValue", "") or pp_el.get("value", "")}
+                for pp_el in ap.findall(_tag("ProfileParams"))
+            ],
+            "nadGroups": _string_list(ap, "NadGroupNameList"),
+            "extras": _profile_extras(ap),
+        })
+
+    # --- Any other enforcement profile type ---
     # Captured generically so policies referencing them resolve to the real
     # profile (with its raw settings) instead of a "not in export" placeholder.
-    model["otherEnfProfiles"] = []
     for el in root.iter():
         tag = _local(el.tag)
         if not tag.endswith("EnfProfile") or tag in _KNOWN_PROFILE_PARTS:

@@ -81,10 +81,10 @@
       </DURRoleConfig>
     </RadiusEnfProfile>
   </RadiusEnfProfiles>
-  <!-- SYNTHETIC profile type -->
-  <SnmpEnfProfiles>
-    <SnmpEnfProfile description="Bounce port via SNMP" name="snmp-bounce" action="Accept">
+  <!-- SYNTHETIC profile type (fictional element: exercises the unknown-type catch-all) -->
+  <FutureEnfProfiles>
+    <FutureEnfProfile description="Bounce port via SNMP" name="snmp-bounce" action="Accept">
       <SnmpSettings vlanId="99" bouncePort="true"/>
-    </SnmpEnfProfile>
-  </SnmpEnfProfiles>
+    </FutureEnfProfile>
+  </FutureEnfProfiles>
 </TipsContents>

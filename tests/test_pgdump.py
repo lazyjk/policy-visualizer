@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).parent / "fixtures"
 COPY_FIXTURE = FIXTURES / "pgdump" / "LabKitchenSink.copy.txt"
 XML_FIXTURE = FIXTURES / "LabKitchenSink.xml"
-REAL_DUMP = ROOT / "reference-files" / "lab-kitchen-sink-tipsdb.pgdump"
+REAL_DUMP = ROOT / "reference-files" / "kitchen-sinkv2tipsdb.pgdump"
 
 
 @pytest.fixture(scope="module")
@@ -203,7 +203,7 @@ def test_malformed_rule_xml_warns_instead_of_failing():
 
 def test_services_in_true_precedence_order(raw):
     services = raw["services"]
-    assert [s["precedence"] for s in services] == list(range(1, 28))
+    assert [s["precedence"] for s in services] == list(range(1, 29))
     assert services[0]["name"] == "[Policy Manager Admin Network Login Service]"
     assert services[0]["enabled"] == "false"
     dividers = {s["name"]: s["precedence"] for s in services if s["name"].startswith("---")}
@@ -224,9 +224,18 @@ def test_db_has_objects_the_export_leaves_out(db_ir, xml_ir):
     db_profiles = {p.name for p in db_ir.enforcement_profiles.values()}
     xml_profiles = {p.name for p in xml_ir.enforcement_profiles.values()}
     assert xml_profiles <= db_profiles
-    assert {"test-dur-enforcement-profile", "test-snmp-enforcement", "test-agent-enforcment",
-            "test-cisco-dacl", "cli-based-enforcement", "test-http-enforcment"} <= db_profiles - xml_profiles
+    # Only the two lab profiles still wired to nothing (plus ClearPass built-ins) are DB-only.
+    assert {n for n in db_profiles - xml_profiles if not n.startswith("[")} == {
+        "kit-lab-wired 802.1X Wired Default Profile", "test-generic-application-enforcment",
+    }
     assert len(db_ir.roles) > len(xml_ir.roles)
+
+
+def test_dur_profile_keeps_generated_radius_attributes(db_ir):
+    p = _profile(db_ir, "test-dur-enforcement-profile")
+    generated = [a.name for a in p.attributes if not a.type.startswith("DUR:")]
+    assert generated[0] == "Aruba-CPPM-Role"
+    assert "port-access role test-dur-role" in p.attributes[0].value
 
 
 def test_dur_profile(db_ir):
@@ -285,6 +294,16 @@ def test_no_rule_conversion_warnings(db_ir):
 _EXPORT_BLANKED_ATTRIBUTES = {"Aruba-MPSK-Passphrase"}
 
 
+def _export_comparable(attrs):
+    """Known difference: for a Downloadable User Role profile the export carries
+    only the DUR settings, while the DB also stores the RADIUS attributes
+    ClearPass generates from them (Aruba-CPPM-Role with the compiled role CLI,
+    Session-Timeout, ...)."""
+    if any(a["type"].startswith("DUR:") for a in attrs):
+        attrs = [a for a in attrs if a["type"].startswith("DUR:")]
+    return [(a["name"], a["type"], a["display_value"]) for a in attrs if a["name"] not in _EXPORT_BLANKED_ATTRIBUTES]
+
+
 def _flow(svc, ir):
     return dataclasses.asdict(compile_service(svc, ir))
 
@@ -301,10 +320,8 @@ def test_parity_flow_graph(name, xml_ir, db_ir):
 
 
 def _profile_view(p):
-    return (p["name"], p["profile_type"], p["action"], p["template"], p["tacacs_services"], [
-        (a["name"], a["type"], a["display_value"]) for a in p["attributes"]
-        if a["name"] not in _EXPORT_BLANKED_ATTRIBUTES
-    ])
+    return (p["name"], p["profile_type"], p["action"], p["template"], p["tacacs_services"],
+            p["product"], p["nad_groups"], _export_comparable(p["attributes"]))
 
 
 @pytest.mark.parametrize("name", _service_names())
@@ -345,7 +362,7 @@ def test_api_services_from_pgdump(fake_restore):
     res = _upload("/api/services", b"PGDMP-fake-archive")
     assert res.status_code == 200
     services = res.json()["services"]
-    assert [s["precedence"] for s in services] == list(range(1, 28))
+    assert [s["precedence"] for s in services] == list(range(1, 29))
     assert sum(s["is_category"] for s in services) == 2
 
 
