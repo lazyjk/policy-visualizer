@@ -11,6 +11,25 @@ in our lab backup (`reference-files/tipsdb.pgdump`), plus areas our current fixt
 don't cover. Table names are given as evidence; the matching XML element names are
 what this exercise will tell us.
 
+## Status (2026-11-19)
+
+The lab export and a DB backup of the same appliance are in. Committed as
+`tests/fixtures/LabKitchenSink.xml` and `tests/fixtures/pgdump/LabKitchenSink.copy.txt`
+(sanitized; the backup itself stays in git-ignored `reference-files/`).
+
+- **Covered by the XML:** 27 services across 13 templates, including RADIUS proxy, TACACS, WebAuth and App;
+  monitor mode; cached results; profiler with CoA; accounting proxy; authorization sources; evaluate-all
+  and first-applicable; 14 condition operators across 14 namespaces; post-auth, CoA (10 templates) and
+  TACACS profiles with per-service attributes; a disabled service and two dividers.
+- **Not in the XML, so read from the DB backup:** DUR, Aruba RADIUS, Cisco dACL, Cisco web-auth, VLAN,
+  SNMP, Agent, CLI, HTTP and generic-application profiles. They were configured but not referenced by
+  any enforcement policy, and **an export only includes objects reachable from a service**.
+- **Still open:** wire those profiles into a policy used by a service (e.g. `kit-all-profiles`, one rule
+  per profile) and re-export, so we learn their XML element names. This matters most for DUR:
+  `_dur_attributes` in `src/parser.py` was written against a synthetic fixture. Posture, audit, MFA,
+  TACACS command authorization, NAD-group-restricted profiles, and a multi-predicate OR rule are also
+  still missing. The last one would confirm how the DB stores match-ANY with several predicates.
+
 > Template and menu names vary between ClearPass versions. Use whatever the
 > **Add Enforcement Profile → Template** list shows on your version, and tick
 > every variant you see, not just the ones named here.
