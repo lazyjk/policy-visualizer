@@ -15,6 +15,11 @@ app = FastAPI(
     title="Policy Visualizer API",
     version="4.0.0-beta.2",
     description="Converts a network policy XML service export into a Flow IR diagram.",
+    # Interactive docs pages load Swagger/ReDoc and fonts from public CDNs,
+    # which breaks the offline guarantee; disable them and the schema route.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(
