@@ -25,9 +25,14 @@ htmlcov/
 *.pdf
 # Allow tracked assets (e.g. README screenshots)
 !docs/assets/**
+# App logo shown on the upload screen (served from frontend/public)
+!frontend/public/policy_visualizer_logo.svg
 
 # Reference files (sensitive policy exports)
 reference-files/
+
+# Local project reviews (describe weaknesses / point at fixture data) — keep local
+docs/reviews/
 
 # Node / frontend
 frontend/node_modules/
