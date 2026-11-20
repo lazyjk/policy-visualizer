@@ -58,3 +58,18 @@ frontend/dist/
 
 # ClearPass DB backups (contain secret-bearing tables) — never commit
 *.pgdump
+*.dump
+
+# Policy exports and diagram exports saved in the project folder — never
+# commit real customer data. Sanitized test fixtures are allowed back in below.
+*.xml
+*.copy.txt
+*.drawio
+*.zip
+*.jpg
+*.jpeg
+!tests/fixtures/**/*.xml
+!tests/fixtures/**/*.copy.txt
+# JSON downloads (e.g. coverage report) saved at the repo root; config files
+# such as frontend/package.json live in subfolders and are unaffected.
+/*.json
