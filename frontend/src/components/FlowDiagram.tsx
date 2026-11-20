@@ -1146,8 +1146,20 @@ function ExportPanel({
   const handleExportAll = useCallback(async () => {
     if (batchExporting || exporting || !fileRef?.current || allServices.length < 2) return;
 
-    const { default: JSZip } = await import("jszip");
-    const zip = new JSZip();
+    // jszip is loaded on demand. If that fails (typically a browser running a
+    // stale cached copy of the app after an upgrade), say so instead of
+    // silently doing nothing.
+    const zip = await import("jszip")
+      .then(({ default: JSZip }) => new JSZip())
+      .catch((err: unknown) => {
+        console.error("Export All: could not load the ZIP library", err);
+        window.alert(
+          "Export All couldn't load part of the app. Your browser may be using an " +
+          "out-of-date copy: reload the page (Ctrl/Cmd+Shift+R) and try again."
+        );
+        return null;
+      });
+    if (!zip) return;
     const fileBaseName = fileRef.current.name.replace(/\.[^.]+$/, "");
     const seenNames = new Set<string>();
     const failed: string[] = [];
@@ -1255,6 +1267,7 @@ function ExportPanel({
 
     if (Object.keys(zip.files).length === 0) {
       console.error("Export All: all services failed", failed);
+      window.alert("Export All failed: none of the services could be exported.");
       return;
     }
 
