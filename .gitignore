@@ -31,6 +31,9 @@ htmlcov/
 # Reference files (sensitive policy exports)
 reference-files/
 
+# Local Docker Compose settings (PV_PORT, PV_BIND_ADDRESS, ...)
+.env
+
 # Local project reviews (describe weaknesses / point at fixture data) — keep local
 docs/reviews/
 

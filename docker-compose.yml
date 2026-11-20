@@ -3,8 +3,9 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    ports:
-      - "8000:8000"
+    # No published ports: the frontend's nginx reaches the API internally at
+    # http://api:8000. Keeping it unpublished means the API is never reachable
+    # directly from the host or the network (it has no auth).
     restart: unless-stopped
 
   frontend:
@@ -12,7 +13,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+      # Default: reachable only from this computer at http://localhost:8080.
+      # To allow other devices to connect, set PV_BIND_ADDRESS=0.0.0.0 (in a
+      # .env file next to this one, or on the command line). See README
+      # "Sharing on a network" first: there is no login and no HTTPS.
+      - "${PV_BIND_ADDRESS:-127.0.0.1}:${PV_PORT:-8080}:80"
     depends_on:
       - api
     restart: unless-stopped

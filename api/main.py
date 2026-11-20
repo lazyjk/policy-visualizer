@@ -1,7 +1,7 @@
 """
 FastAPI application entry point.
 
-Run with: uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+Run with: uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 """
 from __future__ import annotations
 
@@ -15,6 +15,11 @@ app = FastAPI(
     title="Policy Visualizer API",
     version="4.0.0-beta.2",
     description="Converts a network policy XML service export into a Flow IR diagram.",
+    # Interactive docs pages load Swagger/ReDoc and fonts from public CDNs,
+    # which breaks the offline guarantee; disable them and the schema route.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
 
 app.add_middleware(

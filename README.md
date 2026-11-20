@@ -84,11 +84,45 @@ From repository root:
 docker compose up --build
 ```
 
-Services:
+Then open **http://localhost:8080**.
 
-- Frontend: http://localhost:80
-- API: http://localhost:8000
-- API health: http://localhost:8000/api/health
+By default the app is reachable **only from the computer running Docker**.
+The API is not published at all; the web app reaches it internally. To check
+it's up: http://localhost:8080/api/health
+
+Settings (optional) go in a file named `.env` next to `docker-compose.yml`,
+or on the command line:
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `PV_PORT` | `8080` | Port the web app listens on |
+| `PV_BIND_ADDRESS` | `127.0.0.1` | `127.0.0.1` = this computer only; `0.0.0.0` = other devices can connect (see below) |
+
+Example: `PV_PORT=9000 docker compose up --build`
+
+### Sharing on a network
+
+If you want to run the container on one machine and use it from others, set
+`PV_BIND_ADDRESS=0.0.0.0`, for example by putting this line in `.env`:
+
+```
+PV_BIND_ADDRESS=0.0.0.0
+```
+
+Then browse to `http://<that-machine's-address>:8080`. Before doing this,
+understand what you're exposing:
+
+- **There is no login.** Anyone who can reach that address can use the app
+  and upload files.
+- **There is no HTTPS.** Uploaded policy exports and backups cross the
+  network unencrypted.
+- **The Build tab connects to live ClearPass/ISE systems from the server.**
+  On a shared network, anyone who can reach the app can make the server
+  connect to other hosts. Only share on a network you trust.
+
+For anything beyond a trusted network, put the app behind a reverse proxy you
+already run that adds HTTPS and authentication, and keep `PV_BIND_ADDRESS` at
+its default so only the proxy can reach it.
 
 ## Run locally (without Docker)
 
@@ -100,7 +134,7 @@ From repository root:
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### 2) Frontend
